@@ -1,0 +1,49 @@
+version: '3'
+
+# ===== Includes ===============================================================
+includes:
+  cheat:
+    aliases: [help]
+    taskfile: ./.taskfiles/cheat-sheet.yml
+# ===== Global variables & Environment =========================================
+# vars:
+# env:
+
+# ====== Tasks =================================================================
+tasks:
+  default:
+    desc: list-all
+    cmd: task --list-all
+    silent: true
+
+  all:
+    desc: 依存関係の整理、lint、テスト、ビルドを順に実行
+    cmds:
+      - task: mod-deps
+      - task: lint
+      - task: test
+      - task: build
+
+  build:
+    desc: 全パッケージをビルド
+    cmd: go build -v ./...
+
+  lint:
+    desc: golangci-lint
+    cmd: golangci-lint run -v
+
+  mod-deps:
+    desc: Goモジュールの依存関係を整理
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  test:
+    desc: 全テストを実行
+    cmd: go test -v ./...
+
+  test-coverage:
+    desc: カバレッジレポートを生成
+    cmds:
+      - go test -v -coverprofile coverage.out ./...
+      - go tool cover -html coverage.out -o coverage.html

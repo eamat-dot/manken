@@ -1,0 +1,22 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # --- デフォルト相当（基本的なバグ検出）---
+    - govet        # go vet 相当
+    - errcheck     # エラー戻り値の無視を検出
+    - staticcheck  # 静的解析（定番）
+    - unused       # 未使用のコード検出
+
+    # --- スタイル・品質（ゆるめ）---
+    - misspell     # スペルミス検出（コメント・文字列）
+
+formatters:
+  enable:
+    - gofmt        # フォーマットチェック
+    - goimports    # import 整理チェック
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ja-JP
+# レビューの“口調”を揃える（短く・根拠と代替案）
+tone_instructions: "丁寧語で、根拠、影響、修正案の順に簡潔に指摘してください。推測は推測と明記してください。"
+
+reviews:
+  # 最初はchill推奨（assertiveは“細かい指摘も増えやすい”）
+  profile: chill
+   # PR要約を有効に（チームの合意形成が速くなる）
+  high_level_summary: true
+
+  # “遊び”はまず切る（必要なら後でON）
+  poem: false
+
+  # PR内のコメントにAIエージェント向けの修正プロンプトを含める
+  enable_prompt_for_ai_agents: true
+
+  # 生成物・成果物・依存ロックなど「見てもノイズになりやすい」ものを除外
+  path_filters:
+    - "!coverage.html"
+    - "!coverage.out"
+    - "!vendor/**"
+# レビュー対象外とするディレクトリの指定
+  path_instructions:
+    - path: "**/*.go"
+      instructions: "公開APIの互換性、エラー処理、コンテキストの維持、外部サービス固有型の漏出を確認してください。"
+    - path: "docs/**"
+      instructions: "仕様、TODO、構想、backlogの役割が混在していないか確認してください。"
+    - path: "vendor/**"
+      instructions: "このディレクトリはレビュー対象外です。"
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+    # “WIP/作業中” は自動レビューしない（通知荒れの最大原因を潰す）
+    labels:
+      - "!wip"
+      - "!do-not-review"
+
+    # タイトルに特定キーワードが含まれる場合もスキップ
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "DRAFT"
+
+chat:
+  # PR上での対話を前提にするならON（不要ならfalseでもOK）
+  auto_reply: true

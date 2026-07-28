@@ -1,0 +1,40 @@
+name: golangci-lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for Go module
+        id: module
+        shell: bash
+        run: |
+          if [[ -f go.mod ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "go.mod has not been created yet; skipping lint."
+          fi
+
+      - uses: actions/setup-go@v6
+        if: steps.module.outputs.exists == 'true'
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint
+        if: steps.module.outputs.exists == 'true'
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12

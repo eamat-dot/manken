@@ -1,0 +1,29 @@
+version: '3'
+
+tasks:
+  go:
+    desc: Goモジュール開発で使用するコマンドを表示
+    silent: true
+    cmds:
+      - |
+        cat <<'EOF'
+        [ Go ]
+          go mod tidy
+          go test -v ./...
+          go build -v ./...
+          golangci-lint run
+        EOF
+
+  docs:
+    desc: 仕様書とTODOの配置を表示
+    silent: true
+    cmds:
+      - |
+        cat <<'EOF'
+        [ Documents ]
+          docs/spec.md
+          docs/pkg/madb/spec.md
+          docs/todo/
+          docs/backlog.md
+          docs/idea.md
+        EOF
