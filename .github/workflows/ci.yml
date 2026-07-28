@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for Go module
+        id: module
+        shell: bash
+        run: |
+          if [[ -f go.mod ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "go.mod has not been created yet; skipping Go checks."
+          fi
+
+      - uses: actions/setup-go@v6
+        if: steps.module.outputs.exists == 'true'
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify go.mod and go.sum are tidy
+        if: steps.module.outputs.exists == 'true'
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - name: Test
+        if: steps.module.outputs.exists == 'true'
+        run: go test -v ./...
+
+      - name: Build
+        if: steps.module.outputs.exists == 'true'
+        run: go build -v ./...

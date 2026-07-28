@@ -1,0 +1,35 @@
+# Go test and coverage output
+*.out
+*.test
+coverage.html
+coverage.out
+
+# Dependency directories
+vendor/
+
+# Logs
+logs/
+*.log
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+.idea/
+.tmp/
+.vscode/
+*.code-workspace
+
+# Task
+.task/
+
+# Local scratch files
+__sandbox/
+__*
+
+# Archives
+_archive/
+*.zip
