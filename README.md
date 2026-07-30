@@ -3,13 +3,149 @@
 漫画本の書誌情報を検索するためのGoライブラリ。
 複数のGoプロジェクトから利用できる共通モデルと検索APIを提供する。
 
-## 開発状況
+## 現在利用できる機能
 
-現在は仕様策定中であり、Goパッケージと検索機能は未実装。
-最初のデータ取得元として、メディア芸術データベース（MADB）への対応を予定している。
+- メディア芸術データベース（MADB）のマンガ単行本をタイトルで検索する
+- 1回に取得する件数を1件から100件まで指定する
+- 検索結果のカーソルを使って続きを取得する
+- MADBの書誌情報を取得元に依存しない `madb.Book` として受け取る
+- 版表示、単行本レーベル、参照先シリーズのIDとURLを取得する
+- 入力、外部サービス、通信、レスポンス解析のエラーを分類する
 
-初期APIでは、マンガ単行本のタイトル検索を対象とする。
-ISBN検索、著者名検索、キャッシュ、自動リトライ、CLI、MCPサーバーは含めない。
+ISBN検索、著者名検索、キャッシュ、自動リトライ、汎用CLIアプリケーション、
+MCPサーバーは含めない。
+
+## 初期実装の制約
+
+- `Authors` はMADBが参照する全Agent名を優先するため、解説者などが含まれる場合がある
+- `VolumeNumber` は取得元の表記を保持し、巻数を数値へ変換しない
+- 検索結果はMADBリソースURIの昇順であり、関連度、刊行日、巻数では並べ替えない
+
+これらの共通規格は、他の書籍検索APIが提供する項目と検索方式を調査してから再評価する。
+
+## 必要な環境
+
+Go 1.26.0以降を使用する。
+
+## インストール
+
+```text
+go get github.com/eamat-dot/manken/madb
+```
+
+## 使い方
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/eamat-dot/manken/madb"
+)
+
+func main() {
+	client, err := madb.NewClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := client.SearchBooks(
+		context.Background(),
+		madb.SearchBooksRequest{
+			Title: "動物のおしゃべり",
+			Limit: 5,
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, book := range result.Books {
+		fmt.Println(book.Titles, book.Authors, book.ISBN13s)
+	}
+}
+```
+
+`Limit` が0の場合は20件取得する。続きがある場合は `NextCursor` を次の
+`SearchBooksRequest.Cursor` へそのまま指定する。
+
+`madb.NewClient(nil)` はタイムアウト60秒のHTTPクライアントを使用する。
+独自のタイムアウトやTransportが必要な場合は、設定済みの `*http.Client` を渡す。
+
+## CLIデモ
+
+`examples/demo-madb.go` は、任意のタイトルを指定してMADBの実サービスを検索する
+動作確認用のCLIデモである。
+
+```text
+go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
+```
+
+検索結果は、MADBのデータを `madb.Book` へ変換した
+`madb.SearchBooksResult` のJSONとして標準出力へ出す。
+
+JSON内の1冊分は次の形になる。
+
+```json
+{
+  "id": "M292129",
+  "titles": ["動物のお医者さん"],
+  "subtitles": [],
+  "series_names": ["動物のお医者さん"],
+  "series_id": "C262212",
+  "series_url": "https://mediaarts-db.artmuseums.go.jp/id/C262212",
+  "volume_number": "第8巻",
+  "edition_statements": [],
+  "authors": ["佐々木倫子"],
+  "publishers": ["白泉社　∥　ハクセンシャ"],
+  "imprints": ["白泉社文庫"],
+  "isbn10s": ["4592881486"],
+  "isbn13s": [],
+  "published_date": "1996-06-19",
+  "source": "madb",
+  "source_url": "https://mediaarts-db.artmuseums.go.jp/id/M292129"
+}
+```
+
+`edition_statements` はMADBの版表示、`imprints` は単行本へ直接記録された
+レーベルを表す。値がない場合は空配列になる。版表示やレーベルの内容から
+欠落値を推測または分類しない。`series_id` と `series_url` は
+`MangaBookSeries` として参照されたシリーズを表し、参照がない場合は空文字列になる。
+
+変換前のSPARQL Results JSONも確認する場合は、未作成の保存先を
+`-raw-output` へ指定する。
+
+```text
+go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -raw-output __madb-result.json
+```
+
+標準出力には変換済み検索結果だけを出し、`__madb-result.json` には同じ検索で
+受信したrawレスポンスを変更せず保存する。既存ファイルは上書きしない。
+`__` で始まるファイルはローカル確認用であり、Git管理対象外となる。
+
+2xx応答のJSON解析や検索結果への変換に失敗した場合も、読み込み済みの
+rawレスポンスは保存する。HTTPエラー本文や4 MiBの上限を超えた本文は保存しない。
+
+結果の `next_cursor` に値がある場合は、同じタイトルと取得件数とともに
+`-cursor` へ指定すると次ページを取得できる。
+
+```text
+go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -cursor "<next_cursor>"
+```
+
+## MADBの利用について
+
+このライブラリは、[メディア芸術データベース](https://mediaarts-db.artmuseums.go.jp/)の
+[SPARQLクエリサービス](https://mediag.bunka.go.jp/madb_lab/lod/sparql/)を使用する。
+取得データの利用には[MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/)が
+適用される。データを加工して表示する場合は、加工したことを利用者へ示す必要がある。
+
+MADBは技術サポートを提供しておらず、サービス、エンドポイント、データ、
+全文検索設定が予告なく変更される可能性がある。このライブラリは自動リトライ、
+キャッシュ、アクセス間隔の制御を行わない。
 
 ## 設計
 
@@ -18,15 +154,18 @@ ISBN検索、著者名検索、キャッシュ、自動リトライ、CLI、MCP�
 - [構想](docs/concept.md)
 - [実装TODO](docs/todo/)
 
-データ取得元に依存しない型はルートの `manken` パッケージへ置き、
-MADB固有の通信と変換は `madb` パッケージへ分離する予定。
+データ取得元に依存しない型の実体は `api` パッケージへ置く。
+`madb` パッケージは通常利用に必要な型と定数をエイリアスとして公開し、
+MADB固有の通信と変換も担当する。MADBだけを利用する場合、`api` を直接
+importする必要はない。
+
+ルートは将来、複数の取得元を呼び出す公開ファサードに使用する。
+ファサードと複数データ取得元の横断検索は未実装である。
 
 将来MCPサーバーから呼び出せるようにするが、MCP SDKやトランスポートは
-検索ライブラリへ依存させない。
+検索ライブラリへ依存させない。MCPサーバー自体は未実装である。
 
 ## 開発
-
-Goモジュール作成後は、次のタスクを使用する。
 
 ```text
 task mod-deps
@@ -37,6 +176,13 @@ task all
 ```
 
 `task all` は依存関係の整理、lint、テスト、全パッケージのビルドを順に実行する。
+通常のテストは実サービスへ接続しない。
+
+MADBの実サービスを明示的に確認する場合は次を実行する。
+
+```text
+go test -v -tags=integration ./madb
+```
 
 ## ライセンス
 
