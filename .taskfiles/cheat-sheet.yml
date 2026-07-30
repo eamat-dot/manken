@@ -27,3 +27,35 @@ tasks:
           docs/backlog.md
           docs/idea.md
         EOF
+
+  git:
+    desc: Git commands
+    silent: true
+    cmds:
+      - |
+        cat <<'EOF'
+        [ Git ]
+          - 直前コミットのメッセージ修正
+            git commit --amend
+
+          - ファイル追加して直前コミットへ
+            git add .
+            git commit --amend --no-edit
+
+          - 直前コミットを取り消す（変更は残す）
+            git reset --soft HEAD^
+
+          - コミットだけ消してステージも解除
+            git reset HEAD^
+
+          - 全部取り消す
+            git reset --hard HEAD^
+
+          - Push済みコミットを書き換えた後
+            git push --force-with-lease
+
+          - 直前ではないコミットメッセージを書き換える
+            git rebase -i HEAD~10
+            - 書き換えたいコミットの pick を reword に変更
+            - 変更後に保存して終了すると、コミットメッセージの編集画面が表示されるので修正する
+        EOF

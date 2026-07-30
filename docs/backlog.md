@@ -13,7 +13,16 @@
 
 ## データ取得元
 
-- 国立国会図書館サーチ
+- NDL 国立国会図書館サーチ
+- Google Books API
+- openBD (ISBN検索のみ)
+- Yahoo!ショッピングAPI（ebookjapan）
+- DMM.com API (電子書籍)
+- 楽天Books API / 楽天Kobo API
+
+MADB,NDL,Google Books あたりはレスポンスの表記ゆれが大きい
+楽天ウェブサービスは2026年の大幅な仕様変更で運用ハードルが上がった
+
 
 ## 運用
 
@@ -24,3 +33,7 @@
 ## インターフェース
 
 - MCPサーバー
+- MCP実装を同一モジュールと独立モジュールのどちらに置くかの比較
+- Go向けMCP SDKの選定
+- MCPツール名、説明、入出力Schemaの設計
+- stdioとStreamable HTTPの提供範囲

@@ -2,6 +2,12 @@ version: '3'
 
 # ===== Includes ===============================================================
 includes:
+  dev:
+    # aliases: [d]
+    taskfile: ./.taskfiles/dev.yml
+    optional: true
+
+
   cheat:
     aliases: [help]
     taskfile: ./.taskfiles/cheat-sheet.yml
