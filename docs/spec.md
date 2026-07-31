@@ -140,54 +140,187 @@ const SourceMADB Source = "madb"
 
 ### 5.2 Book
 
-検索で取得した1冊の漫画本は、次の型で表す。
+検索で取得した1冊の漫画本は、利用者向けの共通書誌情報と、正規化に使用した
+取得元別の値に分ける。既存の平坦な `Book` は移行期間を設けず破壊的に置き換える。
 
 ```go
 type Book struct {
-	ID                string   `json:"id"`
-	Titles            []string `json:"titles"`
-	Subtitles         []string `json:"subtitles"`
-	SeriesNames       []string `json:"series_names"`
-	SeriesID          string   `json:"series_id"`
-	SeriesURL         string   `json:"series_url"`
-	VolumeNumber      string   `json:"volume_number"`
-	EditionStatements []string `json:"edition_statements"`
-	Authors           []string `json:"authors"`
-	Publishers        []string `json:"publishers"`
-	Imprints          []string `json:"imprints"`
-	ISBN10s           []string `json:"isbn10s"`
-	ISBN13s           []string `json:"isbn13s"`
-	PublishedDate     string   `json:"published_date"`
-	Source            Source   `json:"source"`
-	SourceURL         string   `json:"source_url"`
+	Normalized NormalizedBook `json:"normalized"`
+	Sources    []BookSource   `json:"sources"`
+}
+
+type NormalizedBook struct {
+	Title             string             `json:"title,omitempty"`
+	TitleKana         string             `json:"title_kana,omitempty"`
+	Subtitle          string             `json:"subtitle,omitempty"`
+	Series            []Series           `json:"series,omitempty"`
+	Volume            Volume             `json:"volume,omitzero"`
+	EditionStatements []string           `json:"edition_statements,omitempty"`
+	IsFinalVolume     bool               `json:"is_final_volume,omitempty"`
+	Authors           []string           `json:"authors,omitempty"`
+	Contributors      []Contributor      `json:"contributors,omitempty"`
+	Publishers        []string           `json:"publishers,omitempty"`
+	Imprints          []string           `json:"imprints,omitempty"`
+	Identifiers       []Identifier       `json:"identifiers,omitempty"`
+	Dates             []BookDate         `json:"dates,omitempty"`
+	Description       string             `json:"description,omitempty"`
+	Languages         []string           `json:"languages,omitempty"`
+	Subjects          []Subject          `json:"subjects,omitempty"`
+	PageCount         *int               `json:"page_count,omitempty"`
+	Medium            PublicationMedium  `json:"medium,omitempty"`
+	PhysicalSize      *PhysicalSize      `json:"physical_size,omitempty"`
+	Prices            []Price            `json:"prices,omitempty"`
+	Images            []Image            `json:"images,omitempty"`
+}
+
+type BookSource struct {
+	Source Source           `json:"source"`
+	ID     string           `json:"id,omitempty"`
+	URL    string           `json:"url,omitempty"`
+	Values SourceBookValues `json:"values"`
 }
 ```
 
 #### 確定事項
 
-- 欠落している文字列項目は空文字列にする
-- すべてのスライス項目は、値がない場合も空スライスにする
-- 複数値は完全に同じ値だけを重複除去し、安定した昇順ですべて返す
-- 取得元に正規値を示す情報がない場合、任意の1件を選ばず複数値として返す
-- `Authors` は著者、原作者、作画担当などを役割で分けずに返す
-- 取得元に役割情報があっても、共通モデルには役割を含めない
-- 巻数は整数へ変換せず、取得元の表記を文字列として保持する
-- 刊行日は `time.Time` へ変換せず、取得元の精度を保つ文字列として保持する
-- `EditionStatements` は、取得元が版、バージョン、エディションとして
-  提供する表示を分類せずに保持する
-- `Imprints` は、出版者が出版物の形式や頒布計画に基づいて設定した
-  レーベルまたはブランドの表示を保持する
-- レーベル名から版を推測せず、版表示からレーベルを推測しない
-- `SeriesID` には、取得元が対象のシリーズへ付与した識別子を設定する
-- `SeriesURL` には、取得元のシリーズを参照できるURLを設定する
-- タイトル、シリーズ名、出版社などからISBN、巻数、刊行日、版、
-  レーベル、シリーズ識別子を推測しない
-- `SourceURL` には取得元の対象を参照できるURLを設定する
-- `ID` には取得元が対象へ付与した識別子を設定する
+- `Normalized` は変更差分ではなく、利用者が通常参照する共通書誌情報とする
+- 加工不要な取得元値も、共通項目として採用できる場合は `Normalized` へコピーする
+- `Sources` は正規化に使用した取得元、取得元内ID、参照URL、元値を保持する
+- 取得元固有の全レスポンスは `Book` に含めず、Raw response用メソッドで返す
+- `Title` は単数とし、分解できない場合は取得元タイトル全体を暫定値にする
+- `TitleKana` は安全に分解できない場合に空にし、取得元の読みは `Sources` に残す
+- `Subtitle` は単数とする
+- `Authors` は利用者向けの著者名、`Contributors` は名前と複数の役割を保持する
+- 取得元が寄与者の順序を提供する場合は、その順序を維持する
+- 取得元が順序を提供しない場合は、取得元パッケージが結果を安定化し、
+  その順序に意味がないことを取得元固有の仕様へ記載する
+- 並列タイトルは初期の `NormalizedBook` に含めない
+- `IsFinalVolume` は完結巻の肯定情報だけを表し、`完全版`から推測しない
+- 初期実装では複数取得元のBookを自動統合しない
 
-#### 未確定事項
+### 5.3 SourceBookValues
 
-- 書籍モデルへ形式、言語などを追加するか
+取得元の値は、文字列の内容を変更せず次の型へ保持する。取得元が同じ意味の値を
+複数返せる項目は、正規化で1件を選んだ場合もスライスですべて残す。
+
+```go
+type SourceBookValues struct {
+	Titles        []string      `json:"titles,omitempty"`
+	TitleKana     []string      `json:"title_kana,omitempty"`
+	Subtitles     []string      `json:"subtitles,omitempty"`
+	SeriesNames   []string      `json:"series_names,omitempty"`
+	Volume        string        `json:"volume,omitempty"`
+	Editions      []string      `json:"editions,omitempty"`
+	Authors       []string      `json:"authors,omitempty"`
+	Publishers    []string      `json:"publishers,omitempty"`
+	Imprints      []string      `json:"imprints,omitempty"`
+	ISBNs         []string      `json:"isbns,omitempty"`
+	PublishedDate string        `json:"published_date,omitempty"`
+	Description   string        `json:"description,omitempty"`
+	GenreIDs      []string      `json:"genre_ids,omitempty"`
+	PageCount     *int          `json:"page_count,omitempty"`
+	Size          string        `json:"size,omitempty"`
+	Prices        []SourcePrice `json:"prices,omitempty"`
+}
+```
+
+`TitleKana` は取得元が同じ書籍へ複数の読みを返す場合があるため、全候補を保持する。
+取得元固有で共通の意味を保てない値はこの型へ追加せず、取得元パッケージの
+非公開レスポンス型またはRaw responseに残す。
+
+### 5.4 巻数と識別子
+
+```go
+type Volume struct {
+	Number *int   `json:"number,omitempty"`
+	Label  string `json:"label,omitempty"`
+}
+
+type Identifier struct {
+	Type  IdentifierType `json:"type"`
+	Value string         `json:"value"`
+}
+```
+
+- `Number` は整数化できる場合だけ設定し、実在する0巻を保持できるよう `*int` とする
+- `Label` は `16`、`上`、`前編`、`1.5`、`別巻`など正規化済みの表示を保持する
+- 元の巻表示は `BookSource.Values.Volume` に残す
+- 並べ替え用Indexは公開モデルへ追加しない
+- ISBN-10、ISBN-13、JANは `IdentifierType` で区別する
+- 取得元内だけで意味を持つ商品IDは `BookSource.ID` に置く
+
+### 5.5 寄与者
+
+```go
+type ContributorRole string
+
+const (
+	ContributorRoleAuthor            ContributorRole = "author"
+	ContributorRoleOriginalCreator   ContributorRole = "original_creator"
+	ContributorRoleWriter            ContributorRole = "writer"
+	ContributorRoleArtist            ContributorRole = "artist"
+	ContributorRoleCharacterCreator  ContributorRole = "character_creator"
+	ContributorRoleCharacterDesigner ContributorRole = "character_designer"
+	ContributorRoleEditor            ContributorRole = "editor"
+	ContributorRoleTranslator        ContributorRole = "translator"
+	ContributorRoleSupervisor        ContributorRole = "supervisor"
+	ContributorRoleCommentator       ContributorRole = "commentator"
+	ContributorRoleDesigner          ContributorRole = "designer"
+)
+
+type Contributor struct {
+	Name  string            `json:"name"`
+	Roles []ContributorRole `json:"roles,omitempty"`
+}
+```
+
+- `ContributorRole` は取得元固有の表記やONIXコードをそのまま公開せず、
+  複数の取得元で意味が通じる一般名を使用する
+- `Authors` には、著者、原作者、構成または脚本担当、作画担当、
+  キャラクター原案、キャラクターデザインを含める
+- 編集、翻訳、監修、解説、装丁またはデザイン担当は `Authors` に含めず、
+  役割を確定できる場合だけ `Contributors` に含める
+- 役割がない著者表示は `Authors` に含めるが、推測した役割を持つ
+  `Contributor` は作らない
+- 同じ人物に複数の役割がある場合は1つの `Contributor` にまとめる
+- 取得元の役割を共通役割へ確実に対応付けられない場合は、
+  `Authors` または `Contributors` へ推測で分類しない
+- 対応できなかった取得元値は `Sources` またはRaw responseに残す
+
+### 5.6 シリーズ、日付、紙・電子
+
+`Series` は名前と、それに対応する取得元内ID、URL、取得元を同じ要素へ保持する。
+`BookDate` は出版日、発売日、電子版配信開始日を区別し、日付文字列の精度を保つ。
+`PublicationMedium` は `print`、`digital`、不明の空文字列を取る。紙書籍だけが
+`PhysicalSize` に判型名とミリメートル単位の寸法を設定する。
+
+### 5.7 価格
+
+```go
+type Price struct {
+	Type        PriceType `json:"type"`
+	Amount      int64     `json:"amount"`
+	Currency    string    `json:"currency"`
+	TaxIncluded *bool     `json:"tax_included,omitempty"`
+	Source      Source    `json:"source"`
+	ObservedAt  string    `json:"observed_at,omitempty"`
+}
+```
+
+- `list` は定価、`current` はAPI取得時点の販売価格を表す
+- `Type`、`Amount`、`Currency`、`Source` は必須とする
+- `current` は `ObservedAt` を必須とし、`list` では省略できる
+- `TaxIncluded` は取得元で確認できる場合だけ設定する
+- 価格0円を欠落扱いしない
+- 在庫、送料、ポイント、会員価格は `Book` に含めない
+
+### 5.8 JSONの欠落項目
+
+- `normalized` と `sources` は常に出力する
+- その内側の欠落した任意項目はJSONから省略する
+- 空文字列、空スライス、`nil` ポインター、`IsFinalVolume=false`は省略する
+- 0巻、価格0円、明示された `TaxIncluded=false` は省略しない
+- 空の `Volume` 全体は省略する
 
 ## 6. 検索API
 

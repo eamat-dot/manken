@@ -45,14 +45,16 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
-	if len(result.Books) != 1 || result.Books[0].Source != madb.SourceMADB {
+	if len(result.Books) != 1 ||
+		len(result.Books[0].Sources) != 1 ||
+		result.Books[0].Sources[0].Source != madb.SourceMADB {
 		t.Fatalf("result = %#v, want one MADB book", result)
 	}
 	book := result.Books[0]
-	_ = book.EditionStatements
-	_ = book.Imprints
-	_ = book.SeriesID
-	_ = book.SeriesURL
+	_ = book.Normalized.EditionStatements
+	_ = book.Normalized.Imprints
+	_ = book.Normalized.Series
+	_ = book.Sources[0].Values
 
 	_, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{})
 	var classified *madb.Error
@@ -71,5 +73,22 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	}
 	if len(kinds) != 4 {
 		t.Fatalf("error kinds = %d, want 4", len(kinds))
+	}
+
+	roles := []madb.ContributorRole{
+		madb.ContributorRoleAuthor,
+		madb.ContributorRoleOriginalCreator,
+		madb.ContributorRoleWriter,
+		madb.ContributorRoleArtist,
+		madb.ContributorRoleCharacterCreator,
+		madb.ContributorRoleCharacterDesigner,
+		madb.ContributorRoleEditor,
+		madb.ContributorRoleTranslator,
+		madb.ContributorRoleSupervisor,
+		madb.ContributorRoleCommentator,
+		madb.ContributorRoleDesigner,
+	}
+	if len(roles) != 11 {
+		t.Fatalf("contributor roles = %d, want 11", len(roles))
 	}
 }

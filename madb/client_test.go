@@ -123,11 +123,13 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	if len(result.Books) != 2 {
 		t.Fatalf("len(Books) = %d, want 2", len(result.Books))
 	}
-	if result.Books[0].ID != "M1" || result.Books[0].Source != SourceMADB {
+	if len(result.Books[0].Sources) != 1 ||
+		result.Books[0].Sources[0].ID != "M1" ||
+		result.Books[0].Sources[0].Source != SourceMADB {
 		t.Fatalf("first book = %#v", result.Books[0])
 	}
-	if result.Books[0].SourceURL != resourceURI("M1") {
-		t.Fatalf("SourceURL = %q", result.Books[0].SourceURL)
+	if result.Books[0].Sources[0].URL != resourceURI("M1") {
+		t.Fatalf("source URL = %q", result.Books[0].Sources[0].URL)
 	}
 	if result.NextCursor == "" {
 		t.Fatal("NextCursor is empty")
@@ -365,7 +367,7 @@ func TestClient_SearchBooks_UsesCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second SearchBooks() error = %v", err)
 	}
-	if len(second.Books) != 1 || second.Books[0].SourceURL != resourceURI("M2") {
+	if len(second.Books) != 1 || second.Books[0].Sources[0].URL != resourceURI("M2") {
 		t.Fatalf("second result = %#v", second)
 	}
 	if !strings.Contains(queries[1], `FILTER (STR(?resource) > "`+resourceURI("M1")+`")`) {

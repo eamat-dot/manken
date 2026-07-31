@@ -11,22 +11,208 @@ const (
 
 // Book は、検索で取得した1冊の漫画本を表す
 type Book struct {
-	ID                string   `json:"id"`
-	Titles            []string `json:"titles"`
-	Subtitles         []string `json:"subtitles"`
-	SeriesNames       []string `json:"series_names"`
-	SeriesID          string   `json:"series_id"`
-	SeriesURL         string   `json:"series_url"`
-	VolumeNumber      string   `json:"volume_number"`
-	EditionStatements []string `json:"edition_statements"`
-	Authors           []string `json:"authors"`
-	Publishers        []string `json:"publishers"`
-	Imprints          []string `json:"imprints"`
-	ISBN10s           []string `json:"isbn10s"`
-	ISBN13s           []string `json:"isbn13s"`
-	PublishedDate     string   `json:"published_date"`
-	Source            Source   `json:"source"`
-	SourceURL         string   `json:"source_url"`
+	Normalized NormalizedBook `json:"normalized"`
+	Sources    []BookSource   `json:"sources"`
+}
+
+// NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
+type NormalizedBook struct {
+	Title             string            `json:"title,omitempty"`
+	TitleKana         string            `json:"title_kana,omitempty"`
+	Subtitle          string            `json:"subtitle,omitempty"`
+	Series            []Series          `json:"series,omitempty"`
+	Volume            Volume            `json:"volume,omitzero"`
+	EditionStatements []string          `json:"edition_statements,omitempty"`
+	IsFinalVolume     bool              `json:"is_final_volume,omitempty"`
+	Authors           []string          `json:"authors,omitempty"`
+	Contributors      []Contributor     `json:"contributors,omitempty"`
+	Publishers        []string          `json:"publishers,omitempty"`
+	Imprints          []string          `json:"imprints,omitempty"`
+	Identifiers       []Identifier      `json:"identifiers,omitempty"`
+	Dates             []BookDate        `json:"dates,omitempty"`
+	Description       string            `json:"description,omitempty"`
+	Languages         []string          `json:"languages,omitempty"`
+	Subjects          []Subject         `json:"subjects,omitempty"`
+	PageCount         *int              `json:"page_count,omitempty"`
+	Medium            PublicationMedium `json:"medium,omitempty"`
+	PhysicalSize      *PhysicalSize     `json:"physical_size,omitempty"`
+	Prices            []Price           `json:"prices,omitempty"`
+	Images            []Image           `json:"images,omitempty"`
+}
+
+// BookSource は、Bookの正規化に使用した取得元と元値を表す
+type BookSource struct {
+	Source Source           `json:"source"`
+	ID     string           `json:"id,omitempty"`
+	URL    string           `json:"url,omitempty"`
+	Values SourceBookValues `json:"values"`
+}
+
+// SourceBookValues は、取得元から得た正規化前の主な書誌値を表す
+type SourceBookValues struct {
+	Titles        []string      `json:"titles,omitempty"`
+	TitleKana     []string      `json:"title_kana,omitempty"`
+	Subtitles     []string      `json:"subtitles,omitempty"`
+	SeriesNames   []string      `json:"series_names,omitempty"`
+	Volume        string        `json:"volume,omitempty"`
+	Editions      []string      `json:"editions,omitempty"`
+	Authors       []string      `json:"authors,omitempty"`
+	Publishers    []string      `json:"publishers,omitempty"`
+	Imprints      []string      `json:"imprints,omitempty"`
+	ISBNs         []string      `json:"isbns,omitempty"`
+	PublishedDate string        `json:"published_date,omitempty"`
+	Description   string        `json:"description,omitempty"`
+	GenreIDs      []string      `json:"genre_ids,omitempty"`
+	PageCount     *int          `json:"page_count,omitempty"`
+	Size          string        `json:"size,omitempty"`
+	Prices        []SourcePrice `json:"prices,omitempty"`
+}
+
+// SourcePrice は、取得元が返した価格と価格種別の元表記を表す
+type SourcePrice struct {
+	Type        string `json:"type,omitempty"`
+	Amount      int64  `json:"amount"`
+	Currency    string `json:"currency,omitempty"`
+	TaxIncluded *bool  `json:"tax_included,omitempty"`
+}
+
+// Volume は、整数化できる巻数と正規化済みの巻表示を表す
+type Volume struct {
+	Number *int   `json:"number,omitempty"`
+	Label  string `json:"label,omitempty"`
+}
+
+// IdentifierType は、書誌識別子の種類を表す
+type IdentifierType string
+
+const (
+	// IdentifierTypeISBN10 は、ISBN-10を表す
+	IdentifierTypeISBN10 IdentifierType = "isbn10"
+	// IdentifierTypeISBN13 は、ISBN-13を表す
+	IdentifierTypeISBN13 IdentifierType = "isbn13"
+	// IdentifierTypeJAN は、JANコードを表す
+	IdentifierTypeJAN IdentifierType = "jan"
+)
+
+// Identifier は、種類を明示した書誌識別子を表す
+type Identifier struct {
+	Type  IdentifierType `json:"type"`
+	Value string         `json:"value"`
+}
+
+// ContributorRole は、制作への寄与者の役割を表す
+type ContributorRole string
+
+const (
+	// ContributorRoleAuthor は、著者を表す
+	ContributorRoleAuthor ContributorRole = "author"
+	// ContributorRoleOriginalCreator は、原作者または原案者を表す
+	ContributorRoleOriginalCreator ContributorRole = "original_creator"
+	// ContributorRoleWriter は、構成または脚本の執筆者を表す
+	ContributorRoleWriter ContributorRole = "writer"
+	// ContributorRoleArtist は、漫画または作画の担当者を表す
+	ContributorRoleArtist ContributorRole = "artist"
+	// ContributorRoleCharacterCreator は、キャラクター原案者を表す
+	ContributorRoleCharacterCreator ContributorRole = "character_creator"
+	// ContributorRoleCharacterDesigner は、キャラクターデザイン担当者を表す
+	ContributorRoleCharacterDesigner ContributorRole = "character_designer"
+	// ContributorRoleEditor は、編集者を表す
+	ContributorRoleEditor ContributorRole = "editor"
+	// ContributorRoleTranslator は、翻訳者を表す
+	ContributorRoleTranslator ContributorRole = "translator"
+	// ContributorRoleSupervisor は、監修者を表す
+	ContributorRoleSupervisor ContributorRole = "supervisor"
+	// ContributorRoleCommentator は、解説者を表す
+	ContributorRoleCommentator ContributorRole = "commentator"
+	// ContributorRoleDesigner は、装丁またはデザインの担当者を表す
+	ContributorRoleDesigner ContributorRole = "designer"
+)
+
+// Contributor は、制作への寄与者と複数の役割を表す
+type Contributor struct {
+	Name  string            `json:"name"`
+	Roles []ContributorRole `json:"roles,omitempty"`
+}
+
+// Series は、シリーズ名と取得元内の参照情報を表す
+type Series struct {
+	Name   string `json:"name"`
+	ID     string `json:"id,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Source Source `json:"source,omitempty"`
+}
+
+// BookDateType は、書誌に関係する日付の種類を表す
+type BookDateType string
+
+const (
+	// BookDateTypePublished は、出版日を表す
+	BookDateTypePublished BookDateType = "published"
+	// BookDateTypeReleased は、発売日を表す
+	BookDateTypeReleased BookDateType = "released"
+	// BookDateTypeDigitalReleased は、電子版の配信開始日を表す
+	BookDateTypeDigitalReleased BookDateType = "digital_released"
+)
+
+// BookDate は、種類と精度を維持した日付文字列を表す
+type BookDate struct {
+	Type  BookDateType `json:"type"`
+	Value string       `json:"value"`
+}
+
+// PublicationMedium は、出版物が紙または電子のどちらかを表す
+type PublicationMedium string
+
+const (
+	// PublicationMediumUnknown は、紙または電子を判定できない状態を表す
+	PublicationMediumUnknown PublicationMedium = ""
+	// PublicationMediumPrint は、紙書籍を表す
+	PublicationMediumPrint PublicationMedium = "print"
+	// PublicationMediumDigital は、電子書籍を表す
+	PublicationMediumDigital PublicationMedium = "digital"
+)
+
+// PhysicalSize は、紙書籍の判型名と寸法をミリメートル単位で表す
+type PhysicalSize struct {
+	Name        string `json:"name,omitempty"`
+	HeightMM    *int   `json:"height_mm,omitempty"`
+	WidthMM     *int   `json:"width_mm,omitempty"`
+	ThicknessMM *int   `json:"thickness_mm,omitempty"`
+}
+
+// PriceType は、価格が定価または取得時点価格のどちらかを表す
+type PriceType string
+
+const (
+	// PriceTypeList は、定価を表す
+	PriceTypeList PriceType = "list"
+	// PriceTypeCurrent は、API取得時点の販売価格を表す
+	PriceTypeCurrent PriceType = "current"
+)
+
+// Price は、種類と出典を明示した価格を表す
+type Price struct {
+	Type        PriceType `json:"type"`
+	Amount      int64     `json:"amount"`
+	Currency    string    `json:"currency"`
+	TaxIncluded *bool     `json:"tax_included,omitempty"`
+	Source      Source    `json:"source"`
+	ObservedAt  string    `json:"observed_at,omitempty"`
+}
+
+// Subject は、取得元の分類体系に基づく主題またはジャンルを表す
+type Subject struct {
+	Scheme string `json:"scheme,omitempty"`
+	Code   string `json:"code,omitempty"`
+	Name   string `json:"name,omitempty"`
+}
+
+// Image は、表紙など書籍に関係する画像を表す
+type Image struct {
+	URL     string `json:"url"`
+	Purpose string `json:"purpose,omitempty"`
+	Width   *int   `json:"width,omitempty"`
+	Height  *int   `json:"height,omitempty"`
 }
 
 // SearchBooksRequest は、漫画本の検索条件を表す
@@ -39,5 +225,5 @@ type SearchBooksRequest struct {
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
 type SearchBooksResult struct {
 	Books      []Book `json:"books"`
-	NextCursor string `json:"next_cursor"`
+	NextCursor string `json:"next_cursor,omitempty"`
 }

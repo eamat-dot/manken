@@ -30,6 +30,9 @@ Thumbs.db
 __sandbox/
 __*
 dev.yml
+.env
+.env.*
+!.env.example
 
 # Archives
 _archive/
