@@ -2,11 +2,15 @@
 
 ## 状態
 
-ペンディング。
+アーカイブ済み。
 
-MADBだけを基準に共通のソート指定とカーソル契約を確定せず、
-他の書籍検索APIが提供する並び順、関連度、ページング方式を調査してから再開する。
-それまでは、MADBリソースURIの昇順と現在のキーセットカーソルを維持する。
+今回の共通モデル変更では、並べ替え用Indexを公開モデルへ追加せず、
+`SearchBooksRequest` にもソート指定を追加しない方針を確定した。
+MADB検索は引き続きリソースURI昇順と現在のキーセットカーソルを使用する。
+
+初期APIに具体的な追加ソート要件がなく、取得元ごとに関連度とページング方式も
+異なるため、この汎用的な設計TODOは対応不要と判断した。刊行日順や巻数順が
+必要になった場合は、利用目的と対象取得元を明示した新しいTODOを作成する。
 
 ## 背景
 
@@ -47,10 +51,12 @@ MADBだけを基準に共通のソート指定とカーソル契約を確定せ�
 
 ## 依存関係
 
-- シリーズ順の設計は
-  `006-research-madb-edition-and-imprint.md` のシリーズ識別結果を使用する
-- 巻数順を検討する場合は
-  `008-research-volume-number-normalization.md` の確定後に別TODOとする
+- シリーズ識別の調査は
+  [`006-research-madb-edition-and-imprint.md`](006-research-madb-edition-and-imprint.md)
+  に記録されている
+- 巻数の公開契約とMADB変換規則は
+  [`008-research-volume-number-normalization.md`](../done/008-research-volume-number-normalization.md)
+  で完了した
 - rawの順序確認には
   `005-add-madb-raw-response-output.md` の確認手段を利用できる
 

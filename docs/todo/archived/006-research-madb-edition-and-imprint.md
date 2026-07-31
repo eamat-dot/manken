@@ -2,14 +2,17 @@
 
 ## 状態
 
-ペンディング。
+アーカイブ済み。
 
 確定済みの仕様は
-[TODO011](../done/011-implement-madb-edition-and-imprint.md)で実装済みである。
-残っているのは、`schema:version` が存在する代表IDについて、
-公式サイトの版表示とSPARQLの値を対照する追加調査だけである。
-この追加調査はMADB初期実装の完了条件に含めず、他の書籍検索APIを調査して
-共通モデルを再評価するときまで保留する。
+[TODO011](../done/011-implement-madb-edition-and-imprint.md)で実装済みであり、
+今回の共通モデル変更でも版表示、単行本レーベル、シリーズ参照と取得元値を
+分けて保持する契約を維持した。
+
+未実施だった `schema:version` の代表IDと公式サイト画面の追加対照は、公式スキーマ、
+SPARQL実データ、既存の画面対照で変換根拠を確認でき、取得元値も保持する現行仕様では
+完了条件に不要と判断した。将来、MADBの表示仕様との不一致が見つかった場合は、
+本TODOを再開せず個別の調査TODOを作成する。
 
 ## 背景
 
@@ -318,12 +321,12 @@ ORDER BY ?version ?id
 - `schema:isPartOf` の参照先が常に期待するマンガ単行本シリーズとは限らない
 - 共通モデルへ追加する項目がMADB以外の取得元で提供されない可能性がある
 
-## 保留事項
+## アーカイブ時の未実施項目
 
 - `schema:version` が存在する各代表IDについて、公式サイト表示と
   SPARQL bindingの対照表を完成させる
-- 他の書籍検索APIを調査した後、版表示、レーベル、シリーズ参照の
-  共通モデルが取得元横断で妥当か再評価する
+- 版表示、レーベル、シリーズ参照の取得元横断での再評価は、
+  [TODO012](../done/012-redesign-common-book-model.md)で完了した
 
 [madb-schema]: https://github.com/mediaarts-db/dataset/blob/main/doc/MADB%E3%83%A1%E3%82%BF%E3%83%87%E3%83%BC%E3%82%BF%E3%82%B9%E3%82%AD%E3%83%BC%E3%83%9E%E4%BB%95%E6%A7%98%E6%9B%B8.pdf
 [madb-sparql]: https://mediaarts-db.artmuseums.go.jp/sparql

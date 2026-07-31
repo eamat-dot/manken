@@ -94,22 +94,25 @@ https://mediaarts-db.artmuseums.go.jp/data/class#MangaBook
 
 | MADBの取得元 | `madb` の非公開型 | `madb.Book` |
 | --- | --- | --- |
-| `schema:identifier` | `ID` | `ID` |
-| 言語タグなしの `schema:name` | `Titles` | `Titles` |
-| 言語タグなしの `schema:alternativeHeadline` | `Subtitles` | `Subtitles` |
-| 言語タグなしの `ma:seriesName` | `SeriesNames` | `SeriesNames` |
-| `schema:isPartOf` が参照するシリーズの言語タグなし `schema:name` | `SeriesNames` | `SeriesNames` |
-| 参照先シリーズの `schema:identifier` | `SeriesID` | `SeriesID` |
-| 参照先シリーズURI | `SeriesResourceURI` | `SeriesURL` |
-| `schema:volumeNumber` | `VolumeNumber` | `VolumeNumber` |
-| 言語タグなしの `schema:version` | `Versions` | `EditionStatements` |
-| `schema:creator` とcreator Agent | `Creators` | `Authors` |
-| `schema:publisher` | `Publishers` | `Publishers` |
-| 言語タグなしの `schema:brand` | `Brands` | `Imprints` |
-| `schema:isbn` | `ISBNs` | `ISBN10s`、`ISBN13s` |
-| `schema:datePublished` | `PublishedDate` | `PublishedDate` |
-| 固定値 | 対応なし | `madb.SourceMADB` |
-| マンガ単行本URI | `ResourceURI` | `SourceURL` |
+| `schema:identifier` | `ID` | `Sources[0].ID` |
+| 言語タグなしの `schema:name` | `Titles` | `Normalized.Title`、`Sources[0].Values.Titles` |
+| `ja-hrkt` の `schema:name` | `TitleKana` | `Normalized.TitleKana`、`Sources[0].Values.TitleKana` |
+| 言語タグなしの `schema:alternativeHeadline` | `Subtitles` | `Normalized.Subtitle`、`Sources[0].Values.Subtitles` |
+| 言語タグなしの `ma:seriesName` | `SeriesNames` | `Normalized.Series`、`Sources[0].Values.SeriesNames` |
+| 参照先シリーズの言語タグなし `schema:name` | `RelatedSeriesNames` | `Normalized.Series`、`Sources[0].Values.SeriesNames` |
+| 参照先シリーズの `schema:identifier` | `SeriesID` | `Normalized.Series[].ID` |
+| 参照先シリーズURI | `SeriesResourceURI` | `Normalized.Series[].URL` |
+| `schema:volumeNumber` | `VolumeNumber` | `Normalized.Volume`、`Sources[0].Values.Volume` |
+| 言語タグなしの `schema:version` | `Versions` | `Normalized.EditionStatements`、`Sources[0].Values.Editions` |
+| `schema:creator` とcreator Agent | `Creators`、`AgentNames` | `Normalized.Authors`、`Sources[0].Values.Authors` |
+| `schema:publisher` | `Publishers` | `Normalized.Publishers`、`Sources[0].Values.Publishers` |
+| 言語タグなしの `schema:brand` | `Brands` | `Normalized.Imprints`、`Sources[0].Values.Imprints` |
+| `schema:isbn` | `ISBNs` | `Normalized.Identifiers`、`Sources[0].Values.ISBNs` |
+| `schema:datePublished` | `PublishedDate` | `Normalized.Dates`、`Sources[0].Values.PublishedDate` |
+| `schema:numberOfPages` | `PageCount` | `Normalized.PageCount`、`Sources[0].Values.PageCount` |
+| `schema:size` | `Size` | `Normalized.PhysicalSize`、`Sources[0].Values.Size` |
+| 固定値 | 対応なし | `Sources[0].Source`、シリーズの `Source` |
+| マンガ単行本URI | `ResourceURI` | `Sources[0].URL` |
 
 リソースURIは次の規則を持つ。
 
@@ -117,13 +120,13 @@ https://mediaarts-db.artmuseums.go.jp/data/class#MangaBook
 https://mediaarts-db.artmuseums.go.jp/id/ + MADB ID
 ```
 
-マンガ単行本のMADB IDは `M` と数字で構成される。`ID` には
-`schema:identifier` の `M...` を設定し、`SourceURL` にはリソースURIを設定する。
+マンガ単行本のMADB IDは `M` と数字で構成される。`Sources[0].ID` には
+`schema:identifier` の `M...` を設定し、`Sources[0].URL` にはリソースURIを設定する。
 
 `schema:isPartOf` が参照するリソースは
 `class:MangaBookSeries` に限定する。マンガ単行本シリーズのMADB IDは
-`C` と数字で構成される。参照先の `schema:identifier` を `SeriesID`、
-参照先リソースURIを `SeriesURL` に設定する。
+`C` と数字で構成される。参照先の `schema:identifier` とリソースURIは、
+対応する `Normalized.Series` の `ID` と `URL` に設定する。
 
 ## 5. 結果変換
 
@@ -138,8 +141,10 @@ MADBレスポンスは、まず `madb` パッケージの非公開型へ変換�
 type sourceBook struct {
 	ID                string
 	Titles            []string
+	TitleKana         []string
 	Subtitles         []string
 	SeriesNames       []string
+	RelatedSeriesNames []string
 	SeriesID          string
 	SeriesResourceURI string
 	VolumeNumber      string
@@ -149,6 +154,8 @@ type sourceBook struct {
 	Publishers        []string
 	ISBNs             []string
 	PublishedDate     string
+	PageCount         string
+	Size              string
 	ResourceURI       string
 }
 ```
@@ -157,11 +164,11 @@ SPARQL bindingを `sourceBook` へ集約した後、`madb` パッケージ内の
 `madb.Book` を組み立てる。MADB固有の役割除去、ISBN検証、欠落値処理は
 この変換処理が担当する。
 
-### 5.1 複数値
+### 5.1 複数値と単数値の選択
 
-`Titles`、`Subtitles`、`SeriesNames`、`EditionStatements`、`Authors`、
-`Publishers`、`Imprints`、`ISBN10s`、`ISBN13s` は、値がない場合も
-空スライスにする。
+`Titles`、`TitleKana`、`Subtitles`、シリーズ名、版表示、著者、出版社、レーベル、ISBNは、
+空文字列を除外し、完全に同じ値だけを重複除去してGoの文字列昇順にする。
+全候補は `Sources[0].Values` に残す。
 
 - 空文字列を除外する
 - 完全に同じ値だけを重複除去する
@@ -170,7 +177,13 @@ SPARQL bindingを `sourceBook` へ集約した後、`madb` パッケージ内の
 - タイトルやシリーズ名から欠落項目を補完しない
 
 実データでは、言語タグなしの値だけでも複数タイトル、副題、シリーズ名が存在する。
-単一の正規タイトルを示すプロパティはないため、任意の1件を選ばずすべて返す。
+単一の正規値を示すプロパティがないため、`Normalized.Title` と
+`Normalized.Subtitle` には安定ソート後の先頭を暫定値として設定する。
+この選択で失われる候補はなく、すべて取得元値に残る。
+
+タイトル読みは、すべてのUnicode空白を除去して同じ値になった候補を数える。
+最多の候補が1つに決まる場合だけ `Normalized.TitleKana` へ設定し、最多候補が
+同数の場合は空にする。空白除去前の全候補は `Sources[0].Values.TitleKana` に残す。
 
 ### 5.2 CreatorsからAuthorsへの変換
 
@@ -182,36 +195,93 @@ SPARQL bindingを `sourceBook` へ集約した後、`madb` パッケージ内の
 [作画]...
 ```
 
-`sourceBook.Creators` には、`dcterms:creator` が参照する全Agentの
-`rdfs:label` を格納する。Agent参照がない場合は、言語タグなしの
-`schema:creator` を格納する。
+`sourceBook.Creators` には言語タグなしの `schema:creator`、
+`sourceBook.AgentNames` には `dcterms:creator` が参照する全Agentの
+`rdfs:label` を別々に格納する。creator文字列とAgentにはRDF上の1対1対応が
+ないため、名前の一致や配列位置から両者を結び付けない。
 
-`sourceBook` から `madb.Book` へ変換するときに、著者、原作者、作画担当などを
-役割で分けず、名前だけを `Authors` へ設定する。値の先頭にある `[著]`、
-`[原作]`、`[作画]` などの角括弧部分を役割として取り除く。
+言語タグなしcreator文字列が1件以上ある場合は、役割表記を含む全creator文字列を
+`Sources[0].Values.Authors` に変更せず残す。creator文字列がない場合だけ、
+全Agent名を取得元の著者表示として残す。どちらも空文字列を除外し、完全一致で
+重複除去してGoの文字列昇順にする。
 
-値が `[` で始まり `]` を含む間は、先頭から最初の `]` までを繰り返し取り除く。
-前後の空白を除いた結果が空の場合は使用しない。役割ごとの分類は
-`madb.Book` へ含めない。
+#### 5.2.1 MADB役割の対応
 
-Agent参照と `schema:creator` の各役割には、RDF上で1対1の対応がない。
-Agent名が1件でも存在する場合は全Agent名を優先するため、解説者などの
-非著者役割が `Authors` に含まれる場合がある。初期実装では名前から役割を
-推測して除外せず、他の書籍検索APIの責任主体モデルを調査してから規則を再評価する。
+先頭の角括弧内が次の表記と完全一致する場合だけ、共通役割へ変換する。
+
+| MADB役割 | 共通役割 |
+| --- | --- |
+| `著`、`著者`、`作`、`共著`、`ほか著`、`他著` | `author` |
+| `原作`、`原案`、`共原作` | `original_creator` |
+| `脚本`、`シナリオ`、`構成`、`脚色`、`文`、`ストーリー`、`ライター` | `writer` |
+| `漫画`、`作画`、`画`、`劇画`、`まんが`、`絵`、`comic`、`Comic`、`COMIC`、`comics`、`コミック`、`マンガ`、`アーティスト` | `artist` |
+| `キャラクター原案` | `character_creator` |
+| `キャラクターデザイン` | `character_designer` |
+| `編`、`編集` | `editor` |
+| `訳` | `translator` |
+| `監修` | `supervisor` |
+| `解説` | `commentator` |
+| `カバーデザイン`、`装丁`、`装幀`、`デザイン` | `designer` |
+
+`・` で結ばれた複合役割は、すべての構成要素が上表へ対応する場合だけ、
+複数の共通役割へ変換する。1つでも未知の構成要素があれば、複合役割全体を
+未知として扱う。同じ共通役割になる構成要素は1件へまとめる。
+
+`Authors` へ含める共通役割は `author`、`original_creator`、`writer`、
+`artist`、`character_creator`、`character_designer` とする。
+`editor`、`translator`、`supervisor`、`commentator`、`designer` は
+`Contributors` だけに含める。
+
+#### 5.2.2 creator文字列の解析
+
+creator文字列は次の順序で解析する。
+
+1. 前後のUnicode空白を除く
+2. 先頭が `[役割]` で、役割全体を前項の共通役割へ対応できるか確認する
+3. 対応できた場合だけ、最初の `]` より後ろを人物名の候補にする
+4. 人物名候補が `[` で始まる場合は、最初に対応する `]` との1組だけを除き、
+   角括弧内と後続文字列を連結する
+5. 前後のUnicode空白を除き、空でなければ人物名として使用する
+
+先頭役割を対応できない値、閉じ角括弧がない値、人物名が空になる値からは、
+`Authors` と `Contributors` を作らない。取得元値とRaw responseには残す。
+
+先頭に役割がないcreator文字列は、文字列全体を人物名として `Authors` に含める。
+役割を推測できないため `Contributors` には含めない。creator文字列がなく
+Agent名だけがある場合も、全Agent名を `Authors` に含め、`Contributors` は
+作らない。
+
+同じ人物名から複数の既知役割を得た場合は、人物名の完全一致で1つの
+`Contributor` にまとめる。人名の異体字、別名、空白差を同一人物と推測しない。
+
+#### 5.2.3 順序
+
+MADBのRDFはcreatorの順序を持たない。`Creators` と `AgentNames` はGoの文字列昇順で
+安定化し、その順に `Authors` と `Contributors` を組み立てる。同じ名前をまとめた
+場合は最初に現れた位置を維持し、役割はcreator内の出現順で重複除去する。
+この順序は取得元の表示順や役割の優先順位を表さない。
+
+`M292132` の `[著]佐々木倫子` と `[解説]藤原新也` は、佐々木倫子だけを
+`Authors` に含め、両名をそれぞれ `author`、`commentator` の
+`Contributors` として返す。
 
 ### 5.3 publisher
 
 `schema:publisher` は文字列であり、発行、発売、読みなどを含む場合がある。
-初期APIでは役割や読みを解析せず、取得値をそのまま返す。
+`Normalized.Publishers` では、`∥` より後ろがカタカナ、空白、中黒、長音記号だけで
+構成される場合に限り、区切り以降を出版社名の読みとして除去する。除去後に同じに
+なった出版社名は1件へまとめる。`発行元 ∥ 発売元` など、区切り後がカナ読みでは
+ない値は変更しない。取得した全表記は `Sources[0].Values.Publishers` に残す。
 
 ### 5.4 ISBN
 
 `schema:isbn` は0件以上存在する。ASCIIのハイフンと空白を除いた後、
 ISBN-10またはISBN-13のチェックディジットを検証する。
 
-- 正しいISBN-10は大文字の `X` を含む10文字として `ISBN10s` へ設定する
-- 正しいISBN-13は13桁として `ISBN13s` へ設定する
-- 検証に失敗した値は返さない
+- 正しいISBN-10は大文字の `X` を含む10文字として `Identifiers` へ設定する
+- 正しいISBN-13は13桁として `Identifiers` へ設定する
+- 検証に失敗した値は `Normalized.Identifiers` へ設定しない
+- 検証前の全値は `Sources[0].Values.ISBNs` に残す
 - 同じ種別が複数ある場合もすべて返す
 
 ### 5.5 刊行日と巻数
@@ -220,13 +290,28 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 精度の異なる文字列である。日付として再解釈せず、取得値をそのまま保持する。
 空文字列は欠落として扱う。不正に見える値も推測で修正しない。
 
-`schema:volumeNumber` も文字列として保持する。複数の異なる値が返された場合は、
-スキーマの0または1件という契約に反するため `invalid_response` とする。
+`schema:volumeNumber` の元表記は `Sources[0].Values.Volume` に保持する。
+文字列全体が許可した整数構文へ一致する場合は `Normalized.Volume.Number` と
+10進数の `Label`を設定する。`上`、`中`、`下`、`前編`、`後編`、小数巻、
+`別巻`、`外伝`、`番外編`は `Label`だけを設定する。解析できない値は正規化せず、
+元表記だけを返す。複数の異なる値が返された場合は、スキーマの0または1件という
+契約に反するため `invalid_response` とする。
 
-### 5.6 版表示、単行本レーベル、シリーズ
+### 5.6 ページ数と大きさ
+
+`schema:numberOfPages` は、数字だけ、または数字の後ろに `p` が付く表記だけを
+`Normalized.PageCount` の整数へ変換する。解析できない値はページ数を設定しない。
+
+`schema:size` の元表記は `Sources[0].Values.Size` に残す。整数または小数第1位までの
+センチメートル表記を認識し、先頭の値を高さ、`×` より後ろを幅としてミリメートルへ
+変換する。認識できた場合は `Normalized.PhysicalSize` と `print` の
+`Normalized.Medium` を設定する。判型名など解析できない値は推測で寸法へ変換しない。
+
+### 5.7 版表示、単行本レーベル、シリーズ
 
 マンガ単行本へ直接記録された言語タグなしの `schema:version` を
-`sourceBook.Versions` へ格納し、`EditionStatements` として返す。
+`sourceBook.Versions` へ格納し、`Normalized.EditionStatements` と
+`Sources[0].Values.Editions` として返す。
 版表示は0件以上存在し、複数の異なる値もすべて返す。値を通常版、新装版、
 愛蔵版、完全版、文庫版などの独自分類へ変換しない。
 
@@ -242,8 +327,10 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 - シリーズリソースURI
 
 シリーズの `schema:name` は、単行本へ直接記録された言語タグなしの
-`ma:seriesName` と合わせて `SeriesNames` へ設定する。完全に同じ名前だけを
-重複除去する。参照先が欠落する場合、`SeriesID` と `SeriesURL` は空文字列にする。
+`ma:seriesName` と分けて `RelatedSeriesNames` に保持する。`Normalized.Series`では、
+参照先シリーズ名とID、URL、`SourceMADB`を同じ要素へ設定する。同じ名前が
+直接指定にもある場合は1要素へまとめる。参照先が欠落する場合、直接指定された
+名前だけをID、URLなしで返す。
 
 異なる複数の参照先シリーズ、シリーズID、シリーズURIが返された場合は、
 スキーマの0または1件という契約に反するため `invalid_response` とする。
@@ -396,6 +483,12 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 | `C51001` | `dcterms:creator` が参照するAgent名 |
 | `M1032577` | 1冊から複数Agentへの関連 |
 | `M1080236` | creator、publisher、ISBN、刊行日、巻数の欠落 |
+| `M292132` | `[著]佐々木倫子` と `[解説]藤原新也` の役割分離 |
+| `M521385` | Agent参照がなく、creator文字列だけがある単行本 |
+| `M830542` | creator文字列がなく、Agent参照だけがある単行本 |
+| `M850396` | 役割なしcreator文字列とAgent参照がある単行本 |
+| `M809985` | `[[著]]近江のこ` という不正な角括弧表記 |
+| `M196958`、`M208098`、`M208454`、`M213006` | 2つ目の角括弧が人名の一部であるcreator文字列 |
 | `M190399` | ISBN-10とISBN-13の併存 |
 | `M215486` | 複数publisherと役割、読みの混在 |
 | `M380671` | `[通常版]` の版表示と単行本レーベル |
@@ -405,6 +498,7 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 | `M296746` | 文庫版の版表示 |
 | `M292127`、`M292128`、`M292129` | 同じタイトルに対する異なるシリーズ参照とレーベル |
 | `M292129` の公式サイト | 単行本レーベルと読み、`C262212` のシリーズ表示、版表示の欠落 |
+| `M292141` | タイトル読み3件、`197p` のページ数、`17.3cm × 10.6cm` の大きさ、出版社名と読み |
 | `M335551`、`M346749` | 1冊に複数の版表示 |
 | `M1079781` | 単行本と参照先シリーズで異なるレーベル |
 | `動物のおしゃべり` | 全文検索、部分一致、複数回実行、次ページ |
@@ -414,14 +508,24 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 2026年7月30日にTODO011の実装結果を実サービスで確認した。
 
 - `動物のお医者さん` の検索で `M292127`、`M292128`、`M292129` が
-  それぞれ異なる `SeriesID` と `Imprints` を返した
+  それぞれ異なるシリーズIDと `Normalized.Imprints` を返した
 - `プロジェクトX挑戦者たち` の検索で、`M335551` が
-  `コミック版` と `第2版` の両方を `EditionStatements` として返した
-- `スリーＺメン` の検索で、`M1079781` の `Imprints` は
+  `コミック版` と `第2版` の両方を `Normalized.EditionStatements` として返した
+- `スリーＺメン` の検索で、`M1079781` の `Normalized.Imprints` は
   単行本の `藤子不二雄全集` だけを返し、参照先シリーズの
   `虫コミックス` は混入しなかった
 - `動物のおしゃべり` を100件で検索した応答は、次ページ判定用の1冊を含め
   37,588バイトであり、4 MiBの本文上限内だった
+
+2026年8月1日にTODO013の実装結果を実サービスで確認した。
+
+- `動物のお医者さん` の検索で `M292132` の `Normalized.Authors` は
+  佐々木倫子だけを返した
+- 同じ結果の `Normalized.Contributors` は、佐々木倫子を `author`、
+  藤原新也を `commentator` として返した
+- `Sources[0].Values.Authors` は `[著]佐々木倫子` と `[解説]藤原新也` を
+  変更せず返した
+- build tag付きの実サービス統合テスト一式とデモCLIの両方で同じ結果を確認した
 
 実レスポンスは更新されるためリポジトリへ固定保存せず、確認対象のID、
 検索語、件数、判断結果を本仕様書へ記録する。

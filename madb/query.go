@@ -28,10 +28,10 @@ PREFIX ma: <https://mediaarts-db.artmuseums.go.jp/data/property#>
 PREFIX class: <https://mediaarts-db.artmuseums.go.jp/data/class#>
 PREFIX neptune-fts: <http://aws.amazon.com/neptune/vocab/v01/services/fts#>
 
-SELECT ?resource ?id ?title ?subtitle ?seriesName
+SELECT ?resource ?id ?title ?titleKana ?subtitle ?seriesName
        ?seriesResource ?relatedSeriesName ?seriesID
        ?volumeNumber ?version ?creator ?agentName ?publisher ?brand
-       ?isbn ?publishedDate
+       ?isbn ?publishedDate ?pageCount ?size
 WHERE {
   {
     SELECT DISTINCT ?resource
@@ -50,6 +50,7 @@ WHERE {
   }
   OPTIONAL { ?resource schema:identifier ?id . }
   OPTIONAL { ?resource schema:name ?title . FILTER (LANG(?title) = "") }
+  OPTIONAL { ?resource schema:name ?titleKana . FILTER (LANG(?titleKana) = "ja-hrkt") }
   OPTIONAL { ?resource schema:alternativeHeadline ?subtitle . FILTER (LANG(?subtitle) = "") }
   OPTIONAL { ?resource ma:seriesName ?seriesName . FILTER (LANG(?seriesName) = "") }
   OPTIONAL {
@@ -72,6 +73,8 @@ WHERE {
   OPTIONAL { ?resource schema:brand ?brand . FILTER (LANG(?brand) = "") }
   OPTIONAL { ?resource schema:isbn ?isbn . }
   OPTIONAL { ?resource schema:datePublished ?publishedDate . }
+  OPTIONAL { ?resource schema:numberOfPages ?pageCount . }
+  OPTIONAL { ?resource schema:size ?size . }
 }
 ORDER BY ?resource`,
 		fullTextEndpoint,

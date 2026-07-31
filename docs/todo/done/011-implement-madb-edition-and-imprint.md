@@ -2,7 +2,7 @@
 
 ## 背景
 
-- [TODO006](../pending/006-research-madb-edition-and-imprint.md)でMADBの版表示、
+- [TODO006](../archived/006-research-madb-edition-and-imprint.md)でMADBの版表示、
   単行本レーベル、マンガ単行本シリーズを調査した
 - 現在のMADBクエリは `schema:version`、`schema:brand`、
   `schema:isPartOf` と参照先シリーズを取得していない

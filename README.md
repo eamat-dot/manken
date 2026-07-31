@@ -9,7 +9,9 @@
 - 1回に取得する件数を1件から100件まで指定する
 - 検索結果のカーソルを使って続きを取得する
 - MADBの書誌情報を取得元に依存しない `madb.Book` として受け取る
-- 版表示、単行本レーベル、参照先シリーズのIDとURLを取得する
+- 正規化した書誌情報と、根拠となったMADBの元値を分けて取得する
+- タイトル読み、ページ数、紙書籍の大きさを取得する
+- 数値巻、版表示、単行本レーベル、参照先シリーズのIDとURLを取得する
 - 入力、外部サービス、通信、レスポンス解析のエラーを分類する
 
 ISBN検索、著者名検索、キャッシュ、自動リトライ、汎用CLIアプリケーション、
@@ -17,8 +19,12 @@ MCPサーバーは含めない。
 
 ## 初期実装の制約
 
-- `Authors` はMADBが参照する全Agent名を優先するため、解説者などが含まれる場合がある
-- `VolumeNumber` は取得元の表記を保持し、巻数を数値へ変換しない
+- `Authors` は主要な創作者の役割を確定できるcreatorと、
+  役割表記のないcreatorを含む。未知または不正なcreatorは推測せず、
+  MADBの元値だけに残す
+- MADBに単一の正規タイトルを示す情報がない場合、安定ソートした先頭を
+  `Normalized.Title` の暫定値にする
+- 許可した構文に一致しない巻表示は数値化せず、MADBの元値だけを保持する
 - 検索結果はMADBリソースURIの昇順であり、関連度、刊行日、巻数では並べ替えない
 
 これらの共通規格は、他の書籍検索APIが提供する項目と検索方式を調査してから再評価する。
@@ -64,7 +70,11 @@ func main() {
 	}
 
 	for _, book := range result.Books {
-		fmt.Println(book.Titles, book.Authors, book.ISBN13s)
+		fmt.Println(
+			book.Normalized.Title,
+			book.Normalized.Authors,
+			book.Normalized.Identifiers,
+		)
 	}
 }
 ```
@@ -91,29 +101,43 @@ JSON内の1冊分は次の形になる。
 
 ```json
 {
-  "id": "M292129",
-  "titles": ["動物のお医者さん"],
-  "subtitles": [],
-  "series_names": ["動物のお医者さん"],
-  "series_id": "C262212",
-  "series_url": "https://mediaarts-db.artmuseums.go.jp/id/C262212",
-  "volume_number": "第8巻",
-  "edition_statements": [],
-  "authors": ["佐々木倫子"],
-  "publishers": ["白泉社　∥　ハクセンシャ"],
-  "imprints": ["白泉社文庫"],
-  "isbn10s": ["4592881486"],
-  "isbn13s": [],
-  "published_date": "1996-06-19",
-  "source": "madb",
-  "source_url": "https://mediaarts-db.artmuseums.go.jp/id/M292129"
+  "normalized": {
+    "title": "動物のお医者さん",
+    "series": [{
+      "name": "動物のお医者さん",
+      "id": "C262212",
+      "url": "https://mediaarts-db.artmuseums.go.jp/id/C262212",
+      "source": "madb"
+    }],
+    "volume": {"number": 8, "label": "8"},
+    "authors": ["佐々木倫子"],
+    "publishers": ["白泉社"],
+    "imprints": ["白泉社文庫"],
+    "identifiers": [{"type": "isbn10", "value": "4592881486"}],
+    "dates": [{"type": "published", "value": "1996-06-19"}]
+  },
+  "sources": [{
+    "source": "madb",
+    "id": "M292129",
+    "url": "https://mediaarts-db.artmuseums.go.jp/id/M292129",
+    "values": {
+      "titles": ["動物のお医者さん"],
+      "series_names": ["動物のお医者さん"],
+      "volume": "第8巻",
+      "authors": ["[著]佐々木倫子"],
+      "publishers": ["白泉社　∥　ハクセンシャ"],
+      "imprints": ["白泉社文庫"],
+      "isbns": ["4592881486"],
+      "published_date": "1996-06-19"
+    }
+  }]
 }
 ```
 
-`edition_statements` はMADBの版表示、`imprints` は単行本へ直接記録された
-レーベルを表す。値がない場合は空配列になる。版表示やレーベルの内容から
-欠落値を推測または分類しない。`series_id` と `series_url` は
-`MangaBookSeries` として参照されたシリーズを表し、参照がない場合は空文字列になる。
+`normalized` は通常利用する共通書誌情報、`sources` は正規化の根拠となった
+MADBの値を表す。欠落した任意項目はJSONへ出力しない。版表示やレーベルの
+内容から欠落値を推測または分類しない。出版社名の `∥` より後ろがカナ読みだけの
+場合は、`normalized.publishers` から読みを除去して重複を取り除く。
 
 変換前のSPARQL Results JSONも確認する場合は、未作成の保存先を
 `-raw-output` へ指定する。
