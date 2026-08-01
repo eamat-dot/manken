@@ -217,9 +217,13 @@ type Image struct {
 
 // SearchBooksRequest は、漫画本の検索条件を表す
 type SearchBooksRequest struct {
-	Title  string `json:"title"`
-	Limit  int    `json:"limit"`
-	Cursor string `json:"cursor"`
+	Title        string `json:"title"`
+	ISBN         string `json:"isbn"`
+	Author       string `json:"author"`
+	FreeText     string `json:"free_text"`
+	ExcludedText string `json:"excluded_text"`
+	Limit        int    `json:"limit"`
+	Cursor       string `json:"cursor"`
 }
 
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す

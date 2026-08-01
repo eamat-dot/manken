@@ -92,11 +92,13 @@ ndl    の非公開型 -> api.Book
 
 ### 4.1 確定事項
 
-初期APIは、漫画本のタイトル検索を対象とする。
+初期APIは、漫画本のタイトル、ISBN、著者名による検索を対象とする。
 
 次の機能を提供する。
 
 - タイトルによる検索
+- ISBN-10またはISBN-13による検索
+- 著者名による検索
 - 取得件数の指定
 - カーソルによる続きの取得
 - データ取得元固有の形式から共通の書籍モデルへの変換
@@ -104,8 +106,6 @@ ndl    の非公開型 -> api.Book
 
 次の機能は初期APIに含めない。
 
-- ISBN検索
-- 著者名検索
 - 漫画シリーズの検索
 - 複数データ取得元の横断検索
 - 検索結果の重複統合
@@ -330,23 +330,49 @@ type Price struct {
 
 ```go
 type SearchBooksRequest struct {
-	Title  string `json:"title"`
-	Limit  int    `json:"limit"`
-	Cursor string `json:"cursor"`
+	Title        string `json:"title"`
+	ISBN         string `json:"isbn"`
+	Author       string `json:"author"`
+	FreeText     string `json:"free_text"`
+	ExcludedText string `json:"excluded_text"`
+	Limit        int    `json:"limit"`
+	Cursor       string `json:"cursor"`
 }
 ```
 
 #### 確定事項
 
-- `Title` は必須とする
-- 前後の空白を除いたタイトルが空の場合は入力エラーにする
+- `Title`、`ISBN`、`Author`、`FreeText` の少なくとも1つを正条件として必須とする
+- 複数の検索条件を指定した場合はAND条件にする
+- 前後の空白を除いたすべての正条件が空の場合は入力エラーにする
 - `Title` はデータ取得元のクエリ構文ではなく、通常の文字列として受け取る
+- `Title` はUnicode空白で検索語に分け、すべての語を含むタイトルを検索する
+- `Title` の検索語数にライブラリ独自の上限を設けない
+- `ISBN` はASCIIハイフンとUnicode空白を除き、末尾の小文字 `x` を大文字にする
+- `ISBN` はISBN-10または978/979で始まるISBN-13のチェックディジットを検証する
+- ISBN-10と978で始まるISBN-13は相互変換し、どちらか一方だけを持つ取得元も検索する
+- 979で始まるISBN-13からISBN-10は生成しない
+- 不正なISBNは外部サービスへ送信せず入力エラーにする
+- `Author` はデータ取得元のクエリ構文ではなく、通常の文字列として受け取る
+- `Author` はUnicode空白で検索語に分け、すべての語を含む著者名を検索する
+- `Author` の検索語数にライブラリ独自の上限を設けない
+- `FreeText` は取得元固有の主要な書誌項目を横断して検索する
+- `FreeText` はUnicode空白で検索語に分け、複数の項目をまたいですべての語に
+  一致する書籍を検索する
+- `FreeText` の検索語数にライブラリ独自の上限を設けない
+- `ExcludedText` は取得元固有の主要な書誌項目を横断し、指定語を含む書籍を除外する
+- `ExcludedText` はUnicode空白で検索語に分け、どれか1語でも含む書籍を除外する
+- `ExcludedText` だけの検索は入力エラーにする
+- `ExcludedText` の検索語数にライブラリ独自の上限を設けない
+- Agent参照だけに存在する著者名を漏れなく検索する場合は `Author` を使用する
+- Agent参照だけに存在する著者名は `ExcludedText` の対象外とする
+- 大文字小文字、Unicode正規化、表記揺れはライブラリ側で変換しない
 - `Limit` が `0` の場合は既定値を使用する
 - `Cursor` が空の場合は最初のページを取得する
 - 続きを取得する場合は、直前の結果に含まれる `NextCursor` をそのまま指定する
 - カーソルの内部形式は公開APIの契約に含めない
 - 初期のMADB検索ではLimitの既定値を20、最大値を100とする
-- カーソルは検索語とLimitに関連付け、一致しない場合は入力エラーにする
+- カーソルは正規化済みの全検索条件とLimitに関連付け、一致しない場合は入力エラーにする
 - カーソルの有効期間は設けない
 
 #### 未確定事項

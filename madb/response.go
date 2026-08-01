@@ -88,7 +88,7 @@ func decodeSPARQLResponse(body []byte) (sparqlResponse, error) {
 // buildSearchResult は、SPARQLレスポンスを公開検索結果へ変換する
 func buildSearchResult(
 	response sparqlResponse,
-	title string,
+	conditions searchConditions,
 	limit int,
 ) (SearchBooksResult, error) {
 	if response.Results == nil {
@@ -120,7 +120,7 @@ func buildSearchResult(
 
 	result := SearchBooksResult{Books: books}
 	if hasNext {
-		nextCursor, err := encodeCursor(sourceBooks[len(sourceBooks)-1].ResourceURI, title, limit)
+		nextCursor, err := encodeCursor(sourceBooks[len(sourceBooks)-1].ResourceURI, conditions, limit)
 		if err != nil {
 			return SearchBooksResult{}, newError(
 				operationSearchBooks,

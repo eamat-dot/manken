@@ -12,23 +12,27 @@ import (
 	"strings"
 )
 
-const cursorVersion = 1
+const cursorVersion = 2
 
 // cursorPayload は、次ページの取得に必要な非公開情報を保持する
 type cursorPayload struct {
-	Version   int    `json:"v"`
-	After     string `json:"after"`
-	Limit     int    `json:"limit"`
-	TitleHash string `json:"title_sha256"`
+	Version    int    `json:"v"`
+	After      string `json:"after"`
+	Limit      int    `json:"limit"`
+	SearchHash string `json:"search_sha256"`
 }
 
 // encodeCursor は、次ページの情報を不透明なカーソルへ変換する
-func encodeCursor(after, title string, limit int) (string, error) {
+func encodeCursor(after string, conditions searchConditions, limit int) (string, error) {
+	searchHash, err := hashSearchConditions(conditions)
+	if err != nil {
+		return "", err
+	}
 	payload := cursorPayload{
-		Version:   cursorVersion,
-		After:     after,
-		Limit:     limit,
-		TitleHash: hashTitle(title),
+		Version:    cursorVersion,
+		After:      after,
+		Limit:      limit,
+		SearchHash: searchHash,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -38,7 +42,7 @@ func encodeCursor(after, title string, limit int) (string, error) {
 }
 
 // decodeCursor は、カーソルを検証して次ページの情報へ戻す
-func decodeCursor(encoded, title string, limit int) (cursorPayload, error) {
+func decodeCursor(encoded string, conditions searchConditions, limit int) (cursorPayload, error) {
 	if encoded == "" {
 		return cursorPayload{}, nil
 	}
@@ -66,8 +70,12 @@ func decodeCursor(encoded, title string, limit int) (cursorPayload, error) {
 	if payload.Limit != limit {
 		return cursorPayload{}, errors.New("cursor does not match the requested limit")
 	}
-	if payload.TitleHash != hashTitle(title) {
-		return cursorPayload{}, errors.New("cursor does not match the requested title")
+	searchHash, err := hashSearchConditions(conditions)
+	if err != nil {
+		return cursorPayload{}, err
+	}
+	if payload.SearchHash != searchHash {
+		return cursorPayload{}, errors.New("cursor does not match the requested search conditions")
 	}
 	return payload, nil
 }
@@ -85,10 +93,14 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 	return err
 }
 
-// hashTitle は、整形後の検索タイトルをSHA-256の16進文字列へ変換する
-func hashTitle(title string) string {
-	sum := sha256.Sum256([]byte(title))
-	return hex.EncodeToString(sum[:])
+// hashSearchConditions は、正規化済み検索条件をSHA-256の16進文字列へ変換する
+func hashSearchConditions(conditions searchConditions) (string, error) {
+	data, err := json.Marshal(conditions)
+	if err != nil {
+		return "", fmt.Errorf("encode search conditions: %w", err)
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // isValidResourceURI は、MADBのマンガ単行本リソースURIか検証する

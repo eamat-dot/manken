@@ -39,8 +39,11 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 
 	var result madb.SearchBooksResult
 	result, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{
-		Title: "作品",
-		Limit: 1,
+		Title:    "作品",
+		ISBN:     "9784088466361",
+		Author:   "著者",
+		FreeText: "新装版",
+		Limit:    1,
 	})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)

@@ -82,7 +82,7 @@ func WithEndpoint(endpoint string) Option {
 	})
 }
 
-// SearchBooks は、タイトルに一致する漫画本をMADBから検索する
+// SearchBooks は、指定条件に一致する漫画本をMADBから検索する
 func (client *Client) SearchBooks(
 	ctx context.Context,
 	request SearchBooksRequest,
@@ -91,7 +91,7 @@ func (client *Client) SearchBooks(
 	return result, err
 }
 
-// SearchBooksWithRawResponse は、タイトル検索の結果と受信した成功レスポンス本文を返し、
+// SearchBooksWithRawResponse は、検索結果と受信した成功レスポンス本文を返し、
 // 変換失敗時も読み込み済み本文の所有権を呼び出し元へ移す
 func (client *Client) SearchBooksWithRawResponse(
 	ctx context.Context,
@@ -120,12 +120,12 @@ func (client *Client) searchBooks(
 		)
 	}
 
-	title, limit, cursor, err := validateSearchRequest(request)
+	conditions, limit, cursor, err := validateSearchRequest(request)
 	if err != nil {
 		return SearchBooksResult{}, nil, err
 	}
 
-	query := buildSearchQuery(title, limit, cursor.After)
+	query := buildSearchQuery(conditions, limit, cursor.After)
 	body, err := client.execute(ctx, query)
 	if err != nil {
 		return SearchBooksResult{}, body, err
@@ -140,7 +140,7 @@ func (client *Client) searchBooks(
 		)
 	}
 
-	result, err := buildSearchResult(response, title, limit)
+	result, err := buildSearchResult(response, conditions, limit)
 	if err != nil {
 		return SearchBooksResult{}, body, err
 	}
@@ -207,13 +207,30 @@ func validateEndpoint(endpoint string) error {
 // validateSearchRequest は、検索条件を検証して実際に使用する値へ変換する
 func validateSearchRequest(
 	request SearchBooksRequest,
-) (string, int, cursorPayload, error) {
-	title := strings.TrimSpace(request.Title)
-	if title == "" {
-		return "", 0, cursorPayload{}, newError(
+) (searchConditions, int, cursorPayload, error) {
+	conditions := searchConditions{
+		Title:        strings.Join(strings.Fields(request.Title), " "),
+		Author:       strings.Join(strings.Fields(request.Author), " "),
+		FreeText:     strings.Join(strings.Fields(request.FreeText), " "),
+		ExcludedText: strings.Join(strings.Fields(request.ExcludedText), " "),
+	}
+	if strings.TrimSpace(request.ISBN) != "" {
+		isbns, err := normalizeSearchISBN(request.ISBN)
+		if err != nil {
+			return searchConditions{}, 0, cursorPayload{}, newError(
+				operationSearchBooks,
+				ErrorKindInvalidArgument,
+				err,
+			)
+		}
+		conditions.ISBNs = isbns
+	}
+	if conditions.Title == "" && len(conditions.ISBNs) == 0 &&
+		conditions.Author == "" && conditions.FreeText == "" {
+		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,
-			errors.New("title must not be empty"),
+			errors.New("at least one search condition must be specified"),
 		)
 	}
 
@@ -222,22 +239,22 @@ func validateSearchRequest(
 		limit = defaultLimit
 	}
 	if limit < 1 || limit > maxLimit {
-		return "", 0, cursorPayload{}, newError(
+		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,
 			fmt.Errorf("limit must be between 1 and %d", maxLimit),
 		)
 	}
 
-	cursor, err := decodeCursor(request.Cursor, title, limit)
+	cursor, err := decodeCursor(request.Cursor, conditions, limit)
 	if err != nil {
-		return "", 0, cursorPayload{}, newError(
+		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,
 			err,
 		)
 	}
-	return title, limit, cursor, nil
+	return conditions, limit, cursor, nil
 }
 
 // readLimitedBody は、上限を超えないレスポンス本文を読み込む
