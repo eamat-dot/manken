@@ -57,7 +57,7 @@ func TestBuildSearchResult_AggregatesAndConverts(t *testing.T) {
 		Value: seriesResourceURI("C1"),
 	}
 
-	result, err := buildSearchResult(response, "作品", 20)
+	result, err := buildSearchResult(response, searchConditions{Title: "作品"}, 20)
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
@@ -132,7 +132,7 @@ func TestBuildSearchResult_MADBAdditionalFields(t *testing.T) {
 		}),
 	)
 
-	result, err := buildSearchResult(response, "動物のお医者さん", 20)
+	result, err := buildSearchResult(response, searchConditions{Title: "動物のお医者さん"}, 20)
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
@@ -224,7 +224,7 @@ func TestBuildSearchResult_CreatorRolesAndMissingValues(t *testing.T) {
 		}),
 	)
 
-	result, err := buildSearchResult(response, "作品", 20)
+	result, err := buildSearchResult(response, searchConditions{Title: "作品"}, 20)
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
@@ -461,7 +461,7 @@ func TestBuildSearchResult_RejectsInvalidBindings(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			response := newSPARQLResponse(test.bindings...)
-			_, err := buildSearchResult(response, "作品", 20)
+			_, err := buildSearchResult(response, searchConditions{Title: "作品"}, 20)
 			assertErrorKind(t, err, ErrorKindInvalidResponse)
 		})
 	}
@@ -486,7 +486,7 @@ func seriesResourceURI(id string) string {
 func TestBuildSearchResult_IgnoresUnknownVariables(t *testing.T) {
 	binding := testBinding("M1", map[string]string{"title": "作品"})
 	binding["futureField"] = sparqlValue{Type: "uri", Value: "https://example.test/value"}
-	result, err := buildSearchResult(newSPARQLResponse(binding), "作品", 20)
+	result, err := buildSearchResult(newSPARQLResponse(binding), searchConditions{Title: "作品"}, 20)
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}

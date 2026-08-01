@@ -65,3 +65,19 @@ func TestBookJSON_PreservesMeaningfulZeroValues(t *testing.T) {
 		}
 	}
 }
+
+// TestSearchBooksRequestJSON_IncludesExcludedText は、除外検索の公開JSON名を検証する
+func TestSearchBooksRequestJSON_IncludesExcludedText(t *testing.T) {
+	request := SearchBooksRequest{
+		Title:        "うる星",
+		ExcludedText: "復刻box",
+	}
+
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(encoded), `"excluded_text":"復刻box"`) {
+		t.Fatalf("JSON does not contain excluded_text: %s", encoded)
+	}
+}

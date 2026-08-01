@@ -9,9 +9,18 @@ import (
 
 const fullTextEndpoint = "https://vpc-mediaarts-db-qaymrmtqbprlhmqq33a2ncf4ke.ap-northeast-1.es.amazonaws.com"
 
+// searchConditions は、検証と正規化を終えたMADB検索条件を保持する
+type searchConditions struct {
+	Title        string   `json:"title"`
+	ISBNs        []string `json:"isbns"`
+	Author       string   `json:"author"`
+	FreeText     string   `json:"free_text"`
+	ExcludedText string   `json:"excluded_text"`
+}
+
 // buildSearchQuery は、検索条件からMADB向けSPARQLクエリを生成する
-func buildSearchQuery(title string, limit int, after string) string {
-	fullTextQuery := `"` + escapeFullText(title) + `"`
+func buildSearchQuery(conditions searchConditions, limit int, after string) string {
+	conditionPatterns := buildSearchConditionPatterns(conditions)
 	cursorFilter := ""
 	if after != "" {
 		cursorFilter = fmt.Sprintf(
@@ -36,13 +45,7 @@ WHERE {
   {
     SELECT DISTINCT ?resource
     WHERE {
-      SERVICE neptune-fts:search {
-        neptune-fts:config neptune-fts:endpoint "%s" .
-        neptune-fts:config neptune-fts:field schema:name .
-        neptune-fts:config neptune-fts:queryType "simple_query_string" .
-        neptune-fts:config neptune-fts:query "%s" .
-        neptune-fts:config neptune-fts:return ?resource .
-      }
+%s
       ?resource rdf:type class:MangaBook .%s
     }
     ORDER BY ?resource
@@ -77,11 +80,149 @@ WHERE {
   OPTIONAL { ?resource schema:size ?size . }
 }
 ORDER BY ?resource`,
-		fullTextEndpoint,
-		escapeSPARQLString(fullTextQuery),
+		conditionPatterns,
 		cursorFilter,
 		limit+1,
 	)
+}
+
+// buildSearchConditionPatterns は、指定された正条件をAND結合するSPARQLパターンを生成する
+func buildSearchConditionPatterns(conditions searchConditions) string {
+	patterns := make([]string, 0, 4)
+	if conditions.Title != "" {
+		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
+		neptune-fts:config neptune-fts:endpoint "%s" .
+		neptune-fts:config neptune-fts:field schema:name .
+		neptune-fts:config neptune-fts:queryType "query_string" .
+        neptune-fts:config neptune-fts:query "%s" .
+        neptune-fts:config neptune-fts:return ?resource .
+      }`, fullTextEndpoint, escapeSPARQLString(buildFullTextQuery(conditions.Title))))
+	}
+	if len(conditions.ISBNs) != 0 {
+		values := make([]string, 0, len(conditions.ISBNs))
+		for _, isbn := range conditions.ISBNs {
+			values = append(values, `"`+escapeSPARQLString(isbn)+`"`)
+		}
+		patterns = append(patterns, fmt.Sprintf(
+			"      VALUES ?searchISBN { %s }\n      ?resource schema:isbn ?searchISBN .",
+			strings.Join(values, " "),
+		))
+	}
+	if conditions.Author != "" {
+		fullTextQuery := escapeSPARQLString(buildFullTextQuery(conditions.Author))
+		patterns = append(patterns, fmt.Sprintf(`      {
+        SERVICE neptune-fts:search {
+          neptune-fts:config neptune-fts:endpoint "%s" .
+          neptune-fts:config neptune-fts:field schema:creator .
+          neptune-fts:config neptune-fts:queryType "query_string" .
+          neptune-fts:config neptune-fts:query "%s" .
+          neptune-fts:config neptune-fts:return ?resource .
+        }
+      }
+      UNION
+      {
+        SERVICE neptune-fts:search {
+          neptune-fts:config neptune-fts:endpoint "%s" .
+          neptune-fts:config neptune-fts:field rdfs:label .
+          neptune-fts:config neptune-fts:queryType "query_string" .
+          neptune-fts:config neptune-fts:query "%s" .
+          neptune-fts:config neptune-fts:return ?searchAgent .
+        }
+        ?resource dcterms:creator ?searchAgent .
+      }`, fullTextEndpoint, fullTextQuery, fullTextEndpoint, fullTextQuery))
+	}
+	if conditions.FreeText != "" {
+		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
+        neptune-fts:config neptune-fts:endpoint "%s" .
+%s
+        neptune-fts:config neptune-fts:queryType "query_string" .
+        neptune-fts:config neptune-fts:query "%s" .
+        neptune-fts:config neptune-fts:return ?resource .
+      }`,
+			fullTextEndpoint,
+			buildFreeTextFieldPatterns("        "),
+			escapeSPARQLString(buildFullTextQueryWithExclusions(
+				conditions.FreeText,
+				conditions.ExcludedText,
+			)),
+		))
+	}
+	if conditions.ExcludedText != "" && conditions.FreeText == "" {
+		patterns = append(patterns, fmt.Sprintf(`      MINUS {
+        SERVICE neptune-fts:search {
+          neptune-fts:config neptune-fts:endpoint "%s" .
+%s
+          neptune-fts:config neptune-fts:queryType "query_string" .
+          neptune-fts:config neptune-fts:query "%s" .
+          neptune-fts:config neptune-fts:return ?resource .
+        }
+      }`,
+			fullTextEndpoint,
+			buildFreeTextFieldPatterns("          "),
+			escapeSPARQLString(buildExcludedFullTextQuery(conditions.ExcludedText)),
+		))
+	}
+	return strings.Join(patterns, "\n")
+}
+
+// buildFreeTextFieldPatterns は、フリーワード対象フィールドの設定行を生成する
+func buildFreeTextFieldPatterns(indent string) string {
+	fields := freeTextSearchFields()
+	patterns := make([]string, 0, len(fields))
+	for _, field := range fields {
+		patterns = append(
+			patterns,
+			indent+"neptune-fts:config neptune-fts:field "+field+" .",
+		)
+	}
+	return strings.Join(patterns, "\n")
+}
+
+// freeTextSearchFields は、フリーワード検索の対象フィールドを返す
+func freeTextSearchFields() []string {
+	return []string{
+		"schema:name",
+		"schema:alternativeHeadline",
+		"ma:seriesName",
+		"schema:volumeNumber",
+		"schema:creator",
+		"schema:publisher",
+		"schema:brand",
+		"schema:version",
+		"schema:isbn",
+		"schema:description",
+		"schema:keywords",
+		"schema:size",
+	}
+}
+
+// buildFullTextQuery は、各検索語を引用してAND結合する
+func buildFullTextQuery(value string) string {
+	return strings.Join(quoteFullTextTerms(value), " AND ")
+}
+
+// buildFullTextQueryWithExclusions は、正の検索語へ引用済み除外語をAND NOTで追加する
+func buildFullTextQueryWithExclusions(value string, excluded string) string {
+	query := buildFullTextQuery(value)
+	for _, term := range quoteFullTextTerms(excluded) {
+		query += " AND NOT " + term
+	}
+	return query
+}
+
+// buildExcludedFullTextQuery は、どれか1語に一致する除外用のOR式を生成する
+func buildExcludedFullTextQuery(value string) string {
+	return strings.Join(quoteFullTextTerms(value), " OR ")
+}
+
+// quoteFullTextTerms は、Unicode空白で分けた各語を安全な引用句へ変換する
+func quoteFullTextTerms(value string) []string {
+	terms := strings.Fields(value)
+	quotedTerms := make([]string, 0, len(terms))
+	for _, term := range terms {
+		quotedTerms = append(quotedTerms, `"`+escapeFullText(term)+`"`)
+	}
+	return quotedTerms
 }
 
 // escapeFullText は、全文検索の引用句内で特別な文字をエスケープする

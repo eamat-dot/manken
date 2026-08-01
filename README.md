@@ -5,7 +5,9 @@
 
 ## 現在利用できる機能
 
-- メディア芸術データベース（MADB）のマンガ単行本をタイトルで検索する
+- メディア芸術データベース（MADB）のマンガ単行本をタイトル、著者名、ISBN、
+  フリーワードで検索する
+- 指定した語を含む単行本を検索結果から除外する
 - 1回に取得する件数を1件から100件まで指定する
 - 検索結果のカーソルを使って続きを取得する
 - MADBの書誌情報を取得元に依存しない `madb.Book` として受け取る
@@ -14,8 +16,7 @@
 - 数値巻、版表示、単行本レーベル、参照先シリーズのIDとURLを取得する
 - 入力、外部サービス、通信、レスポンス解析のエラーを分類する
 
-ISBN検索、著者名検索、キャッシュ、自動リトライ、汎用CLIアプリケーション、
-MCPサーバーは含めない。
+キャッシュ、自動リトライ、汎用CLIアプリケーション、MCPサーバーは含めない。
 
 ## 初期実装の制約
 
@@ -80,18 +81,46 @@ func main() {
 ```
 
 `Limit` が0の場合は20件取得する。続きがある場合は `NextCursor` を次の
-`SearchBooksRequest.Cursor` へそのまま指定する。
+`SearchBooksRequest.Cursor` へそのまま指定する。次ページでも、すべての検索条件と
+`Limit` を最初のリクエストと同じ値にする。
+
+ISBNだけで検索する場合は、`Title` の代わりに `ISBN` へISBN-10またはISBN-13を
+指定する。ハイフンと空白は省略できる。`Title` と `ISBN` の両方を指定すると、
+両方に一致する単行本を検索する。
+
+著者名で検索する場合は `Author` を指定する。MADBのcreator文字列とAgent参照の
+両方を対象にする。複数語はすべてを含む著者名に一致し、タイトルやISBNも指定すると
+すべての条件に一致する単行本を検索する。
+
+主要な書誌項目を横断して検索する場合は `FreeText` を指定する。空白区切りの全語を
+含む単行本を、タイトル、creator、出版社、版表示などから検索する。
+
+指定語を含む単行本を除外する場合は、正の検索条件とともに `ExcludedText` を指定する。
+空白区切りの語を1つでも含む単行本を除外する。Agent参照だけに存在する著者名は
+除外対象にならない。
 
 `madb.NewClient(nil)` はタイムアウト60秒のHTTPクライアントを使用する。
 独自のタイムアウトやTransportが必要な場合は、設定済みの `*http.Client` を渡す。
 
 ## CLIデモ
 
-`examples/demo-madb.go` は、任意のタイトルを指定してMADBの実サービスを検索する
-動作確認用のCLIデモである。
+`examples/demo-madb.go` は、任意のタイトル、著者名、ISBN、フリーワード、除外語を
+指定してMADBの実サービスを検索する動作確認用のCLIデモである。
 
 ```text
 go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
+```
+
+```text
+go run ./examples/demo-madb.go -isbn "978-4-08-846636-1"
+```
+
+```text
+go run ./examples/demo-madb.go -author "佐々木倫子"
+```
+
+```text
+go run ./examples/demo-madb.go -free-text "うる星 高橋留美子" -exclude "復刻box 愛蔵版"
 ```
 
 検索結果は、MADBのデータを `madb.Book` へ変換した
@@ -153,8 +182,9 @@ go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -raw-o
 2xx応答のJSON解析や検索結果への変換に失敗した場合も、読み込み済みの
 rawレスポンスは保存する。HTTPエラー本文や4 MiBの上限を超えた本文は保存しない。
 
-結果の `next_cursor` に値がある場合は、同じタイトルと取得件数とともに
-`-cursor` へ指定すると次ページを取得できる。
+結果の `next_cursor` に値がある場合は、`-cursor` へ指定すると次ページを取得できる。
+`-title`、`-isbn`、`-author`、`-free-text`、`-exclude`、`-limit` は、初回に
+指定したものをすべて同じ値で再指定する。
 
 ```text
 go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -cursor "<next_cursor>"
