@@ -14,10 +14,13 @@
 - MADBの版表示、単行本レーベル、参照先シリーズの名前、ID、URL
 - MADBのタイトル読み、ページ数、紙書籍の大きさ
 - 変換済み検索結果と受信したrawレスポンスを返す公開API
+- 入力順と元のISBN表記を保持して、最大500件のISBNを一括参照する公開API
+- 主タイトルと別言語または別文字体系のタイトルを保持する `ParallelTitles`
 - 検索結果のJSON出力、カーソル、rawレスポンス保存を確認できるCLIデモ
 
 ### Changed
 
+- ISBN条件を `SearchBooks` から削除し、ISBN専用の `LookupBooksByISBN` へ分離
 - `Book`を、利用者向けの`Normalized`と取得元別の`Sources`を持つ構造へ
   破壊的に変更
 - MADBの巻表示を、許可した構文に限って`Volume.Number`と`Volume.Label`へ変換

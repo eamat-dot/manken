@@ -14,6 +14,20 @@ import (
 	"github.com/eamat-dot/manken/madb"
 )
 
+// stringList は、繰り返し指定された文字列オプションを入力順に保持する
+type stringList []string
+
+// String は、指定済みの文字列をカンマ区切りで返す
+func (values *stringList) String() string {
+	return strings.Join(*values, ",")
+}
+
+// Set は、指定された文字列を末尾へ追加する
+func (values *stringList) Set(value string) error {
+	*values = append(*values, value)
+	return nil
+}
+
 // main は、MADB検索デモを実行して終了コードを設定する
 func main() {
 	os.Exit(run())
@@ -22,7 +36,8 @@ func main() {
 // run は、CLI引数に従ってMADBを検索し結果をJSONで出力する
 func run() int {
 	title := flag.String("title", "", "検索する漫画のタイトル（空白区切りの全語を含む）")
-	isbn := flag.String("isbn", "", "検索する漫画のISBN-10またはISBN-13")
+	var isbns stringList
+	flag.Var(&isbns, "isbn", "参照する漫画のISBN-10またはISBN-13（繰り返し指定可）")
 	author := flag.String("author", "", "検索する漫画の著者名（空白区切りの全語を含む）")
 	freeText := flag.String("free-text", "", "主要な書誌項目を横断する検索語（空白区切りの全語を含む）")
 	excludedText := flag.String("exclude", "", "主要な書誌項目から除外する語（空白区切りのいずれかを含む本を除外）")
@@ -31,9 +46,15 @@ func run() int {
 	rawOutput := flag.String("raw-output", "", "変換前のMADBレスポンスを保存する新規ファイル")
 	flag.Parse()
 
-	if strings.TrimSpace(*title) == "" && strings.TrimSpace(*isbn) == "" &&
-		strings.TrimSpace(*author) == "" && strings.TrimSpace(*freeText) == "" {
-		fmt.Fprintln(os.Stderr, "検索条件を -title、-isbn、-author、-free-text のいずれかで指定してください")
+	hasSearchCondition := strings.TrimSpace(*title) != "" ||
+		strings.TrimSpace(*author) != "" || strings.TrimSpace(*freeText) != ""
+	if len(isbns) == 0 && !hasSearchCondition {
+		fmt.Fprintln(os.Stderr, "検索条件または -isbn を指定してください")
+		flag.Usage()
+		return 2
+	}
+	if len(isbns) != 0 && searchOptionWasSet() {
+		fmt.Fprintln(os.Stderr, "-isbn は検索用の -title、-author、-free-text、-exclude、-limit、-cursor と併用できません")
 		flag.Usage()
 		return 2
 	}
@@ -47,17 +68,34 @@ func run() int {
 		return 1
 	}
 
-	request := madb.SearchBooksRequest{
+	if len(isbns) != 0 {
+		return runISBNLookup(ctx, client, isbns, *rawOutput)
+	}
+	return runSearch(ctx, client, madb.SearchBooksRequest{
 		Title:        *title,
-		ISBN:         *isbn,
 		Author:       *author,
 		FreeText:     *freeText,
 		ExcludedText: *excludedText,
 		Limit:        *limit,
 		Cursor:       *cursor,
-	}
+	}, *rawOutput)
+}
 
-	if *rawOutput == "" {
+// searchOptionWasSet は、ISBN参照と併用できない検索用フラグが明示されたか判定する
+func searchOptionWasSet() bool {
+	wasSet := false
+	flag.Visit(func(current *flag.Flag) {
+		switch current.Name {
+		case "title", "author", "free-text", "exclude", "limit", "cursor":
+			wasSet = true
+		}
+	})
+	return wasSet
+}
+
+// runSearch は、MADBの書誌検索を実行して結果と任意のrawレスポンスを出力する
+func runSearch(ctx context.Context, client *madb.Client, request madb.SearchBooksRequest, rawOutput string) int {
+	if rawOutput == "" {
 		result, err := client.SearchBooks(ctx, request)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MADBの検索に失敗しました: %v\n", err)
@@ -68,8 +106,8 @@ func run() int {
 
 	result, rawResponse, searchErr := client.SearchBooksWithRawResponse(ctx, request)
 	if rawResponse != nil {
-		if err := writeRawResponse(*rawOutput, rawResponse); err != nil {
-			fmt.Fprintf(os.Stderr, "MADBのrawレスポンスを保存できません: %s: %v\n", *rawOutput, err)
+		if err := writeRawResponse(rawOutput, rawResponse); err != nil {
+			fmt.Fprintf(os.Stderr, "MADBのrawレスポンスを保存できません: %s: %v\n", rawOutput, err)
 			if searchErr != nil {
 				fmt.Fprintf(os.Stderr, "MADBの検索に失敗しました: %v\n", searchErr)
 			}
@@ -84,8 +122,36 @@ func run() int {
 	return writeResult(result)
 }
 
-// writeResult は、検索結果をインデント付きJSONとして標準出力へ書き込む
-func writeResult(result madb.SearchBooksResult) int {
+// runISBNLookup は、MADBのISBN参照を実行して結果と任意のrawレスポンスを出力する
+func runISBNLookup(ctx context.Context, client *madb.Client, isbns []string, rawOutput string) int {
+	if rawOutput == "" {
+		result, err := client.LookupBooksByISBN(ctx, isbns)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "MADBのISBN参照に失敗しました: %v\n", err)
+			return 1
+		}
+		return writeResult(result)
+	}
+
+	result, rawResponse, lookupErr := client.LookupBooksByISBNWithRawResponse(ctx, isbns)
+	if rawResponse != nil {
+		if err := writeRawResponse(rawOutput, rawResponse); err != nil {
+			fmt.Fprintf(os.Stderr, "MADBのrawレスポンスを保存できません: %s: %v\n", rawOutput, err)
+			if lookupErr != nil {
+				fmt.Fprintf(os.Stderr, "MADBのISBN参照に失敗しました: %v\n", lookupErr)
+			}
+			return 1
+		}
+	}
+	if lookupErr != nil {
+		fmt.Fprintf(os.Stderr, "MADBのISBN参照に失敗しました: %v\n", lookupErr)
+		return 1
+	}
+	return writeResult(result)
+}
+
+// writeResult は、結果をインデント付きJSONとして標準出力へ書き込む
+func writeResult(result any) int {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(result); err != nil {

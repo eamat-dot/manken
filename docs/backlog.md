@@ -13,9 +13,18 @@
 
 ## データ取得元
 
-次の順序で、取得元ごとに実装TODOの作成、内容確認、実装を行う。
+openBD着手前の共通契約と、取得元ごとの実装順を記録する。
 
-1. openBD（ISBN検索のみ。実装TODOは
+openBDの前に、次の共通契約を順番に実装する。
+
+1. ISBN参照APIを書誌検索APIから分離する
+   （[`todo/done/020-separate-isbn-lookup-api.md`](todo/done/020-separate-isbn-lookup-api.md)）
+2. 共通書籍モデルに並列タイトルを追加する
+   （[`todo/done/021-add-parallel-titles.md`](todo/done/021-add-parallel-titles.md)）
+
+共通契約の完了後、次の順序で取得元を実装する。
+
+1. openBD（複数ISBN参照のみ。実装TODOは
    [`todo/019-implement-openbd-api.md`](todo/019-implement-openbd-api.md)）
 2. Google Books API
 3. 楽天Books API

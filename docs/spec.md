@@ -75,12 +75,12 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 
 ### 4.1 確定事項
 
-現在のAPIは、漫画本のタイトル、ISBN、著者名、主要な書誌項目による検索を対象とする。
+現在のAPIは、漫画本の書誌条件による検索と、ISBNによる書籍参照を対象とする。
 
 次の機能を提供する。
 
 - タイトルによる検索
-- ISBN-10またはISBN-13による検索
+- ISBN-10またはISBN-13による参照
 - 著者名による検索
 - 主要な書誌項目を横断するフリーワード検索
 - 主要な書誌項目に指定語を含む結果の除外
@@ -131,6 +131,7 @@ type Book struct {
 
 type NormalizedBook struct {
 	Title             string             `json:"title,omitempty"`
+	ParallelTitles    []string           `json:"parallel_titles,omitempty"`
 	TitleKana         string             `json:"title_kana,omitempty"`
 	Subtitle          string             `json:"subtitle,omitempty"`
 	Series            []Series           `json:"series,omitempty"`
@@ -163,24 +164,32 @@ type BookSource struct {
 
 #### 確定事項
 
-- `Normalized` は変更差分ではなく、利用者が通常参照する共通書誌情報とする
+- `Normalized` は変更差分や取得元の元レスポンスではなく、取得元の値から導いた、
+  利用者が通常参照する共通書誌情報とする
 - 加工不要な取得元値も、共通項目として採用できる場合は `Normalized` へコピーする
-- `Sources` は正規化に使用した取得元、取得元内ID、参照URL、元値を保持する
-- 取得元固有の全レスポンスは `Book` に含めず、Raw response用メソッドで返す
+- `Sources` は正規化に使用した取得元、取得元内ID、参照URL、主要な元値を保持し、
+  取得元固有の全レスポンスを表すものではない
+- 取得元固有の全レスポンスは `Book` に含めず、専用のRaw response用メソッドで返す
 - `Title` は単数とし、分解できない場合は取得元タイトル全体を暫定値にする
+- `ParallelTitles` は、主タイトルと同じ内容を別の言語または文字体系で表した
+  タイトルを、取得元が示した順序で保持する
+- 取得元で並列タイトルと確認できない別題、略題、表紙題、原題は
+  `ParallelTitles` に含めない
+- 取得元タイトルを安全に分解できた場合も、完全な元タイトルは変更せず
+  `Sources[].Values.Titles` に残す。分解できない場合は全体を `Title` に設定する
 - `TitleKana` は安全に分解できない場合に空にし、取得元の読みは `Sources` に残す
 - `Subtitle` は単数とする
 - `Authors` は利用者向けの著者名、`Contributors` は名前と複数の役割を保持する
 - 取得元が寄与者の順序を提供する場合は、その順序を維持する
 - 取得元が順序を提供しない場合は、取得元パッケージが結果を安定化し、
   その順序に意味がないことを取得元固有の仕様へ記載する
-- 並列タイトルは初期の `NormalizedBook` に含めない
 - `IsFinalVolume` は完結巻の肯定情報だけを表し、`完全版`から推測しない
 - 現在の実装では複数取得元のBookを自動統合しない
 
 ### 5.3 SourceBookValues
 
-取得元の値は、文字列の内容を変更せず次の型へ保持する。取得元が同じ意味の値を
+取得元の値は、文字列の内容を変更せず次の型へ保持する。これらは正規化に使用した
+主要な元値であり、取得元固有の全レスポンスではない。取得元が同じ意味の値を
 複数返せる項目は、正規化で1件を選んだ場合もスライスですべて残す。
 
 ```go
@@ -302,7 +311,7 @@ type Price struct {
 - 0巻、価格0円、明示された `TaxIncluded=false` は省略しない
 - 空の `Volume` 全体は省略する
 
-## 6. 検索API
+## 6. 検索・参照API
 
 ### 6.1 SearchBooksRequest
 
@@ -311,7 +320,6 @@ type Price struct {
 ```go
 type SearchBooksRequest struct {
 	Title        string `json:"title"`
-	ISBN         string `json:"isbn"`
 	Author       string `json:"author"`
 	FreeText     string `json:"free_text"`
 	ExcludedText string `json:"excluded_text"`
@@ -323,7 +331,6 @@ type SearchBooksRequest struct {
 各フィールドの共通の役割は次のとおり。
 
 - `Title` はタイトルの検索条件を表す
-- `ISBN` はISBNの検索条件を表す
 - `Author` は著者名の検索条件を表す
 - `FreeText` は複数の書誌項目を対象とする検索条件を表す
 - `ExcludedText` は検索結果から除外する条件を表す
@@ -333,7 +340,7 @@ type SearchBooksRequest struct {
 検索対象の項目、複数条件の組み合わせ、入力値の検証、Limit、カーソルの規則は、
 データ取得元パッケージごとの契約とする。現在のMADB検索では
 [MADBパッケージ仕様](pkg/madb/spec.md#6-検索条件)と
-[Limitとページング](pkg/madb/spec.md#7-limitとページング)で定義する。
+[Limitとページング](pkg/madb/spec.md#8-limitとページング)で定義する。
 
 ### 6.2 SearchBooksResult
 
@@ -351,6 +358,36 @@ type SearchBooksResult struct {
 - 該当する書籍がない場合は、エラーではなく空の `Books` を返す
 - 続きがない場合は `NextCursor` を空文字列にする
 - 合計件数は現在のAPIに含めない
+
+### 6.3 ISBN参照
+
+ISBNによる書籍参照は、検索条件、Limit、カーソルを持たない専用メソッドで行う。
+取得元パッケージは次の共通結果型を返す。
+
+```go
+type ISBNLookupResult struct {
+	Items []ISBNLookupItem `json:"items"`
+}
+
+type ISBNLookupItem struct {
+	RequestedISBN string `json:"requested_isbn"`
+	Books         []Book `json:"books"`
+}
+```
+
+#### 確定事項
+
+- 1件以上のISBNを必須とし、最大件数は取得元パッケージごとに定義する
+- `RequestedISBN` は呼び出し側が指定した文字列を変更せず保持する
+- `Items` は入力と同じ件数、同じ順序で返す
+- 同じISBNを複数回指定した場合も入力位置ごとに要素を返す
+- ISBN-10と対応するISBN-13を問い合わせ時に重複除去しても、元の入力位置へ展開する
+- 該当なしはエラーとせず、非nilの空の `Books` を返す
+- 同じISBNに複数書籍が対応する場合は、統合せず `Books` にすべて返す
+- 1件でも不正なISBNがある場合は、外部通信せず呼び出し全体を `invalid_argument` にする
+
+現在の取得元別上限はMADBが500件、将来実装するopenBDが1,000件とする。
+この差は共通型へ埋め込まず、各クライアントが入力検証する。
 
 ## 7. エラーAPI
 

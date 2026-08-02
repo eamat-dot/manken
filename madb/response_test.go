@@ -495,31 +495,6 @@ func TestBuildSearchResult_IgnoresUnknownVariables(t *testing.T) {
 	}
 }
 
-// TestISBNValidation は、ISBN-10とISBN-13のチェックディジットを検証する
-func TestISBNValidation(t *testing.T) {
-	tests := []struct {
-		value  string
-		isbn10 bool
-		isbn13 bool
-	}{
-		{value: "080442957X", isbn10: true},
-		{value: "080442957x"},
-		{value: "0804429570"},
-		{value: "9780306406157", isbn13: true},
-		{value: "9780306406150"},
-	}
-	for _, test := range tests {
-		t.Run(test.value, func(t *testing.T) {
-			if got := isValidISBN10(test.value); got != test.isbn10 {
-				t.Fatalf("isValidISBN10() = %t, want %t", got, test.isbn10)
-			}
-			if got := isValidISBN13(test.value); got != test.isbn13 {
-				t.Fatalf("isValidISBN13() = %t, want %t", got, test.isbn13)
-			}
-		})
-	}
-}
-
 // assertStrings は、文字列スライスの内容と順序を検証する
 func assertStrings(t *testing.T, got, want []string) {
 	t.Helper()

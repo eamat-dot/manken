@@ -21,6 +21,7 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 						"type": "uri",
 						"value": "https://mediaarts-db.artmuseums.go.jp/id/M1"
 					},
+					"matchedISBN": {"type": "literal", "value": "9784088466361"},
 					"id": {"type": "literal", "value": "M1"},
 					"title": {"type": "literal", "value": "作品"}
 				}]
@@ -40,7 +41,6 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	var result madb.SearchBooksResult
 	result, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{
 		Title:    "作品",
-		ISBN:     "9784088466361",
 		Author:   "著者",
 		FreeText: "新装版",
 		Limit:    1,
@@ -54,10 +54,20 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 		t.Fatalf("result = %#v, want one MADB book", result)
 	}
 	book := result.Books[0]
+	_ = book.Normalized.ParallelTitles
 	_ = book.Normalized.EditionStatements
 	_ = book.Normalized.Imprints
 	_ = book.Normalized.Series
 	_ = book.Sources[0].Values
+
+	var lookup madb.ISBNLookupResult
+	lookup, err = client.LookupBooksByISBN(context.Background(), []string{"9784088466361"})
+	if err != nil {
+		t.Fatalf("LookupBooksByISBN() error = %v", err)
+	}
+	if len(lookup.Items) != 1 {
+		t.Fatalf("lookup = %#v, want one item", lookup)
+	}
 
 	_, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{})
 	var classified *madb.Error

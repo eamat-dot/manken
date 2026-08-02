@@ -154,14 +154,6 @@ func TestIntegration_SearchBooksExcludedText(t *testing.T) {
 			},
 		},
 		{
-			name: "ISBN",
-			input: madb.SearchBooksRequest{
-				ISBN:         "9784088466361",
-				ExcludedText: "復刻box",
-			},
-			bookID: "M190399",
-		},
-		{
 			name: "author",
 			input: madb.SearchBooksRequest{
 				Author:       "佐々木倫子",
@@ -254,40 +246,43 @@ func TestIntegration_SearchBooksExcludedTextPagination(t *testing.T) {
 	}
 }
 
-// TestIntegration_SearchBooksISBN は、ISBN-10とISBN-13から同じ単行本を取得する
-func TestIntegration_SearchBooksISBN(t *testing.T) {
-	client := newIntegrationClient(t)
-	for _, isbn := range []string{"4088466365", "9784088466361"} {
-		t.Run(isbn, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			defer cancel()
-
-			result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{ISBN: isbn})
-			if err != nil {
-				t.Fatalf("SearchBooks() error = %v", err)
-			}
-			if findBookByID(result.Books, "M190399") == nil {
-				t.Fatalf("M190399 was not found: %#v", result)
-			}
-		})
-	}
-}
-
-// TestIntegration_SearchBooksTitleAndISBN は、タイトルとISBNをAND条件で検索する
-func TestIntegration_SearchBooksTitleAndISBN(t *testing.T) {
+// TestIntegration_LookupBooksByISBN は、複数ISBNと同一ISBNの複数リソースを参照する
+func TestIntegration_LookupBooksByISBN(t *testing.T) {
 	client := newIntegrationClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
-		Title: "好きって言わせる方法",
-		ISBN:  "9784088466361",
+	result, rawResponse, err := client.LookupBooksByISBNWithRawResponse(ctx, []string{
+		"4088466365",
+		"9784088466361",
+		"9784990524302",
+		"9780000000002",
 	})
 	if err != nil {
-		t.Fatalf("SearchBooks() error = %v", err)
+		t.Fatalf("LookupBooksByISBNWithRawResponse() error = %v", err)
 	}
-	if findBookByID(result.Books, "M190399") == nil {
-		t.Fatalf("M190399 was not found: %#v", result)
+	if len(result.Items) != 4 {
+		t.Fatalf("len(Items) = %d, want 4", len(result.Items))
+	}
+	for _, index := range []int{0, 1} {
+		if findBookByID(result.Items[index].Books, "M190399") == nil {
+			t.Fatalf("M190399 was not found in item %d: %#v", index, result.Items[index])
+		}
+	}
+	wantIDs := []string{"M409358", "M409359", "M409360"}
+	if len(result.Items[2].Books) != len(wantIDs) {
+		t.Fatalf("duplicate ISBN books = %#v, want %v", result.Items[2].Books, wantIDs)
+	}
+	for index, id := range wantIDs {
+		if result.Items[2].Books[index].Sources[0].ID != id {
+			t.Fatalf("duplicate ISBN books = %#v, want %v", result.Items[2].Books, wantIDs)
+		}
+	}
+	if result.Items[3].Books == nil || len(result.Items[3].Books) != 0 {
+		t.Fatalf("missing item Books = %#v, want non-nil empty", result.Items[3].Books)
+	}
+	if len(rawResponse) == 0 || len(rawResponse) > 4<<20 {
+		t.Fatalf("raw response size = %d, want 1..4 MiB", len(rawResponse))
 	}
 }
 
@@ -338,24 +333,6 @@ func TestIntegration_SearchBooksTitleAndAuthor(t *testing.T) {
 	}
 	if findBookByID(result.Books, "M292132") == nil {
 		t.Fatalf("M292132 was not found: %#v", result)
-	}
-}
-
-// TestIntegration_SearchBooksISBNAndAuthor は、ISBNと著者名をAND条件で検索する
-func TestIntegration_SearchBooksISBNAndAuthor(t *testing.T) {
-	client := newIntegrationClient(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
-		ISBN:   "9784088466361",
-		Author: "永田正実",
-	})
-	if err != nil {
-		t.Fatalf("SearchBooks() error = %v", err)
-	}
-	if findBookByID(result.Books, "M190399") == nil {
-		t.Fatalf("M190399 was not found: %#v", result)
 	}
 }
 

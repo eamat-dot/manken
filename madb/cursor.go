@@ -22,6 +22,15 @@ type cursorPayload struct {
 	SearchHash string `json:"search_sha256"`
 }
 
+// cursorSearchConditions は、ISBN検索分離前の検索条件ハッシュ表現を維持する
+type cursorSearchConditions struct {
+	Title        string   `json:"title"`
+	ISBNs        []string `json:"isbns"`
+	Author       string   `json:"author"`
+	FreeText     string   `json:"free_text"`
+	ExcludedText string   `json:"excluded_text"`
+}
+
 // encodeCursor は、次ページの情報を不透明なカーソルへ変換する
 func encodeCursor(after string, conditions searchConditions, limit int) (string, error) {
 	searchHash, err := hashSearchConditions(conditions)
@@ -95,7 +104,12 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 
 // hashSearchConditions は、正規化済み検索条件をSHA-256の16進文字列へ変換する
 func hashSearchConditions(conditions searchConditions) (string, error) {
-	data, err := json.Marshal(conditions)
+	data, err := json.Marshal(cursorSearchConditions{
+		Title:        conditions.Title,
+		Author:       conditions.Author,
+		FreeText:     conditions.FreeText,
+		ExcludedText: conditions.ExcludedText,
+	})
 	if err != nil {
 		return "", fmt.Errorf("encode search conditions: %w", err)
 	}

@@ -1,7 +1,9 @@
 package madb
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"strings"
 	"testing"
 )
@@ -10,7 +12,7 @@ import (
 func TestCursor_RoundTrip(t *testing.T) {
 	after := resourceURI("M123")
 	conditions := searchConditions{
-		Title: "作品", ISBNs: []string{"4088466365", "9784088466361"},
+		Title:  "作品",
 		Author: "著者", FreeText: "新装版", ExcludedText: "復刻版",
 	}
 	encoded, err := encodeCursor(after, conditions, 20)
@@ -33,7 +35,7 @@ func TestCursor_RoundTrip(t *testing.T) {
 // TestCursor_RejectsInvalidValues は、不正または検索条件と一致しないカーソルを拒否する
 func TestCursor_RejectsInvalidValues(t *testing.T) {
 	conditions := searchConditions{
-		Title: "作品", ISBNs: []string{"4088466365", "9784088466361"},
+		Title:  "作品",
 		Author: "著者", FreeText: "新装版", ExcludedText: "復刻版",
 	}
 	valid, err := encodeCursor(resourceURI("M123"), conditions, 20)
@@ -58,11 +60,10 @@ func TestCursor_RejectsInvalidValues(t *testing.T) {
 		{name: "invalid URI", cursor: invalidURI, conditions: conditions, limit: 20},
 		{name: "unknown field", cursor: unknownField, conditions: conditions, limit: 20},
 		{name: "trailing data", cursor: trailing, conditions: conditions, limit: 20},
-		{name: "different title", cursor: valid, conditions: searchConditions{Title: "別作品", ISBNs: conditions.ISBNs, Author: conditions.Author, FreeText: conditions.FreeText}, limit: 20},
-		{name: "different ISBN", cursor: valid, conditions: searchConditions{Title: "作品", ISBNs: []string{"9791234567896"}, Author: conditions.Author, FreeText: conditions.FreeText}, limit: 20},
-		{name: "different author", cursor: valid, conditions: searchConditions{Title: "作品", ISBNs: conditions.ISBNs, Author: "別著者", FreeText: conditions.FreeText}, limit: 20},
-		{name: "different free text", cursor: valid, conditions: searchConditions{Title: "作品", ISBNs: conditions.ISBNs, Author: conditions.Author, FreeText: "増補版"}, limit: 20},
-		{name: "different excluded text", cursor: valid, conditions: searchConditions{Title: "作品", ISBNs: conditions.ISBNs, Author: conditions.Author, FreeText: conditions.FreeText, ExcludedText: "愛蔵版"}, limit: 20},
+		{name: "different title", cursor: valid, conditions: searchConditions{Title: "別作品", Author: conditions.Author, FreeText: conditions.FreeText}, limit: 20},
+		{name: "different author", cursor: valid, conditions: searchConditions{Title: "作品", Author: "別著者", FreeText: conditions.FreeText}, limit: 20},
+		{name: "different free text", cursor: valid, conditions: searchConditions{Title: "作品", Author: conditions.Author, FreeText: "増補版"}, limit: 20},
+		{name: "different excluded text", cursor: valid, conditions: searchConditions{Title: "作品", Author: conditions.Author, FreeText: conditions.FreeText, ExcludedText: "愛蔵版"}, limit: 20},
 		{name: "different limit", cursor: valid, conditions: conditions, limit: 10},
 	}
 
@@ -72,6 +73,31 @@ func TestCursor_RejectsInvalidValues(t *testing.T) {
 				t.Fatal("decodeCursor() error = nil")
 			}
 		})
+	}
+}
+
+// TestCursor_PreservesPreSeparationSearchHash は、ISBNなし検索の旧ハッシュ表現を維持する
+func TestCursor_PreservesPreSeparationSearchHash(t *testing.T) {
+	conditions := searchConditions{Title: "作品", Author: "著者"}
+	got, err := hashSearchConditions(conditions)
+	if err != nil {
+		t.Fatalf("hashSearchConditions() error = %v", err)
+	}
+	legacy := []byte(`{"title":"作品","isbns":null,"author":"著者","free_text":"","excluded_text":""}`)
+	sum := sha256.Sum256(legacy)
+	if want := hex.EncodeToString(sum[:]); got != want {
+		t.Fatalf("hashSearchConditions() = %q, want %q", got, want)
+	}
+}
+
+// TestCursor_RejectsPreSeparationISBNCursor は、旧ISBN検索カーソルを拒否する
+func TestCursor_RejectsPreSeparationISBNCursor(t *testing.T) {
+	legacy := []byte(`{"title":"","isbns":["4088466365","9784088466361"],"author":"","free_text":"","excluded_text":""}`)
+	sum := sha256.Sum256(legacy)
+	cursor := encodeRawCursor(`{"v":2,"after":"` + resourceURI("M123") +
+		`","limit":20,"search_sha256":"` + hex.EncodeToString(sum[:]) + `"}`)
+	if _, err := decodeCursor(cursor, searchConditions{}, 20); err == nil {
+		t.Fatal("decodeCursor() error = nil")
 	}
 }
 

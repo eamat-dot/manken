@@ -11,11 +11,68 @@ const fullTextEndpoint = "https://vpc-mediaarts-db-qaymrmtqbprlhmqq33a2ncf4ke.ap
 
 // searchConditions は、検証と正規化を終えたMADB検索条件を保持する
 type searchConditions struct {
-	Title        string   `json:"title"`
-	ISBNs        []string `json:"isbns"`
-	Author       string   `json:"author"`
-	FreeText     string   `json:"free_text"`
-	ExcludedText string   `json:"excluded_text"`
+	Title        string `json:"title"`
+	Author       string `json:"author"`
+	FreeText     string `json:"free_text"`
+	ExcludedText string `json:"excluded_text"`
+}
+
+// buildISBNLookupQuery は、複数のISBN候補を1回で参照するSPARQLクエリを生成する
+func buildISBNLookupQuery(candidates []string) string {
+	values := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		values = append(values, `"`+escapeSPARQLString(candidate)+`"`)
+	}
+
+	return fmt.Sprintf(`PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <https://schema.org/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX ma: <https://mediaarts-db.artmuseums.go.jp/data/property#>
+PREFIX class: <https://mediaarts-db.artmuseums.go.jp/data/class#>
+
+SELECT ?resource ?matchedISBN ?id ?title ?titleKana ?subtitle ?seriesName
+       ?seriesResource ?relatedSeriesName ?seriesID
+       ?volumeNumber ?version ?creator ?agentName ?publisher ?brand
+       ?isbn ?publishedDate ?pageCount ?size
+WHERE {
+  {
+    SELECT DISTINCT ?resource ?matchedISBN
+    WHERE {
+      VALUES ?matchedISBN { %s }
+      ?resource schema:isbn ?matchedISBN .
+      ?resource rdf:type class:MangaBook .
+    }
+  }
+  OPTIONAL { ?resource schema:identifier ?id . }
+  OPTIONAL { ?resource schema:name ?title . FILTER (LANG(?title) = "") }
+  OPTIONAL { ?resource schema:name ?titleKana . FILTER (LANG(?titleKana) = "ja-hrkt") }
+  OPTIONAL { ?resource schema:alternativeHeadline ?subtitle . FILTER (LANG(?subtitle) = "") }
+  OPTIONAL { ?resource ma:seriesName ?seriesName . FILTER (LANG(?seriesName) = "") }
+  OPTIONAL {
+    ?resource schema:isPartOf ?seriesResource .
+    ?seriesResource rdf:type class:MangaBookSeries .
+    OPTIONAL {
+      ?seriesResource schema:name ?relatedSeriesName .
+      FILTER (LANG(?relatedSeriesName) = "")
+    }
+    OPTIONAL { ?seriesResource schema:identifier ?seriesID . }
+  }
+  OPTIONAL { ?resource schema:volumeNumber ?volumeNumber . }
+  OPTIONAL { ?resource schema:version ?version . FILTER (LANG(?version) = "") }
+  OPTIONAL { ?resource schema:creator ?creator . FILTER (LANG(?creator) = "") }
+  OPTIONAL {
+    ?resource dcterms:creator ?agent .
+    ?agent rdfs:label ?agentName .
+  }
+  OPTIONAL { ?resource schema:publisher ?publisher . }
+  OPTIONAL { ?resource schema:brand ?brand . FILTER (LANG(?brand) = "") }
+  OPTIONAL { ?resource schema:isbn ?isbn . }
+  OPTIONAL { ?resource schema:datePublished ?publishedDate . }
+  OPTIONAL { ?resource schema:numberOfPages ?pageCount . }
+  OPTIONAL { ?resource schema:size ?size . }
+}
+ORDER BY ?resource ?matchedISBN`, strings.Join(values, " "))
 }
 
 // buildSearchQuery は、検索条件からMADB向けSPARQLクエリを生成する
@@ -97,16 +154,6 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
         neptune-fts:config neptune-fts:query "%s" .
         neptune-fts:config neptune-fts:return ?resource .
       }`, fullTextEndpoint, escapeSPARQLString(buildFullTextQuery(conditions.Title))))
-	}
-	if len(conditions.ISBNs) != 0 {
-		values := make([]string, 0, len(conditions.ISBNs))
-		for _, isbn := range conditions.ISBNs {
-			values = append(values, `"`+escapeSPARQLString(isbn)+`"`)
-		}
-		patterns = append(patterns, fmt.Sprintf(
-			"      VALUES ?searchISBN { %s }\n      ?resource schema:isbn ?searchISBN .",
-			strings.Join(values, " "),
-		))
 	}
 	if conditions.Author != "" {
 		fullTextQuery := escapeSPARQLString(buildFullTextQuery(conditions.Author))

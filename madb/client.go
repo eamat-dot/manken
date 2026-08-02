@@ -23,6 +23,7 @@ const (
 
 	operationNewClient   = "madb.NewClient"
 	operationSearchBooks = "madb.SearchBooks"
+	operationISBNLookup  = "madb.LookupBooksByISBN"
 )
 
 // Client は、メディア芸術データベースへの接続設定を保持する
@@ -126,7 +127,7 @@ func (client *Client) searchBooks(
 	}
 
 	query := buildSearchQuery(conditions, limit, cursor.After)
-	body, err := client.execute(ctx, query)
+	body, err := client.execute(ctx, operationSearchBooks, query)
 	if err != nil {
 		return SearchBooksResult{}, body, err
 	}
@@ -148,7 +149,7 @@ func (client *Client) searchBooks(
 }
 
 // execute は、SPARQLクエリを送信して成功レスポンス本文を読み込む
-func (client *Client) execute(ctx context.Context, query string) ([]byte, error) {
+func (client *Client) execute(ctx context.Context, operation string, query string) ([]byte, error) {
 	form := url.Values{"query": []string{query}}
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
@@ -157,30 +158,30 @@ func (client *Client) execute(ctx context.Context, query string) ([]byte, error)
 		strings.NewReader(form.Encode()),
 	)
 	if err != nil {
-		return nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
+		return nil, newError(operation, ErrorKindInvalidArgument, err)
 	}
 	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	httpRequest.Header.Set("Accept", "application/sparql-results+json")
 
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, newError(operationSearchBooks, ErrorKindUnavailable, err)
+		return nil, newError(operation, ErrorKindUnavailable, err)
 	}
 
 	if httpResponse.StatusCode < http.StatusOK || httpResponse.StatusCode >= http.StatusMultipleChoices {
 		_, copyErr := io.Copy(io.Discard, io.LimitReader(httpResponse.Body, errorBodyMax))
 		closeErr := httpResponse.Body.Close()
-		return nil, newHTTPError(httpResponse, errors.Join(copyErr, closeErr))
+		return nil, newHTTPError(operation, httpResponse, errors.Join(copyErr, closeErr))
 	}
 
 	body, err := readLimitedBody(httpResponse.Body, successBodyMax)
 	closeErr := httpResponse.Body.Close()
 	if err != nil {
-		return nil, newError(operationSearchBooks, ErrorKindInvalidResponse, err)
+		return nil, newError(operation, ErrorKindInvalidResponse, err)
 	}
 	if closeErr != nil {
 		return body, newError(
-			operationSearchBooks,
+			operation,
 			ErrorKindInvalidResponse,
 			fmt.Errorf("close response body: %w", closeErr),
 		)
@@ -214,19 +215,7 @@ func validateSearchRequest(
 		FreeText:     strings.Join(strings.Fields(request.FreeText), " "),
 		ExcludedText: strings.Join(strings.Fields(request.ExcludedText), " "),
 	}
-	if strings.TrimSpace(request.ISBN) != "" {
-		isbns, err := normalizeSearchISBN(request.ISBN)
-		if err != nil {
-			return searchConditions{}, 0, cursorPayload{}, newError(
-				operationSearchBooks,
-				ErrorKindInvalidArgument,
-				err,
-			)
-		}
-		conditions.ISBNs = isbns
-	}
-	if conditions.Title == "" && len(conditions.ISBNs) == 0 &&
-		conditions.Author == "" && conditions.FreeText == "" {
+	if conditions.Title == "" && conditions.Author == "" && conditions.FreeText == "" {
 		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,
@@ -270,7 +259,7 @@ func readLimitedBody(reader io.Reader, limit int64) ([]byte, error) {
 }
 
 // newHTTPError は、HTTPステータスとRetry-Afterから分類済みエラーを生成する
-func newHTTPError(response *http.Response, cleanupErr error) error {
+func newHTTPError(operation string, response *http.Response, cleanupErr error) error {
 	kind := ErrorKindUpstream
 	if response.StatusCode == http.StatusRequestTimeout ||
 		response.StatusCode == http.StatusTooManyRequests ||
@@ -285,7 +274,7 @@ func newHTTPError(response *http.Response, cleanupErr error) error {
 
 	return &Error{
 		Kind:       kind,
-		Operation:  operationSearchBooks,
+		Operation:  operation,
 		StatusCode: response.StatusCode,
 		RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()),
 		Err:        cause,
