@@ -12,9 +12,9 @@
 
 ## 根拠
 
-- [`../../research/010-book-api-common-fields.md`](../../research/010-book-api-common-fields.md)
-- [`../../research/013-book-source-and-normalized-model.md`](../../research/013-book-source-and-normalized-model.md)
-- [`../../research/014-title-volume-edition-examples.md`](../../research/014-title-volume-edition-examples.md)
+- [`../../research/012-02-book-api-common-fields.md`](../../research/012-02-book-api-common-fields.md)
+- [`../../research/012-05-book-source-and-normalized-model.md`](../../research/012-05-book-source-and-normalized-model.md)
+- [`../../research/012-06-title-volume-edition-examples.md`](../../research/012-06-title-volume-edition-examples.md)
 
 ## 確定した前提
 

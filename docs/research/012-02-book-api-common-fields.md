@@ -17,7 +17,7 @@ Google Books API、openBD、Yahoo!ショッピング商品検索API、DMM.com AP
 - openBD:
   - https://openbd.jp/spec/
   - https://api.openbd.jp/v1/schema?pretty
-  - 詳細メモ: [`009-openbd-api.md`](009-openbd-api.md)
+  - 詳細メモ: [`012-01-openbd-api.md`](012-01-openbd-api.md)
 - Yahoo!ショッピング商品検索API v3:
   - https://developer.yahoo.co.jp/webapi/shopping/v3/itemsearch.html
 - DMM.com API:
@@ -164,7 +164,7 @@ Google Booksは販売情報も返すが、中心となる `volumeInfo` は書誌
 ### 4.2 openBD
 
 openBDの応答は `summary`、`onix`、`hanmoto` に分かれる。詳細な全項目は
-[`009-openbd-api.md`](009-openbd-api.md) に整理されているため、ここでは
+[`012-01-openbd-api.md`](012-01-openbd-api.md) に整理されているため、ここでは
 共通モデルの検討に関係する概念をまとめる。
 
 #### 識別
@@ -278,7 +278,7 @@ Yahoo!ショッピング商品検索APIでは電子書籍を検索できない�
 `ebookjapan` を実装対象から外す。
 
 実レスポンスと変換候補は
-[`011-yahoo-shopping-book-data.md`](011-yahoo-shopping-book-data.md) に分離する。
+[`012-03-yahoo-shopping-book-data.md`](012-03-yahoo-shopping-book-data.md) に分離する。
 
 ### 4.4 DMM.com API
 
@@ -424,7 +424,7 @@ Koboの商品番号はISBNとは限らない。公式の出力項目にはISBN�
 タイトルと著者の読み、商品番号、レビュー、販売タイプは未取得である。
 
 楽天BooksとKoboで漫画、BL、TLを分けるジャンルIDと検索条件は
-[`012-rakuten-comic-genres.md`](012-rakuten-comic-genres.md) に分離する。
+[`012-04-rakuten-comic-genres.md`](012-04-rakuten-comic-genres.md) に分離する。
 
 ## 5. 共通項目の対応状況
 
@@ -604,11 +604,11 @@ type Book struct {
 区別し、価格は単話版や無料試読版を判定する補助情報として保持する。
 
 項目一覧、補助型、正規化規則、現在の `api.Book` からの変更点は
-[`013-book-source-and-normalized-model.md`](013-book-source-and-normalized-model.md)
+[`012-05-book-source-and-normalized-model.md`](012-05-book-source-and-normalized-model.md)
 に分離する。
 
 タイトル、巻数、版表示の実例と分解候補は
-[`014-title-volume-edition-examples.md`](014-title-volume-edition-examples.md)
+[`012-06-title-volume-edition-examples.md`](012-06-title-volume-edition-examples.md)
 に分離する。
 
 合意したモデルを初期実装へ移す作業は

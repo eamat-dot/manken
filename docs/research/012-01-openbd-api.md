@@ -292,7 +292,7 @@ openBD のレスポンスは、主に次の 3 つのセクションで構成さ�
 
 - `storelink`
 
-## 5. 既存の共通モデル [api/model.go](api/model.go) との比較
+## 5. 既存の共通モデル [api/model.go](../../api/model.go) との比較
 
 現状の共通モデルは、主に次の項目を持つ。
 

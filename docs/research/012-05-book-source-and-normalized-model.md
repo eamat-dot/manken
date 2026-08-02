@@ -418,7 +418,7 @@ Goではスカラーのポインター、`omitempty`、値型構造体の `omitz
 1つの `BookSource` を設定する。複数取得元の自動統合と競合解決は将来課題とする。
 
 各取得元の実例と期待する分解候補は
-[`014-title-volume-edition-examples.md`](014-title-volume-edition-examples.md)
+[`012-06-title-volume-edition-examples.md`](012-06-title-volume-edition-examples.md)
 に分離する。
 
 ## 10. 現在の `api.Book` からの変更点

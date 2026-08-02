@@ -13,7 +13,7 @@
 - MADBの既存実データ調査:
   [`008-madb-volume-number-normalization.md`](008-madb-volume-number-normalization.md)
 - MADBの版・レーベル調査:
-  [`006-research-madb-edition-and-imprint.md`](../todo/archved/006-research-madb-edition-and-imprint.md)
+  [`006-research-madb-edition-and-imprint.md`](../todo/archived/006-research-madb-edition-and-imprint.md)
 - Google Books API
 - openBD
 - Yahoo!ショッピング商品検索API v3の `bookfan`

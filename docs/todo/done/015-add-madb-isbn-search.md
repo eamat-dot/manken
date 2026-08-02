@@ -16,8 +16,8 @@
 
 ## 根拠
 
-- [`../research/014-madb-search-conditions.md`](../research/014-madb-search-conditions.md)
-- [`../pkg/madb/spec.md`](../pkg/madb/spec.md)
+- [`../../research/014-madb-search-conditions.md`](../../research/014-madb-search-conditions.md)
+- [`../../pkg/madb/spec.md`](../../pkg/madb/spec.md)
 
 ## 非目的
 
