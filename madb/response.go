@@ -10,9 +10,11 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 )
 
-// sparqlResponse は、SPARQL Results JSONの検索結果を保持する
+// sparqlResponse は、SPARQL Results JSONの結果を保持する
 type sparqlResponse struct {
 	Results *sparqlResults `json:"results"`
 }
@@ -47,6 +49,7 @@ type sourceBook struct {
 	Publishers         []string
 	Brands             []string
 	ISBNs              []string
+	MatchedISBNs       []string
 	PublishedDate      string
 	PageCount          string
 	Size               string
@@ -67,6 +70,62 @@ type sourceBookAccumulator struct {
 	publishers         map[string]struct{}
 	brands             map[string]struct{}
 	isbns              map[string]struct{}
+	matchedISBNs       map[string]struct{}
+}
+
+// buildISBNLookupResult は、SPARQLレスポンスを入力ISBNごとの参照結果へ変換する
+func buildISBNLookupResult(
+	response sparqlResponse,
+	inputs []isbnLookupInput,
+) (ISBNLookupResult, error) {
+	if response.Results == nil {
+		return ISBNLookupResult{}, newError(
+			operationISBNLookup,
+			ErrorKindInvalidResponse,
+			errors.New("SPARQL response does not contain results"),
+		)
+	}
+
+	sourceBooks, err := aggregateBindings(response.Results.Bindings)
+	if err != nil {
+		return ISBNLookupResult{}, newError(operationISBNLookup, ErrorKindInvalidResponse, err)
+	}
+
+	items := make([]ISBNLookupItem, len(inputs))
+	for index, input := range inputs {
+		items[index] = ISBNLookupItem{
+			RequestedISBN: input.Requested,
+			Books:         make([]Book, 0),
+		}
+	}
+	for _, source := range sourceBooks {
+		if len(source.MatchedISBNs) == 0 {
+			return ISBNLookupResult{}, newError(
+				operationISBNLookup,
+				ErrorKindInvalidResponse,
+				errors.New("SPARQL binding does not contain matchedISBN"),
+			)
+		}
+		book := convertBook(source)
+		for index, input := range inputs {
+			if stringsIntersect(input.Candidates, source.MatchedISBNs) {
+				items[index].Books = append(items[index].Books, book)
+			}
+		}
+	}
+	return ISBNLookupResult{Items: items}, nil
+}
+
+// stringsIntersect は、2つの文字列集合に共通する値があるか判定する
+func stringsIntersect(left []string, right []string) bool {
+	for _, leftValue := range left {
+		for _, rightValue := range right {
+			if leftValue == rightValue {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // decodeSPARQLResponse は、SPARQL Results JSONを非公開レスポンス型へ変換する
@@ -180,6 +239,7 @@ func newSourceBookAccumulator(resourceURI string) *sourceBookAccumulator {
 		publishers:         make(map[string]struct{}),
 		brands:             make(map[string]struct{}),
 		isbns:              make(map[string]struct{}),
+		matchedISBNs:       make(map[string]struct{}),
 	}
 }
 
@@ -240,6 +300,8 @@ func (accumulator *sourceBookAccumulator) addBinding(binding map[string]sparqlVa
 			addValue(accumulator.brands, value.Value)
 		case "isbn":
 			addValue(accumulator.isbns, value.Value)
+		case "matchedISBN":
+			addValue(accumulator.matchedISBNs, value.Value)
 		case "publishedDate":
 			if err := setScalar(&accumulator.book.PublishedDate, value.Value, name); err != nil {
 				return err
@@ -270,6 +332,7 @@ func (accumulator *sourceBookAccumulator) finish() sourceBook {
 	accumulator.book.Publishers = sortedValues(accumulator.publishers)
 	accumulator.book.Brands = sortedValues(accumulator.brands)
 	accumulator.book.ISBNs = sortedValues(accumulator.isbns)
+	accumulator.book.MatchedISBNs = sortedValues(accumulator.matchedISBNs)
 	return accumulator.book
 }
 
@@ -281,12 +344,12 @@ func convertBook(source sourceBook) Book {
 	for _, value := range source.ISBNs {
 		normalized := normalizeISBN(value)
 		switch {
-		case isValidISBN10(normalized):
+		case internalisbn.IsValidISBN10(normalized):
 			identifiers = append(identifiers, Identifier{
 				Type:  IdentifierTypeISBN10,
 				Value: normalized,
 			})
-		case isValidISBN13(normalized):
+		case internalisbn.IsValidISBN13(normalized):
 			identifiers = append(identifiers, Identifier{
 				Type:  IdentifierTypeISBN13,
 				Value: normalized,
@@ -870,7 +933,7 @@ func isKnownVariable(name string) bool {
 	switch name {
 	case "id", "title", "subtitle", "seriesName", "seriesResource",
 		"relatedSeriesName", "seriesID", "volumeNumber", "version",
-		"creator", "agentName", "publisher", "brand", "isbn", "publishedDate",
+		"creator", "agentName", "publisher", "brand", "isbn", "matchedISBN", "publishedDate",
 		"titleKana", "pageCount", "size":
 		return true
 	default:

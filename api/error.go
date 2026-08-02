@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// ErrorKind は、検索処理で発生したエラーの分類を表す
+// ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
 type ErrorKind string
 
 const (
@@ -19,7 +19,7 @@ const (
 	ErrorKindInvalidResponse ErrorKind = "invalid_response"
 )
 
-// Error は、検索処理の失敗を分類可能な形で保持する
+// Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
 type Error struct {
 	Kind       ErrorKind
 	Operation  string

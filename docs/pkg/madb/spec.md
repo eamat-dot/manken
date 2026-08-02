@@ -3,8 +3,8 @@
 ## 1. 目的
 
 `madb` パッケージは、メディア芸術データベース（MADB）からマンガ単行本を
-タイトル、ISBN、著者名、主要な書誌項目で検索し、`api` パッケージで定義する
-共通モデルへ変換する。指定語を含む検索結果の除外にも対応する。
+タイトル、著者名、主要な書誌項目で検索し、ISBNから書籍を参照して、`api`
+パッケージで定義する共通モデルへ変換する。指定語を含む検索結果の除外にも対応する。
 
 本仕様書は、MADB固有の検索、項目対応、HTTP処理、
 ページング、エラー分類を定義する。
@@ -14,7 +14,7 @@
 
 ## 2. 参照資料
 
-2026年7月29日と30日に次の公式資料と実サービスを確認した。
+2026年7月29日、30日、8月3日に次の公式資料と実サービスを確認した。
 
 - [MADBの概要とSPARQLクエリサービス](https://mediaarts-db.artmuseums.go.jp/about)
 - [MADBクラス定義](https://mediaarts-db.artmuseums.go.jp/data/class/)
@@ -51,6 +51,16 @@ func (client *Client) SearchBooksWithRawResponse(
 	ctx context.Context,
 	request madb.SearchBooksRequest,
 ) (madb.SearchBooksResult, []byte, error)
+
+func (client *Client) LookupBooksByISBN(
+	ctx context.Context,
+	isbns []string,
+) (madb.ISBNLookupResult, error)
+
+func (client *Client) LookupBooksByISBNWithRawResponse(
+	ctx context.Context,
+	isbns []string,
+) (madb.ISBNLookupResult, []byte, error)
 ```
 
 共通型と共通エラーの実体は `api` パッケージに定義する。`madb` は通常利用に
@@ -65,14 +75,15 @@ func (client *Client) SearchBooksWithRawResponse(
 - ログ出力、goroutineの開始、自動リトライ、キャッシュを行わない
 - `httpClient` が `nil` の場合は、タイムアウト60秒のクライアントを使用する
 
-`SearchBooksWithRawResponse` は、変換済み検索結果に加えて、MADBから受信した
-成功レスポンス本文を変更せず `[]byte` で返す。本文は呼び出し元が所有し、
-変更しても `Client` や変換済み検索結果へ影響しない。
+`SearchBooksWithRawResponse` と `LookupBooksByISBNWithRawResponse` は、変換済み結果に
+加えて、MADBから受信した成功レスポンス本文を変更せず `[]byte` で返す。本文は
+呼び出し元が所有し、変更しても `Client` や変換済み結果へ影響しない。
 
 2xx応答の本文を上限内で読み込んだ後、JSON解析またはbindingから検索結果への
 変換に失敗した場合は、読み込み済み本文とエラーを同時に返す。本文読込の失敗、
 本文上限の超過、2xx以外のHTTP応答、通信失敗では本文を返さない。
-`SearchBooks` は同じ検索処理を使用し、受信本文を呼び出し元へ返さない。
+Raw responseを持たないメソッドも同じ通信と変換処理を使用し、受信本文を
+呼び出し元へ返さない。
 
 既定エンドポイントは次のとおり。
 
@@ -342,7 +353,7 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 
 ## 6. 検索条件
 
-`Title`、`ISBN`、`Author`、`FreeText` の少なくとも1つを正条件として必須とする。
+`Title`、`Author`、`FreeText` の少なくとも1つを正条件として必須とする。
 `ExcludedText` だけの検索は `invalid_argument` とする。
 複数を指定した場合は、それぞれの条件をAND結合する。検索結果は必ず
 `rdf:type class:MangaBook` で絞り込む。
@@ -395,30 +406,7 @@ HTTPクライアントのタイムアウトで制御する。
 Agent参照の逆引きはcreator文字列だけの検索より遅くなる可能性がある。
 既定のHTTPクライアントでは60秒を上限とする。
 
-### 6.3 ISBN検索
-
-ISBN検索では、入力を次の順序で整形して検証する。
-
-1. ASCIIハイフンとUnicode空白を除く
-2. 末尾の小文字 `x` を大文字 `X` にする
-3. ISBN-10またはISBN-13の文字種とチェックディジットを検証する
-4. ISBN-10から978で始まるISBN-13を生成する
-5. 978で始まるISBN-13からISBN-10を生成する
-
-ISBN-13は978または979で始まる13桁だけを受け付ける。979で始まるISBN-13から
-ISBN-10は生成しない。検証に失敗した入力は外部サービスへ送信せず、
-`invalid_argument` とする。付記付きの `9784778031404 (set)` は検索対象にしない。
-
-入力値と生成できた対応値は重複を除いて文字列昇順にし、次の構造化条件へ指定する。
-
-```text
-VALUES ?searchISBN { "4088466365" "9784088466361" }
-?resource schema:isbn ?searchISBN .
-```
-
-MADB側に同じISBNを持つ単行本が複数ある場合は、統合せず各リソースを返す。
-
-### 6.4 フリーワード検索
+### 6.3 フリーワード検索
 
 フリーワード検索は、漫画単行本リソース上の次の文字列項目を対象にする。
 
@@ -441,7 +429,7 @@ Neptune全文検索の `query_string` に上記の `field` をすべて明示す
 必要はなく、複数の対象項目をまたいで一致してよい。
 
 Agentの `rdfs:label` は別リソースにあるため対象外とする。Agent参照だけに存在する
-著者名を漏れなく検索する場合は `Author` を使用する。`Title`、`ISBN`、`Author` と
+著者名を漏れなく検索する場合は `Author` を使用する。`Title`、`Author` と
 同時指定した場合は、フリーワードを含むすべての条件をAND結合する。
 
 検索語数にライブラリ独自の上限は設けず、呼び出し元がContextまたはHTTPクライアントの
@@ -449,9 +437,9 @@ Agentの `rdfs:label` は別リソースにあるため対象外とする。Agen
 利用できなくなる可能性がある。`schema:size` は寸法文字列であり、一般的な判型名が
 常に存在するとは限らない。
 
-### 6.5 除外検索
+### 6.4 除外検索
 
-`ExcludedText` は、6.4のフリーワード検索と同じ12項目を対象にする。
+`ExcludedText` は、6.3のフリーワード検索と同じ12項目を対象にする。
 Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著者名では除外しない。
 
 除外文字列はUnicode空白で検索語へ分割し、各語を安全な引用句へ変換する。
@@ -467,14 +455,46 @@ Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著�
 ```
 
 `FreeText` がない場合は、フリーワード対象の12項目に対して除外語を `OR` で
-結合した全文検索を実行し、その一致結果をSPARQLの `MINUS` で除く。タイトル、ISBN、
-著者名のどの正条件でも同じ除外範囲を維持する。
+結合した全文検索を実行し、その一致結果をSPARQLの `MINUS` で除く。タイトルと
+著者名のどちらの正条件でも同じ除外範囲を維持する。
 
 除外語数にライブラリ独自の上限は設けず、呼び出し元がContextまたはHTTPクライアントの
 タイムアウトで制御する。一般的な語の除外を `MINUS` で実行すると応答時間が長くなる
 可能性がある。
 
-## 7. Limitとページング
+## 7. ISBN参照
+
+`LookupBooksByISBN` と `LookupBooksByISBNWithRawResponse` は、1件以上500件以下の
+ISBNを受け付ける。空入力または501件以上は、外部通信せず `invalid_argument` とする。
+1件でも不正なISBNがある場合も、呼び出し全体を `invalid_argument` とする。
+
+各入力は次の順序で整形して検証する。
+
+1. ASCIIハイフンとUnicode空白を除く
+2. 末尾の小文字 `x` を大文字 `X` にする
+3. ISBN-10またはISBN-13の文字種とチェックディジットを検証する
+4. ISBN-10から978で始まるISBN-13を生成する
+5. 978で始まるISBN-13からISBN-10を生成する
+
+ISBN-13は978または979で始まる13桁だけを受け付ける。979で始まるISBN-13から
+ISBN-10は生成しない。付記付きの `9784778031404 (set)` は有効なISBNとして扱わない。
+
+入力値と生成できた対応値は問い合わせ全体で重複を除いて文字列昇順にし、1回の
+SPARQLへ指定する。
+
+```text
+VALUES ?matchedISBN { "4088466365" "9784088466361" }
+?resource schema:isbn ?matchedISBN .
+```
+
+結果の `Items` は入力と同じ件数、同じ順序で返す。`RequestedISBN` は入力文字列を
+変更せず保持する。重複入力やISBN-10と対応するISBN-13を同時指定した場合も、
+元の入力位置ごとに結果を返す。該当なしの `Books` は非nilの空スライスとする。
+
+同じISBNに複数のMADBリソースが一致する場合は、値を1冊へ統合せず、リソースURIの
+文字列昇順で別々の `Book` として返す。ISBN参照はLimitとカーソルを使用しない。
+
+## 8. Limitとページング
 
 `Limit` の既定値は20、最大値は100とする。
 
@@ -491,6 +511,10 @@ Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著�
 正規化済み全検索条件のSHA-256を含むJSONを
 パディングなしBase64 URL形式で符号化する。
 
+ISBN参照の分離後も、ハッシュ化する旧条件表現の空ISBN欄は維持する。このため、
+ISBNを含まない既存カーソルは引き続き利用できる。旧APIでISBN検索に使用したカーソルは、
+現在の検索条件から得られるハッシュと一致せず `invalid_argument` になる。
+
 - 形式不正、未対応バージョン、URI不正は `invalid_argument` とする
 - カーソルのLimitまたは正規化済み検索条件がリクエストと一致しない場合は
   `invalid_argument` とする
@@ -504,10 +528,13 @@ URI順の部分一致検索を2回実行して同一順序になることと、�
 カーソル境界は `STR(?resource)` と末尾URI文字列を比較する。SPARQLのIRI同士を
 `>` で直接比較しない。並び順は引き続きリソースURIの昇順とする。
 
-## 8. SPARQLレスポンスの組み立て
+## 9. SPARQLレスポンスの組み立て
 
 ページ対象のリソースURIをサブクエリで先に確定し、そのリソースに対する各項目を
 外側のクエリで取得する。外側のbinding数に `LIMIT` を適用しない。
+
+ISBN参照は、リソースURIと実際に一致した `matchedISBN` をサブクエリで確定する。
+外側のクエリにLimitを設けず、Go側でリソース単位に集約してから入力位置へ対応付ける。
 
 1冊に対する複数bindingはGo側でまとめる。SPARQLの `GROUP_CONCAT` は、
 区切り文字を実データと区別できないため使用しない。
@@ -516,9 +543,9 @@ SPARQL Results JSONのbindingは、要求した変数が欠落することを正
 扱う。未知の変数は無視するが、既知の変数の型が契約と異なる場合は
 `invalid_response` とする。
 
-## 9. HTTP
+## 10. HTTP
 
-既定エンドポイントはGETとPOSTに対応する。現在の実装は、検索語をURLへ含めず、
+既定エンドポイントはGETとPOSTに対応する。現在の実装は、SPARQLをURLへ含めず、
 長いクエリでもURL長の制約を受けないPOSTを使用する。
 
 ```text
@@ -549,18 +576,19 @@ X-RateLimit-Remaining: ...
 期間を示す公式説明と `Retry-After` 付き429応答は確認できなかった。
 ライブラリは自動リトライやアクセス間隔の制御を行わない。
 
-## 10. エラー
+## 11. エラー
 
 `madb.Error.Operation` には次の値を使用する。
 
 ```text
 madb.NewClient
 madb.SearchBooks
+madb.LookupBooksByISBN
 ```
 
 | 状態 | `ErrorKind` |
 | --- | --- |
-| 入力、Limit、カーソル、Client設定の不正 | `invalid_argument` |
+| 入力ISBN、入力件数、検索条件、Limit、カーソル、Client設定の不正 | `invalid_argument` |
 | HTTP 408、429、500から599 | `unavailable` |
 | その他の成功以外のHTTPステータス | `upstream` |
 | 一時的な通信失敗、タイムアウト | `unavailable` |
@@ -574,7 +602,7 @@ HTTP 400を `invalid_argument` へ変換しない。
 無視する。`context.Canceled` と `context.DeadlineExceeded` は、
 ラップ後も `errors.Is` で判定できるようにする。
 
-## 11. 利用条件とサービス変更
+## 12. 利用条件とサービス変更
 
 SPARQL Query Serviceで取得したデータの利用には、MADBの利用規約が適用される。
 利用者向けドキュメントには出典を記載し、データを加工して表示する場合は
@@ -583,7 +611,7 @@ SPARQL Query Serviceで取得したデータの利用には、MADBの利用規�
 MADBは技術サポートを提供せず、サービスやコンテンツを予告なく変更する場合がある。
 エンドポイント、名前空間、全文検索設定は将来変更される可能性がある。
 
-## 12. 実レスポンス確認例
+## 13. 実レスポンス確認例
 
 調査用クエリは、認証情報を使用せず、公式エンドポイントへPOSTした。
 
@@ -600,6 +628,7 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 | `M809985` | `[[著]]近江のこ` という不正な角括弧表記 |
 | `M196958`、`M208098`、`M208454`、`M213006` | 2つ目の角括弧が人名の一部であるcreator文字列 |
 | `M190399` | ISBN-10とISBN-13の併存 |
+| `M409358`、`M409359`、`M409360` | ISBN `9784990524302` に一致する複数リソース |
 | `M215486` | 複数publisherと役割、読みの混在 |
 | `M380671` | `[通常版]` の版表示と単行本レーベル |
 | `M377325` | 新装版の版表示と単行本レーベルの欠落 |
@@ -641,7 +670,7 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 
 - creator文字列を持つ `M292132` を著者名 `佐々木倫子` で取得した
 - creator文字列がなくAgent参照だけを持つ `M830542` を著者名 `KotzDean` で取得した
-- タイトルと著者名、ISBNと著者名のAND検索で対象の単行本を取得した
+- タイトルと著者名のAND検索で対象の単行本を取得した
 
 2026年8月1日にフリーワード検索を実サービスで確認した。
 
@@ -653,6 +682,14 @@ MADBは技術サポートを提供せず、サービスやコンテンツを予�
 - 初回実測ではcreator文字列の著者検索が約25.5秒、Agent参照の著者検索が約17.7秒、
   タイトルと著者名のAND検索が約0.7秒で完了した
 - build tag付きの実サービス統合テスト一式とデモCLIの `-author` を確認した
+
+2026年8月3日にTODO020のISBN参照を実サービスで確認した。
+
+- ISBN-10 `4088466365` と対応するISBN-13 `9784088466361` の各入力が
+  同じ `M190399` を返した
+- `9784990524302` は `M409358`、`M409359`、`M409360` をURI昇順で別々に返した
+- 複数ISBNを1回のSPARQLで参照し、未収録ISBNを空の `Books` として保持した
+- 成功本文は既存と同じ4 MiB上限内で1回だけ読み込み、変換とraw返却に共用した
 
 実レスポンスは更新されるためリポジトリへ固定保存せず、確認対象のID、
 検索語、件数、判断結果を本仕様書へ記録する。

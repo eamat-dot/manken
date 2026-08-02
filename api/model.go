@@ -9,7 +9,7 @@ const (
 	SourceMADB Source = "madb"
 )
 
-// Book は、検索で取得した1冊の漫画本を表す
+// Book は、取得した1冊の漫画本を表す
 type Book struct {
 	Normalized NormalizedBook `json:"normalized"`
 	Sources    []BookSource   `json:"sources"`
@@ -18,6 +18,7 @@ type Book struct {
 // NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
 type NormalizedBook struct {
 	Title             string            `json:"title,omitempty"`
+	ParallelTitles    []string          `json:"parallel_titles,omitempty"`
 	TitleKana         string            `json:"title_kana,omitempty"`
 	Subtitle          string            `json:"subtitle,omitempty"`
 	Series            []Series          `json:"series,omitempty"`
@@ -218,7 +219,6 @@ type Image struct {
 // SearchBooksRequest は、漫画本の検索条件を表す
 type SearchBooksRequest struct {
 	Title        string `json:"title"`
-	ISBN         string `json:"isbn"`
 	Author       string `json:"author"`
 	FreeText     string `json:"free_text"`
 	ExcludedText string `json:"excluded_text"`
@@ -230,4 +230,15 @@ type SearchBooksRequest struct {
 type SearchBooksResult struct {
 	Books      []Book `json:"books"`
 	NextCursor string `json:"next_cursor,omitempty"`
+}
+
+// ISBNLookupResult は、入力ISBNごとの書籍参照結果を表す
+type ISBNLookupResult struct {
+	Items []ISBNLookupItem `json:"items"`
+}
+
+// ISBNLookupItem は、指定された1つのISBNと対応する書籍を表す
+type ISBNLookupItem struct {
+	RequestedISBN string `json:"requested_isbn"`
+	Books         []Book `json:"books"`
 }

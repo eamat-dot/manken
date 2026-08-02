@@ -103,7 +103,6 @@ func TestBuildSearchQuery_AuthorConditions(t *testing.T) {
 	author := `KotzDean AND a"b\c`
 	query := buildSearchQuery(searchConditions{
 		Title:  "作品",
-		ISBNs:  []string{"4088466365", "9784088466361"},
 		Author: author,
 	}, 20, "")
 
@@ -118,7 +117,6 @@ func TestBuildSearchQuery_AuthorConditions(t *testing.T) {
 		`UNION`,
 		`neptune-fts:config neptune-fts:query "` + fullText + `"`,
 		`neptune-fts:field schema:name`,
-		`VALUES ?searchISBN { "4088466365" "9784088466361" }`,
 	}
 	for _, fragment := range required {
 		if !strings.Contains(query, fragment) {
@@ -200,7 +198,6 @@ func TestBuildSearchQuery_ExcludedTextWithoutFreeText(t *testing.T) {
 		conditions searchConditions
 	}{
 		{name: "title", conditions: searchConditions{Title: "うる星"}},
-		{name: "ISBN", conditions: searchConditions{ISBNs: []string{"9784088466361"}}},
 		{name: "author", conditions: searchConditions{Author: "高橋留美子"}},
 	}
 
@@ -236,27 +233,23 @@ func TestBuildSearchQuery_ExcludedTextWithoutFreeText(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_ISBNConditions は、ISBN候補だけの検索とタイトルとのAND結合を検証する
-func TestBuildSearchQuery_ISBNConditions(t *testing.T) {
-	isbnPattern := `VALUES ?searchISBN { "4088466365" "9784088466361" }`
-	isbnOnly := buildSearchQuery(searchConditions{
-		ISBNs: []string{"4088466365", "9784088466361"},
-	}, 20, "")
-	if !strings.Contains(isbnOnly, isbnPattern) ||
-		!strings.Contains(isbnOnly, `?resource schema:isbn ?searchISBN`) {
-		t.Fatalf("ISBN query does not contain ISBN condition:\n%s", isbnOnly)
+// TestBuildISBNLookupQuery は、複数ISBN候補の対応付けと書誌取得構造を検証する
+func TestBuildISBNLookupQuery(t *testing.T) {
+	query := buildISBNLookupQuery([]string{"080442957X", "4088466365", "9784088466361"})
+	for _, fragment := range []string{
+		`VALUES ?matchedISBN { "080442957X" "4088466365" "9784088466361" }`,
+		`SELECT DISTINCT ?resource ?matchedISBN`,
+		`?resource schema:isbn ?matchedISBN`,
+		`?resource rdf:type class:MangaBook`,
+		`OPTIONAL { ?resource schema:isbn ?isbn . }`,
+		`ORDER BY ?resource ?matchedISBN`,
+	} {
+		if !strings.Contains(query, fragment) {
+			t.Fatalf("lookup query does not contain %q:\n%s", fragment, query)
+		}
 	}
-	if strings.Contains(isbnOnly, `SERVICE neptune-fts:search`) {
-		t.Fatalf("ISBN-only query unexpectedly contains title search:\n%s", isbnOnly)
-	}
-
-	combined := buildSearchQuery(searchConditions{
-		Title: "作品",
-		ISBNs: []string{"4088466365", "9784088466361"},
-	}, 20, "")
-	if !strings.Contains(combined, `SERVICE neptune-fts:search`) ||
-		!strings.Contains(combined, isbnPattern) {
-		t.Fatalf("combined query does not contain both conditions:\n%s", combined)
+	if strings.Contains(query, "LIMIT") || strings.Contains(query, "neptune-fts:search") {
+		t.Fatalf("lookup query unexpectedly contains paging or full-text search:\n%s", query)
 	}
 }
 

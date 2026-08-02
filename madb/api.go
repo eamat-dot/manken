@@ -5,7 +5,7 @@ import "github.com/eamat-dot/manken/api"
 // Source は、書誌情報の取得元を表す
 type Source = api.Source
 
-// Book は、検索で取得した1冊の漫画本を表す
+// Book は、取得した1冊の漫画本を表す
 type Book = api.Book
 
 // NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
@@ -68,10 +68,16 @@ type SearchBooksRequest = api.SearchBooksRequest
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
 type SearchBooksResult = api.SearchBooksResult
 
-// ErrorKind は、検索処理で発生したエラーの分類を表す
+// ISBNLookupResult は、入力ISBNごとの書籍参照結果を表す
+type ISBNLookupResult = api.ISBNLookupResult
+
+// ISBNLookupItem は、指定された1つのISBNと対応する書籍を表す
+type ISBNLookupItem = api.ISBNLookupItem
+
+// ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
 type ErrorKind = api.ErrorKind
 
-// Error は、検索処理の失敗を分類可能な形で保持する
+// Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
 type Error = api.Error
 
 const (

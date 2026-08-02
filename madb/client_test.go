@@ -109,7 +109,6 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	client := newTestClient(t, server.URL)
 	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{
 		Title:        " 作品 ",
-		ISBN:         "978-4-08-846636-1",
 		Author:       " 著者 ",
 		FreeText:     " 新装版　B6判 ",
 		ExcludedText: " 復刻版　愛蔵版 ",
@@ -120,9 +119,6 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	}
 	if !strings.Contains(receivedQuery, `neptune-fts:queryType "query_string"`) {
 		t.Fatalf("query does not use query_string:\n%s", receivedQuery)
-	}
-	if !strings.Contains(receivedQuery, `VALUES ?searchISBN { "4088466365" "9784088466361" }`) {
-		t.Fatalf("query does not contain ISBN candidates:\n%s", receivedQuery)
 	}
 	if !strings.Contains(receivedQuery, "LIMIT 3") {
 		t.Fatalf("query does not use Limit+1:\n%s", receivedQuery)
@@ -144,7 +140,6 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 
 	cursor, err := decodeCursor(result.NextCursor, searchConditions{
 		Title:        "作品",
-		ISBNs:        []string{"4088466365", "9784088466361"},
 		Author:       "著者",
 		FreeText:     "新装版 B6判",
 		ExcludedText: "復刻版 愛蔵版",
@@ -190,7 +185,7 @@ func TestValidateSearchRequest_FreeTextOnly(t *testing.T) {
 	if conditions.FreeText != "うる星 新装版" {
 		t.Fatalf("FreeText = %q", conditions.FreeText)
 	}
-	if conditions.Title != "" || len(conditions.ISBNs) != 0 || conditions.Author != "" {
+	if conditions.Title != "" || conditions.Author != "" {
 		t.Fatalf("conditions = %#v, want free text only", conditions)
 	}
 	if limit != defaultLimit {
@@ -209,7 +204,7 @@ func TestValidateSearchRequest_AuthorOnly(t *testing.T) {
 	if conditions.Author != "佐々木 倫子" {
 		t.Fatalf("Author = %q", conditions.Author)
 	}
-	if conditions.Title != "" || len(conditions.ISBNs) != 0 {
+	if conditions.Title != "" {
 		t.Fatalf("conditions = %#v, want author only", conditions)
 	}
 	if limit != defaultLimit {
@@ -333,7 +328,7 @@ func TestClient_SearchBooks_EmptyResult(t *testing.T) {
 
 	result, err := newTestClient(t, server.URL).SearchBooks(
 		context.Background(),
-		SearchBooksRequest{ISBN: "9784088466361"},
+		SearchBooksRequest{Title: "存在しない作品"},
 	)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -357,10 +352,6 @@ func TestClient_SearchBooks_ValidatesRequest(t *testing.T) {
 		{Title: "\u3000\t"},
 		{Author: "\u3000\t"},
 		{FreeText: "\u3000\t"},
-		{ISBN: "4088466361"},
-		{ISBN: "9784088466362"},
-		{ISBN: "4901234567894"},
-		{ISBN: "9784778031404 (set)"},
 		{Title: "作品", Limit: -1},
 		{Title: "作品", Limit: 101},
 		{Title: "作品", Cursor: "not-base64"},
@@ -374,23 +365,6 @@ func TestClient_SearchBooks_ValidatesRequest(t *testing.T) {
 	var nilClient *Client
 	_, err = nilClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "作品"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
-}
-
-// TestValidateSearchRequest_ISBNOnly は、ISBNだけの検索条件を正規化することを検証する
-func TestValidateSearchRequest_ISBNOnly(t *testing.T) {
-	conditions, limit, _, err := validateSearchRequest(SearchBooksRequest{
-		ISBN: " 978-4-08\u3000846636-1 ",
-	})
-	if err != nil {
-		t.Fatalf("validateSearchRequest() error = %v", err)
-	}
-	if conditions.Title != "" {
-		t.Fatalf("Title = %q, want empty", conditions.Title)
-	}
-	assertStrings(t, conditions.ISBNs, []string{"4088466365", "9784088466361"})
-	if limit != defaultLimit {
-		t.Fatalf("limit = %d, want %d", limit, defaultLimit)
-	}
 }
 
 // TestValidateSearchRequest_NormalizesTitleConditions は、等価なUnicode空白を同じタイトル条件へ整形する
@@ -461,7 +435,6 @@ func TestClient_SearchBooks_UsesCursor(t *testing.T) {
 	client := newTestClient(t, server.URL)
 	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{
 		Title:        "作品",
-		ISBN:         "9784088466361",
 		ExcludedText: "復刻版",
 		Limit:        1,
 	})
@@ -470,7 +443,6 @@ func TestClient_SearchBooks_UsesCursor(t *testing.T) {
 	}
 	second, err := client.SearchBooks(context.Background(), SearchBooksRequest{
 		Title:        "作品",
-		ISBN:         "4088466365",
 		ExcludedText: " 復刻版 ",
 		Limit:        1,
 		Cursor:       first.NextCursor,
