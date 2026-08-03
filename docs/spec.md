@@ -13,6 +13,7 @@
 
 - [アーキテクチャ](../ARCHITECTURE.md)
 - [MADBパッケージ仕様](pkg/madb/spec.md)
+- [openBDパッケージ仕様](pkg/openbd/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -26,17 +27,21 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-現在提供するパッケージは次の2つとする。
+現在提供するパッケージは次の3つとする。
 
 ```text
 github.com/eamat-dot/manken/api
 github.com/eamat-dot/manken/madb
+github.com/eamat-dot/manken/openbd
 ```
 
 - `api`
   - データ取得元に依存しない検索条件、検索結果、書籍モデル、エラー分類を定義する
 - `madb`
   - MADBへの問い合わせと、取得結果から共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `openbd`
+  - openBDへのISBN問い合わせと、取得結果から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 現在はルートパッケージと、取得元パッケージをまとめるファサードを提供しない。
@@ -109,7 +114,10 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 ```go
 type Source string
 
-const SourceMADB Source = "madb"
+const (
+	SourceMADB   Source = "madb"
+	SourceOpenBD Source = "openbd"
+)
 ```
 
 #### 確定事項
@@ -386,7 +394,7 @@ type ISBNLookupItem struct {
 - 同じISBNに複数書籍が対応する場合は、統合せず `Books` にすべて返す
 - 1件でも不正なISBNがある場合は、外部通信せず呼び出し全体を `invalid_argument` にする
 
-現在の取得元別上限はMADBが500件、将来実装するopenBDが1,000件とする。
+現在の取得元別上限はMADBが500件、openBDが1,000件とする。
 この差は共通型へ埋め込まず、各クライアントが入力検証する。
 
 ## 7. エラーAPI

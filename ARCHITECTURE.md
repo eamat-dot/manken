@@ -4,10 +4,12 @@
 
 この文書は、現在の `manken` モジュールを構成するパッケージ、依存方向、
 検索処理の流れ、維持する設計上の境界をまとめる。
-公開型の詳細な契約は [共通API仕様](docs/spec.md)、MADB固有の検索・変換規則は
-[MADBパッケージ仕様](docs/pkg/madb/spec.md)を一次文書とする。
+公開型の詳細な契約は [共通API仕様](docs/spec.md)、取得元固有の検索・変換規則は
+[MADBパッケージ仕様](docs/pkg/madb/spec.md)と
+[openBDパッケージ仕様](docs/pkg/openbd/spec.md)を一次文書とする。
 
-現在のモジュールは共通モデルを定義する `api` と、MADBを検索・参照する `madb` を提供する。
+現在のモジュールは共通モデルを定義する `api`、MADBを検索・参照する `madb`、
+openBDをISBNで参照する `openbd` を提供する。
 ルートパッケージ、複数の取得元をまとめるファサード、MCPサーバーは提供しない。
 
 ## 構成と依存方向
@@ -15,12 +17,17 @@
 ```text
 利用側・examples
        |
-       v
-      madb --------> api
-       | \
-       |  `-------> internal/isbn
-       v
-net/httpによるMADB SPARQL Query Serviceへの問い合わせ
+       +------> madb -----> api
+       |          |
+       |          +------> internal/isbn
+       |          |
+       |          `------> MADB SPARQL Query Service
+       |
+       `------> openbd --> api
+                  |
+                  +------> internal/isbn
+                  |
+                  `------> openBD
 ```
 
 - `api`
@@ -30,6 +37,10 @@ net/httpによるMADB SPARQL Query Serviceへの問い合わせ
   - 入力検証、SPARQL生成、HTTP通信、レスポンス解析、共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
   - MADB固有の中間表現と変換規則をパッケージ外へ公開しない
+- `openbd`
+  - ISBN入力検証、HTTP通信、応答対応の検証、共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - openBD固有の中間表現とONIXコードをパッケージ外へ公開しない
 - `internal/isbn`
   - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
@@ -37,8 +48,8 @@ net/httpによるMADB SPARQL Query Serviceへの問い合わせ
   - `madb` の公開APIを使う動作確認用CLIを置く
   - ライブラリの一部として再利用する内部処理は置かない
 
-`api` は取得元パッケージを参照しない。利用側がMADBだけを使う場合は `madb` のみを
-importでき、共通型を直接扱う用途では `api` をimportできる。
+`api` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
+`madb` または `openbd` だけをimportでき、共通型を直接扱う用途では `api` をimportできる。
 
 ## 検索処理の流れ
 
@@ -72,6 +83,9 @@ ISBN参照では、入力順と元文字列を保持したままISBN-10・ISBN-1
 重複除去した候補を1回のSPARQLへまとめる。応答のリソースと一致ISBNを集約後、
 元の各入力位置へ個別の `Book` を展開する。検索用のLimitとカーソルは使わない。
 
+openBDのISBN参照では、入力をISBN-13へ統一して重複除去し、1回のGETへまとめる。
+応答配列の件数、順序、ISBNを検証してから元の各入力位置へ結果を展開する。
+
 ## 書籍データの境界
 
 `api.Book` は、通常利用する `Normalized` と、変換根拠を保持する `Sources` に分ける。
@@ -84,12 +98,12 @@ ISBN参照では、入力順と元文字列を保持したままISBN-10・ISBN-1
   - 共通モデルへ安全に変換できない値を失わず残す
 
 取得元に存在しない情報は、タイトル、版表示、レーベルなどから推測しない。
-MADBの完全なレスポンス本文が必要な場合は `SearchBooksWithRawResponse` または
-`LookupBooksByISBNWithRawResponse` を使い、共通モデルへ取り込まない。
+完全なレスポンス本文が必要な場合は、取得元パッケージの `WithRawResponse` メソッドを
+使い、共通モデルへ取り込まない。
 
 ## 通信と実行制御の境界
 
-`madb.Client` は、呼び出し側が渡した `context.Context` と `http.Client` を尊重する。
+各取得元の `Client` は、呼び出し側が渡した `context.Context` と `http.Client` を尊重する。
 ライブラリ自身はバックグラウンド処理を開始せず、ログ、キャッシュ、自動リトライ、
 アクセス間隔の制御を行わない。これらは利用状況に応じて呼び出し側が担当する。
 

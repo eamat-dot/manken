@@ -7,6 +7,8 @@ type Source string
 const (
 	// SourceMADB は、メディア芸術データベースを表す
 	SourceMADB Source = "madb"
+	// SourceOpenBD は、openBDを表す
+	SourceOpenBD Source = "openbd"
 )
 
 // Book は、取得した1冊の漫画本を表す
