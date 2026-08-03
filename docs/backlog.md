@@ -22,14 +22,14 @@ openBDの前に、次の共通契約を順番に実装する。
 2. 共通書籍モデルに並列タイトルを追加する
    （[`todo/done/021-add-parallel-titles.md`](todo/done/021-add-parallel-titles.md)）
 
-共通契約の完了後、次の順序で取得元を実装する。
+openBDの複数ISBN参照は完了した
+（[`todo/done/019-implement-openbd-api.md`](todo/done/019-implement-openbd-api.md)）。
+残りの取得元は次の順序で実装する。
 
-1. openBD（複数ISBN参照のみ。実装TODOは
-   [`todo/019-implement-openbd-api.md`](todo/019-implement-openbd-api.md)）
-2. Google Books API
-3. 楽天Books API
-4. 楽天Kobo API
-5. Yahoo!ショッピング商品検索API（`bookfan` の紙書籍のみ）
+1. Google Books API
+2. 楽天Books API
+3. 楽天Kobo API
+4. Yahoo!ショッピング商品検索API（`bookfan` の紙書籍のみ）
 
 楽天Booksと楽天Koboは、紙書籍と電子書籍で識別子、検索条件、変換規則が
 異なるため、別の実装TODOにする。各取得元の詳細TODOは一度に作らず、直前の

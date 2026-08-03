@@ -371,9 +371,10 @@ MADBの実データには次の表記がある。
 安全に分解できない場合は `Normalized.TitleKana` を空にする。取得元の値は
 いずれも `BookSource.Values` に残す。
 
-並列タイトルは初期の `NormalizedBook` へ追加しない。結合された表記は取得元の
-タイトルに残し、独立項目が必要な場合は取得元型またはRaw responseで確認できる
-ようにする。
+この調査時点では並列タイトルを初期モデルへ追加しない案としていた。その後、
+TODO021で `ParallelTitles` を追加した。現在の共通契約は
+[`../spec.md`](../spec.md#52-book)、openBD固有の分解条件は
+[`../pkg/openbd/spec.md`](../pkg/openbd/spec.md#52-タイトルと巻数)を参照する。
 
 ### 15.5 複数取得元と並び替え
 

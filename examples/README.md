@@ -1,7 +1,12 @@
-# MADB CLIデモ
+# CLIデモ
+
+`examples` には、各書誌情報取得元を実サービスで確認するためのCLIデモを置く。
+汎用の検索アプリケーションではない。
+
+## MADB
 
 `demo-madb.go` は、`madb` パッケージでMADBの実サービスを検索・ISBN参照し、結果をJSONで
-確認するための動作確認用CLIである。汎用の検索アプリケーションではない。
+確認するためのCLIである。
 
 ## 基本的な使い方
 
@@ -145,3 +150,61 @@ go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -raw-o
 `SearchBooksWithRawResponse`、`LookupBooksByISBNWithRawResponse` と本文上限の契約は
 [MADBパッケージ仕様](../docs/pkg/madb/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/madb/spec.md#10-http)を参照する。
+
+## openBD
+
+`openbd/main.go` は、`openbd` パッケージでopenBDから複数ISBNの書誌情報を参照し、結果をJSONで
+確認するためのCLIである。
+
+### 基本的な使い方
+
+リポジトリのルートで次を実行する。
+
+```text
+go run ./examples/openbd 9784098515172 4592730933
+```
+
+指定したISBNを入力順に参照し、共通書籍モデルへ変換した結果を標準出力へJSONで出す。
+ISBNはISBN-10またはISBN-13を1件以上1,000件以下指定する。
+
+### オプション
+
+| オプション | 内容 |
+| --- | --- |
+| `-raw-output` | openBDから受信した変換前レスポンスを保存する新規ファイル |
+
+オプションはISBNより前に指定する。
+
+```text
+go run ./examples/openbd -raw-output __openbd-result.json 9784098515172 4592730933
+```
+
+### 出力
+
+標準出力には `openbd.ISBNLookupResult` のJSONだけを出す。`items` は入力と同じ順序・件数になり、
+該当なしのISBNも `books: []` として残る。警告、エラー、診断情報は標準エラー出力へ出す。
+
+終了コードは次のとおり。
+
+| 終了コード | 状態 |
+| --- | --- |
+| `0` | ISBN参照とJSON出力に成功 |
+| `1` | ISBN参照、保存、JSON出力のいずれかに失敗 |
+| `2` | ISBNが指定されていない、またはCLI引数が不正 |
+
+### 変換前レスポンスの保存
+
+`-raw-output` には、存在しないファイルを指定する。
+
+- 標準出力には共通書籍モデルへ変換した結果だけを出す
+- 指定ファイルには、同じ参照で受信した本文を変更せず保存する
+- 既存ファイルは上書きしない
+- 書き込みまたはファイルを閉じる処理に失敗した場合は、不完全な新規ファイルを削除する
+- 成功応答のJSON解析または共通書籍モデルへの変換に失敗した場合も、読み込み済みの
+  変換前レスポンスを保存する
+- 通信失敗、成功以外のHTTP応答、本文の読み込み失敗、64 MiBの上限超過では保存しない
+
+`__` で始まるファイルはローカル確認用であり、このリポジトリではGit管理対象外となる。
+`LookupBooksByISBNWithRawResponse` と本文上限の契約は
+[openBDパッケージ仕様](../docs/pkg/openbd/spec.md#3-パッケージとclient)と
+[HTTP仕様](../docs/pkg/openbd/spec.md#7-http)を参照する。
