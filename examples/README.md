@@ -5,7 +5,7 @@
 
 ## MADB
 
-`demo-madb.go` は、`madb` パッケージでMADBの実サービスを検索・ISBN参照し、結果をJSONで
+`madb/main.go` は、`madb` パッケージでMADBの実サービスを検索・ISBN参照し、結果をJSONで
 確認するためのCLIである。
 
 ## 基本的な使い方
@@ -13,7 +13,7 @@
 リポジトリのルートで次を実行する。
 
 ```text
-go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
+go run ./examples/madb -title "動物のおしゃべり" -limit 5
 ```
 
 タイトルに「動物のおしゃべり」を含む単行本を5件まで検索し、共通書籍モデルへ
@@ -24,7 +24,6 @@ go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
 | オプション | 内容 |
 | --- | --- |
 | `-title` | タイトルに含める検索語 |
-| `-isbn` | 参照するISBN-10またはISBN-13。500件まで繰り返し指定可能 |
 | `-author` | 著者名に含める検索語 |
 | `-free-text` | 主要な書誌項目を横断して検索する語 |
 | `-exclude` | 主要な書誌項目に含まれる場合、結果から除外する語 |
@@ -33,7 +32,9 @@ go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
 | `-raw-output` | MADBから受信した変換前レスポンスを保存する新規ファイル |
 
 検索では `-title`、`-author`、`-free-text` の少なくとも1つを指定する。
-ISBN参照では `-isbn` を指定し、検索条件、`-exclude`、`-limit`、`-cursor` と併用しない。
+ISBN参照では ISBN-10またはISBN-13を位置引数で1件以上500件以下指定し、検索条件、
+`-exclude`、`-limit`、`-cursor` と併用しない。
+オプションはISBNより前に指定する。
 複数の検索条件を指定した場合の組み合わせと `-exclude` の対象項目は
 [検索条件](../docs/pkg/madb/spec.md#6-検索条件)、ISBNの検証は
 [ISBN参照](../docs/pkg/madb/spec.md#7-isbn参照)を参照する。
@@ -43,20 +44,20 @@ ISBN参照では `-isbn` を指定し、検索条件、`-exclude`、`-limit`、`
 複数のISBNを入力順に参照する。
 
 ```text
-go run ./examples/demo-madb.go -isbn "978-4-08-846636-1" -isbn "9784990524302"
+go run ./examples/madb 9784088466361 9784990524302
 ```
 
 著者名で検索する。
 
 ```text
-go run ./examples/demo-madb.go -author "佐々木倫子"
+go run ./examples/madb -author "佐々木倫子"
 ```
 
 主要な書誌項目に「うる星」と「高橋留美子」を含み、「復刻box」または
 「愛蔵版」を含まない単行本を検索する。
 
 ```text
-go run ./examples/demo-madb.go -free-text "うる星 高橋留美子" -exclude "復刻box 愛蔵版"
+go run ./examples/madb -free-text "うる星 高橋留美子" -exclude "復刻box 愛蔵版"
 ```
 
 ## 出力
@@ -122,7 +123,7 @@ go run ./examples/demo-madb.go -free-text "うる星 高橋留美子" -exclude "
 指定したものをすべて同じ値で再指定する。
 
 ```text
-go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -cursor "<next_cursor>"
+go run ./examples/madb -title "動物のおしゃべり" -limit 5 -cursor "<next_cursor>"
 ```
 
 カーソルと検索条件または取得件数が一致しない場合は入力エラーとなる。
@@ -135,7 +136,7 @@ MADBから受信した変換前のSPARQL Results JSONを確認する場合は、
 `-raw-output` へ指定する。
 
 ```text
-go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -raw-output __madb-result.json
+go run ./examples/madb -title "動物のおしゃべり" -limit 5 -raw-output __madb-result.json
 ```
 
 - 標準出力には共通書籍モデルへ変換した検索結果だけを出す
@@ -147,7 +148,7 @@ go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5 -raw-o
 - 通信失敗、成功以外のHTTP応答、本文の読み込み失敗、4 MiBの上限超過では保存しない
 
 `__` で始まるファイルはローカル確認用であり、このリポジトリではGit管理対象外となる。
-`SearchBooksWithRawResponse`、`LookupBooksByISBNWithRawResponse` と本文上限の契約は
+`SearchBooksWithRawResponse`、`LookupBooksByISBNWithRawResponse` と本文上限の仕様は
 [MADBパッケージ仕様](../docs/pkg/madb/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/madb/spec.md#10-http)を参照する。
 
@@ -205,6 +206,6 @@ go run ./examples/openbd -raw-output __openbd-result.json 9784098515172 45927309
 - 通信失敗、成功以外のHTTP応答、本文の読み込み失敗、64 MiBの上限超過では保存しない
 
 `__` で始まるファイルはローカル確認用であり、このリポジトリではGit管理対象外となる。
-`LookupBooksByISBNWithRawResponse` と本文上限の契約は
+`LookupBooksByISBNWithRawResponse` と本文上限の仕様は
 [openBDパッケージ仕様](../docs/pkg/openbd/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/openbd/spec.md#7-http)を参照する。

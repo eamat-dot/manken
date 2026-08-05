@@ -372,7 +372,7 @@ MADBの実データには次の表記がある。
 いずれも `BookSource.Values` に残す。
 
 この調査時点では並列タイトルを初期モデルへ追加しない案としていた。その後、
-TODO021で `ParallelTitles` を追加した。現在の共通契約は
+TODO021で `ParallelTitles` を追加した。現在の共通仕様は
 [`../spec.md`](../spec.md#52-book)、openBD固有の分解条件は
 [`../pkg/openbd/spec.md`](../pkg/openbd/spec.md#52-タイトルと巻数)を参照する。
 

@@ -128,7 +128,7 @@ Agentの `rdfs:label` は別リソースにある。各語について単行本�
 ## 5. 当時推奨した公開条件
 
 次の案は2026年8月1日時点の調査結果であり、TODO020でISBNを専用の
-`LookupBooksByISBN` へ分離したため、現在の公開契約ではない。
+`LookupBooksByISBN` へ分離したため、現在の公開API仕様ではない。
 
 既存の `SearchBooksRequest` へ、次の文字列条件を段階的に追加する。
 

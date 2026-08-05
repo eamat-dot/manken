@@ -13,9 +13,9 @@
 
 ## データ取得元
 
-openBD着手前の共通契約と、取得元ごとの実装順を記録する。
+openBD着手前の共通仕様と、取得元ごとの実装順を記録する。
 
-openBDの前に、次の共通契約を順番に実装する。
+openBDの前に、次の共通仕様を順番に実装する。
 
 1. ISBN参照APIを書誌検索APIから分離する
    （[`todo/done/020-separate-isbn-lookup-api.md`](todo/done/020-separate-isbn-lookup-api.md)）

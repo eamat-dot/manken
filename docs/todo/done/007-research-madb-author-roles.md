@@ -77,7 +77,7 @@
 ### ドキュメント
 
 - [x] 調査日、確認クエリ、役割一覧、代表IDを調査文書へ記録する
-- [x] 共通の `Authors`、`Contributors` 契約を `docs/spec.md` へ反映する
+- [x] 共通の `Authors`、`Contributors` の仕様を `docs/spec.md` へ反映する
 - [x] MADB固有の取得・変換規則を `docs/pkg/madb/spec.md` へ反映する
 - [x] 確定仕様の実装とテストを別TODOへ分離する
 

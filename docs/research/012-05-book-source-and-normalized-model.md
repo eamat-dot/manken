@@ -455,7 +455,7 @@ Goではスカラーのポインター、`omitempty`、値型構造体の `omitz
 - 検索結果から除外した理由
 - Raw response本体
 
-## 12. 初期公開契約の方針
+## 12. 初期公開API仕様の方針
 
 - `Book.Normalized`、`Book.Sources`、`BookSource.Values` の名称を使用する
 - JSON項目名は `normalized`、`sources`、`values` とする
@@ -467,7 +467,7 @@ Goではスカラーのポインター、`omitempty`、値型構造体の `omitz
 `SourceBookValues` は、正規化に使用する取得元の主要項目だけを共通化する。
 MADBが複数値を返せるタイトル、副題、シリーズ名、版表示、著者、出版社、
 レーベル、ISBNはスライスですべて保持する。共通の意味を保てない取得元固有項目と、
-複数取得元のRaw response契約は初期実装に含めない。
+複数取得元のRaw response仕様は初期実装に含めない。
 
 複数取得元の優先順位は初期実装の対象外とする。将来統合する場合は、同じISBNまたは
 取得元商品IDで同一商品と確認できることを前提とし、専用項目もタイトルなどとの

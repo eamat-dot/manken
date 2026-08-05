@@ -7,7 +7,7 @@
 - 現在の `SearchBooksRequest` は、タイトルや著者名などの検索条件とISBNを
   同じ構造体に持つ
 - ISBNは検索語ではなく、特定の書籍を識別子から参照するための値である
-- 現在の契約では、ISBNと他の検索条件をANDまたはORで組み合わせられるように
+- 現在の仕様では、ISBNと他の検索条件をANDまたはORで組み合わせられるように
   読めるが、この組み合わせはmankenの利用方法として提供しない
 - openBDは複数ISBNを1回のリクエストで取得できる一方、現在の単数
   `ISBN string` ではその機能を表現できない
@@ -16,9 +16,9 @@
 ## 目的
 
 - 書誌条件による検索と、ISBNによる書籍参照を公開API上で分離する
-- 複数ISBNを1回の呼び出しで指定できる共通の結果契約を定義する
+- 複数ISBNを1回の呼び出しで指定できる共通の結果仕様を定義する
 - 未収録ISBNと、同じISBNに対応する複数書籍を入力ISBNごとに表現する
-- openBD実装で再利用できるISBN検証と結果契約を先に確立する
+- openBD実装で再利用できるISBN検証と結果仕様を先に確立する
 
 ## 非目的
 
@@ -39,7 +39,7 @@
 - 1件でも不正なISBNがある場合は、外部通信せず呼び出し全体を失敗させる
 - 通常の単体テストから実サービスへ接続しない
 
-## 公開契約
+## 公開API仕様
 
 ```go
 type ISBNLookupResult struct {
@@ -84,7 +84,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 
 - [x] `SearchBooksRequest` から `ISBN` を削除する
 - [x] `ISBNLookupResult` と `ISBNLookupItem` を追加する
-- [x] 空スライスをJSONの `[]` として出力する契約をテストする
+- [x] 空スライスをJSONの `[]` として出力する仕様をテストする
 - [x] 共通仕様からISBNと他条件の組み合わせ規則を削除する
 
 ### ISBN検証の共有
@@ -108,7 +108,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 
 ### 利用者向け文書
 
-- [x] `docs/spec.md` にISBN参照APIの完全な契約を記載する
+- [x] `docs/spec.md` にISBN参照APIの完全な仕様を記載する
 - [x] `docs/pkg/madb/spec.md` からISBN検索を分離し、ISBN参照として記載する
 - [x] READMEとデモのISBN利用例を新しいメソッドへ変更する
 - [x] `SearchBooks` の検索条件にISBNを含めないことを明記する
@@ -124,7 +124,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 - [x] 不正ISBNが混在する場合に外部通信しない
 - [x] 空の入力を `invalid_argument` にする
 - [x] Raw responseが受信した成功応答本文を変更せず返す
-- [x] `SearchBooks` がISBNを受け取らない公開契約になっている
+- [x] `SearchBooks` がISBNを受け取らない公開API仕様になっている
 
 ## 検証
 
@@ -142,7 +142,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 - [x] 複数ISBNの結果を入力ごとに対応付けられる
 - [x] 未収録と複数書籍の両方を表現できる
 - [x] MADBのISBN以外の検索結果とページングが退行しない
-- [x] openBD実装が共通ISBN参照契約を再利用できる
+- [x] openBD実装が共通ISBN参照仕様を再利用できる
 - [x] 旧ISBN検索の互換コードを残していない
 
 ## リスク・懸念

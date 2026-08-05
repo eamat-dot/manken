@@ -46,7 +46,7 @@
 
 ## 実施項目
 
-### 公開契約と実装
+### 公開API仕様と実装
 
 - [x] `api.SearchBooksRequest` に `ExcludedText` を追加する
 - [x] 除外語の引用、エスケープ、AND NOT結合を実装する

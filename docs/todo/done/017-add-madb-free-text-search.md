@@ -59,7 +59,7 @@
 
 ## 実施項目
 
-### 公開契約と実装
+### 公開API仕様と実装
 
 - [x] `api.SearchBooksRequest` に `FreeText` を追加する
 - [x] 対象フィールドを一箇所で管理する

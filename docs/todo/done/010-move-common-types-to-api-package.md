@@ -9,7 +9,7 @@
   両方をimportする必要がある
 - 将来ルートの `manken` パッケージから各データ取得元を呼び出すファサードを
   実装すると、現在の `madb -> manken` という依存方向では循環importになる
-- 共通型は外部利用者との公開契約であるため、外部からのimportを禁止する
+- 共通型は外部利用者向けの公開API仕様であるため、外部からのimportを禁止する
   `internal` パッケージには置かない
 - まだリモートへpushしていないため、既存のルートパッケージとの互換性は
   維持しなくてよい
@@ -61,7 +61,7 @@
 
 - MADB固有の非公開型とSPARQLレスポンス形式
 - MADBの検索クエリ、取得項目、変換規則
-- `Client.SearchBooksWithRawResponse` のrawレスポンス契約
+- `Client.SearchBooksWithRawResponse` のrawレスポンス仕様
 - 既存の未完了TODOで調査している版、著者役割、巻数、ソート
 - 新しい外部モジュール依存の追加
 
@@ -101,7 +101,7 @@ result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
 ### API構成
 
 - [x] `api` パッケージへ移す型と定数を既存実装から確認する
-- [x] `api` を共通の公開契約、`madb` を取得元固有の実装、
+- [x] `api` を共通の公開API仕様、`madb` を取得元固有の実装、
   ルートを将来のファサードとする依存方向を仕様書へ記載する
 - [x] `madb` だけで通常利用とエラー判定に必要な公開名を列挙する
 - [x] ルートパッケージに互換用エイリアスを残さないことを確認する
@@ -179,7 +179,7 @@ result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
 ## 未決事項
 
 - `SearchBooksRequest`、`SearchBooksResult`、共通エラーが将来の複数データ取得元でも
-  共通契約として使えるかは、横断検索と能力別インターフェースの設計時に再検討する
+  共通仕様として使えるかは、横断検索と能力別インターフェースの設計時に再検討する
 - 将来のルートファサードで、取得元の選択、部分失敗、カーソル、重複統合を
   どのように表すかは別TODOで決める
 

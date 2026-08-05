@@ -35,7 +35,7 @@
 - 要約、翻訳、推測による追加、意味を変える置換は行わない
 - Raw response全体は既存どおり専用メソッドで返し、`Book` へ埋め込まない
 
-## 公開契約
+## 公開API仕様
 
 ```go
 type NormalizedBook struct {
@@ -65,7 +65,7 @@ type NormalizedBook struct {
 - [x] 複数の並列タイトルを指定順でJSONへ出力する
 - [x] nilと空スライスをJSONから省略する
 - [x] `Sources` の完全な元タイトルと正規化後の項目を同時に保持できる
-- [x] 既存の `Title` と `Subtitle` のJSON契約が変わらない
+- [x] 既存の `Title` と `Subtitle` のJSON仕様が変わらない
 
 ### ドキュメント
 
@@ -86,7 +86,7 @@ type NormalizedBook struct {
 - [x] 並列タイトルを主タイトルやサブタイトルと混同せず保持できる
 - [x] 取得元の完全なタイトル文字列が `Sources` から失われない
 - [x] 分解不能なタイトルから情報を削除しない
-- [x] 既存の共通書籍モデルのJSON契約が退行しない
+- [x] 既存の共通書籍モデルのJSON仕様が退行しない
 
 ## リスク・懸念
 

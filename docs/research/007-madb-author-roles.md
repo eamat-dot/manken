@@ -192,7 +192,7 @@ creatorから抽出した名前とAgent名が完全一致する場合だけ対�
 
 出版分野にはONIX Code List 17という確立された寄与者役割体系があり、著者、作画、
 編集、翻訳、解説、カバーデザインなどを区別している。ただし、共通APIでONIXコードを
-そのまま公開するか、読みやすい一般名へ対応付けるかは公開契約の判断になる。
+そのまま公開するか、読みやすい一般名へ対応付けるかは公開API仕様の判断になる。
 
 - [ONIX Code List 17: Contributor role code](https://ns.editeur.org/onix/en/17)
 
@@ -211,7 +211,7 @@ creatorから抽出した名前とAgent名が完全一致する場合だけ対�
 - その他の既知役割は `Contributors` だけに含める
 - creatorの順序を復元せず、Goの文字列昇順は結果の安定化だけに使用する
 
-確定した共通契約は [`../spec.md`](../spec.md)、MADB固有の変換規則は
+確定した共通仕様は [`../spec.md`](../spec.md)、MADB固有の変換規則は
 [`../pkg/madb/spec.md`](../pkg/madb/spec.md) に記載した。
 
 ## 6. 結論

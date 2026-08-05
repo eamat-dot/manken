@@ -7,19 +7,6 @@ import (
 	"testing"
 )
 
-// TestStringList_PreservesRepeatedValues は、繰り返したISBNオプションの順序を保持する
-func TestStringList_PreservesRepeatedValues(t *testing.T) {
-	var values stringList
-	for _, value := range []string{"978-4-08-846636-1", "9784990524302"} {
-		if err := values.Set(value); err != nil {
-			t.Fatalf("Set() error = %v", err)
-		}
-	}
-	if len(values) != 2 || values[0] != "978-4-08-846636-1" || values[1] != "9784990524302" {
-		t.Fatalf("values = %#v", values)
-	}
-}
-
 // TestWriteRawResponse_CreatesExactFile は、rawレスポンスを変更せず新規保存することを検証する
 func TestWriteRawResponse_CreatesExactFile(t *testing.T) {
 	body := []byte(" {\r\n  \"results\": {\"bindings\": []}\r\n}\n")

@@ -31,7 +31,7 @@
 
 ## 対象
 
-- 共通 `Book`、正規化済み書誌型、取得元型の公開契約
+- 共通 `Book`、正規化済み書誌型、取得元型の公開API仕様
 - `Volume`、`Identifier`、`Contributor`、`Series`、`BookDate`、`Price`などの
   最小限の補助型
 - 既存MADBレスポンスから新しい共通Bookへの変換
@@ -52,7 +52,7 @@
 
 ## 実施項目
 
-### 公開契約
+### 公開API仕様
 
 - [x] `Normalized`、`Sources`、`Values`の型名とJSON項目名を確定する
 - [x] `Subtitle`を単数にする
@@ -82,7 +82,7 @@
 
 ### ドキュメント
 
-- [x] 確定した公開契約だけを `docs/spec.md`へ反映する
+- [x] 確定した公開API仕様だけを `docs/spec.md`へ反映する
 - [x] MADBの変換規則を `docs/pkg/madb/spec.md`へ反映する
 - [x] 調査文書と仕様書の役割を混在させない
 
