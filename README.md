@@ -1,19 +1,39 @@
-# 漫検 manken - 漫画の書誌情報を検索・ISBN参照する Go ライブラリ
+# 漫検 manken - 漫画の書誌情報を検索・取得する Go ライブラリ
 
-`madb` パッケージでメディア芸術データベース（MADB）から漫画の書誌情報を検索・参照し、
-`openbd` パッケージでopenBDから複数ISBNの書誌情報を参照する。
-どちらもデータ取得元に依存しない共通書籍モデルで結果を受け取れる。
+`manken` は、漫画の書誌情報を検索・取得し、データ取得元に依存しない共通書籍モデルで
+扱うためのGoライブラリである。利用側は、必要なプロバイダのパッケージだけを導入できる。
 
-## 検索できる条件
+## 対応プロバイダ
 
-- タイトル
-- 著者名
-- 複数の書誌項目を対象とするフリーワード
+| パッケージ | データ取得元 | 利用できる機能 | 利用開始に必要なもの |
+| --- | --- | --- | --- |
+| `madb` | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名などによる検索、ISBNによる取得 | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要 |
+| `openbd` | [openBD](https://openbd.jp/) | ISBNによる取得 | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要 |
+
+### 利用前の確認
+
+- MADBのデータを利用する場合は出典を記載する。編集・加工した場合は、その旨も記載する。
+  詳細は [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/) を確認する。
+- openBDの書誌・書影などは、本の紹介・販促目的に限って利用できる。取得データの任意改変は
+  認められておらず、削除要請を受けた場合は対応が必要となる。詳細は
+  [openBD API利用規約](https://openbd.jp/terms/) を確認する。
+- openBDは、収録されていないISBNや、一部の書誌項目・書影がない書籍を含む。取得結果の扱いは
+  [openBDパッケージ仕様](docs/pkg/openbd/spec.md)を参照する。
+
+## 主な機能
+
+### MADB
+
+- タイトルによる検索
+- 著者名による検索
+- 複数の書誌項目を対象とするフリーワード検索
 - 指定語を含む結果の除外
+- 取得件数の指定とカーソルによるページング
+- ISBN-10またはISBN-13による書誌情報の取得
 
-取得件数の指定とカーソルによるページングも利用できる。
-ISBN-10またはISBN-13による参照は、検索とは独立したAPIで行う。1回に指定できる件数は
-MADBが500件、openBDが1,000件となる。
+### openBD
+
+- 複数のISBN-10またはISBN-13による書誌情報の取得
 
 ## 必要な環境
 
@@ -101,34 +121,20 @@ func main() {
 
 ## CLIデモ
 
-`examples/demo-madb.go` で、MADBの実サービスを検索・参照してJSON結果を確認できる。
+`examples/madb` で、MADBの実サービスを検索・参照してJSON結果を確認できる。
 
 ```text
-go run ./examples/demo-madb.go -title "動物のおしゃべり" -limit 5
+go run ./examples/madb -title "動物のおしゃべり" -limit 5
 ```
 
 タイトルに「動物のおしゃべり」を含む単行本を5件まで検索する。
 全オプションと操作方法は [MADB CLIデモ](examples/README.md) を参照する。
 
-## MADBの利用について
-
-取得データの利用には [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/) が
-適用される。データを加工して表示する場合は、加工したことを利用者へ示す必要がある。
-通信条件とサービス変更時の注意は [MADBパッケージ仕様](docs/pkg/madb/spec.md) に記載する。
-
-## openBDの利用について
-
-openBDの書誌・書影などは、本の販促・紹介目的に限って利用できる。
-[openBD API利用規約](https://openbd.jp/terms/)への同意と、削除要請への対応が必要となる。
-現在のAPIは従来と同じURLと応答形式を維持しているが、代替書誌への移行により
-項目の欠落や書影収録範囲の縮小がある。詳細は
-[openBDパッケージ仕様](docs/pkg/openbd/spec.md)に記載する。
-
 ## ドキュメント
 
 - [MADBパッケージ仕様](docs/pkg/madb/spec.md): MADB固有の検索、変換、通信、エラー
 - [openBDパッケージ仕様](docs/pkg/openbd/spec.md): openBD固有のISBN参照、変換、通信、エラー
-- [共通API仕様](docs/spec.md): 共通書籍モデルとAPIの契約
+- [共通API仕様](docs/spec.md): 共通書籍モデルとAPI仕様
 - [アーキテクチャ](ARCHITECTURE.md): パッケージ構成と依存関係
 - [Changelog](CHANGELOG.md): 利用者に影響する変更
 

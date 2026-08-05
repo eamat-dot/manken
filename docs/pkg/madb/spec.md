@@ -9,7 +9,7 @@
 本仕様書は、MADB固有の検索、項目対応、HTTP処理、
 ページング、エラー分類を定義する。
 
-共通モデルの契約は [manken API仕様](../../spec.md)、パッケージの責務境界は
+共通モデルの仕様は [manken API仕様](../../spec.md)、パッケージの責務境界は
 [アーキテクチャ](../../../ARCHITECTURE.md)で定義する。
 
 ## 2. 参照資料
@@ -24,8 +24,7 @@
 - [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/)
 - [Amazon Neptune全文検索パラメーター](https://docs.aws.amazon.com/neptune/latest/userguide/full-text-search-parameters.html)
 
-公式GitHubのスキーマはv1.2が最新である。実装時は、現在の名前空間である
-`https://mediaarts-db.artmuseums.go.jp/` を使用する。
+クエリには `https://mediaarts-db.artmuseums.go.jp/` 名前空間を使用する。
 
 ## 3. パッケージとClient
 
@@ -143,39 +142,9 @@ https://mediaarts-db.artmuseums.go.jp/id/ + MADB ID
 
 ## 5. 結果変換
 
-MADBレスポンスは、まず `madb` パッケージの非公開型へ変換する。
-非公開型はMADBの項目構造を保持し、`madb.Book` をそのままレスポンスの
-受取先として使用しない。
-
-概念上の非公開型は次の形とする。実装時に型を分割してもよいが、
-`Creators` と `Authors` の境界は維持する。
-
-```go
-type sourceBook struct {
-	ID                string
-	Titles            []string
-	TitleKana         []string
-	Subtitles         []string
-	SeriesNames       []string
-	RelatedSeriesNames []string
-	SeriesID          string
-	SeriesResourceURI string
-	VolumeNumber      string
-	Versions          []string
-	Creators          []string
-	Brands            []string
-	Publishers        []string
-	ISBNs             []string
-	PublishedDate     string
-	PageCount         string
-	Size              string
-	ResourceURI       string
-}
-```
-
-SPARQL bindingを `sourceBook` へ集約した後、`madb` パッケージ内の変換処理で
-`madb.Book` を組み立てる。MADB固有の役割除去、ISBN検証、欠落値処理は
-この変換処理が担当する。
+MADBのSPARQL Results JSONを取得元固有の非公開表現へ読み込み、同じリソースの
+bindingを集約してから共通の `madb.Book` へ変換する。MADB固有の役割表記、ISBN、
+欠落値の扱いはこの節で定義する。
 
 ### 5.1 複数値と単数値の選択
 
@@ -308,7 +277,7 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 10進数の `Label`を設定する。`上`、`中`、`下`、`前編`、`後編`、小数巻、
 `別巻`、`外伝`、`番外編`は `Label`だけを設定する。解析できない値は正規化せず、
 元表記だけを返す。複数の異なる値が返された場合は、スキーマの0または1件という
-契約に反するため `invalid_response` とする。
+保証事項に反するため `invalid_response` とする。
 
 ### 5.6 ページ数と大きさ
 
@@ -323,13 +292,11 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 ### 5.7 版表示、単行本レーベル、シリーズ
 
 マンガ単行本へ直接記録された言語タグなしの `schema:version` を
-`sourceBook.Versions` へ格納し、`Normalized.EditionStatements` と
-`Sources[0].Values.Editions` として返す。
+`Normalized.EditionStatements` と `Sources[0].Values.Editions` として返す。
 版表示は0件以上存在し、複数の異なる値もすべて返す。値を通常版、新装版、
 愛蔵版、完全版、文庫版などの独自分類へ変換しない。
 
-マンガ単行本へ直接記録された言語タグなしの `schema:brand` を
-`sourceBook.Brands` へ格納し、`Imprints` として返す。`ja-hrkt` などの
+マンガ単行本へ直接記録された言語タグなしの `schema:brand` を `Imprints` として返す。`ja-hrkt` などの
 言語タグ付きの読みは返さない。レーベルらしくない値が含まれていても、
 文字列の内容から除外または修正しない。
 
@@ -346,7 +313,7 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 名前だけをID、URLなしで返す。
 
 異なる複数の参照先シリーズ、シリーズID、シリーズURIが返された場合は、
-スキーマの0または1件という契約に反するため `invalid_response` とする。
+スキーマの0または1件という保証事項に反するため `invalid_response` とする。
 参照先シリーズの `schema:brand` と `schema:version` は単行本の値として返さない。
 単行本の版表示またはレーベルが欠落しても、参照先シリーズ、タイトル、
 出版社、判型から補完しない。
@@ -540,13 +507,13 @@ ISBN参照は、リソースURIと実際に一致した `matchedISBN` をサブ�
 区切り文字を実データと区別できないため使用しない。
 
 SPARQL Results JSONのbindingは、要求した変数が欠落することを正常な状態として
-扱う。未知の変数は無視するが、既知の変数の型が契約と異なる場合は
+扱う。未知の変数は無視するが、既知の変数の型が仕様と異なる場合は
 `invalid_response` とする。
 
 ## 10. HTTP
 
-既定エンドポイントはGETとPOSTに対応する。現在の実装は、SPARQLをURLへ含めず、
-長いクエリでもURL長の制約を受けないPOSTを使用する。
+既定エンドポイントはGETとPOSTに対応する。SPARQLをURLへ含めず、長いクエリでも
+URL長の制約を受けないPOSTを使用する。
 
 ```text
 Content-Type: application/x-www-form-urlencoded
@@ -610,86 +577,3 @@ SPARQL Query Serviceで取得したデータの利用には、MADBの利用規�
 
 MADBは技術サポートを提供せず、サービスやコンテンツを予告なく変更する場合がある。
 エンドポイント、名前空間、全文検索設定は将来変更される可能性がある。
-
-## 13. 実レスポンス確認例
-
-調査用クエリは、認証情報を使用せず、公式エンドポイントへPOSTした。
-
-| リソースまたは検索 | 確認内容 |
-| --- | --- |
-| `M521557` | タイトル、creator、publisher、ISBN-13、年月精度の刊行日 |
-| `C51001` | `dcterms:creator` が参照するAgent名 |
-| `M1032577` | 1冊から複数Agentへの関連 |
-| `M1080236` | creator、publisher、ISBN、刊行日、巻数の欠落 |
-| `M292132` | `[著]佐々木倫子` と `[解説]藤原新也` の役割分離 |
-| `M521385` | Agent参照がなく、creator文字列だけがある単行本 |
-| `M830542` | creator文字列がなく、Agent参照だけがある単行本 |
-| `M850396` | 役割なしcreator文字列とAgent参照がある単行本 |
-| `M809985` | `[[著]]近江のこ` という不正な角括弧表記 |
-| `M196958`、`M208098`、`M208454`、`M213006` | 2つ目の角括弧が人名の一部であるcreator文字列 |
-| `M190399` | ISBN-10とISBN-13の併存 |
-| `M409358`、`M409359`、`M409360` | ISBN `9784990524302` に一致する複数リソース |
-| `M215486` | 複数publisherと役割、読みの混在 |
-| `M380671` | `[通常版]` の版表示と単行本レーベル |
-| `M377325` | 新装版の版表示と単行本レーベルの欠落 |
-| `M354575` | 愛蔵版の版表示 |
-| `M358795` | 完全版の版表示 |
-| `M296746` | 文庫版の版表示 |
-| `M292127`、`M292128`、`M292129` | 同じタイトルに対する異なるシリーズ参照とレーベル |
-| `M292129` の公式サイト | 単行本レーベルと読み、`C262212` のシリーズ表示、版表示の欠落 |
-| `M292141` | タイトル読み3件、`197p` のページ数、`17.3cm × 10.6cm` の大きさ、出版社名と読み |
-| `M335551`、`M346749` | 1冊に複数の版表示 |
-| `M1079781` | 単行本と参照先シリーズで異なるレーベル |
-| `動物のおしゃべり` | 全文検索、部分一致、複数回実行、次ページ |
-| `おたがね\ : オタがためカネはなる` | バックスラッシュを含む検索 |
-| UUIDを含む存在しない題名 | HTTP 200と空のbindings |
-
-2026年7月30日にTODO011の実装結果を実サービスで確認した。
-
-- `動物のお医者さん` の検索で `M292127`、`M292128`、`M292129` が
-  それぞれ異なるシリーズIDと `Normalized.Imprints` を返した
-- `プロジェクトX挑戦者たち` の検索で、`M335551` が
-  `コミック版` と `第2版` の両方を `Normalized.EditionStatements` として返した
-- `スリーＺメン` の検索で、`M1079781` の `Normalized.Imprints` は
-  単行本の `藤子不二雄全集` だけを返し、参照先シリーズの
-  `虫コミックス` は混入しなかった
-- `動物のおしゃべり` を100件で検索した応答は、次ページ判定用の1冊を含め
-  37,588バイトであり、4 MiBの本文上限内だった
-
-2026年8月1日にTODO013の実装結果を実サービスで確認した。
-
-- `動物のお医者さん` の検索で `M292132` の `Normalized.Authors` は
-  佐々木倫子だけを返した
-- 同じ結果の `Normalized.Contributors` は、佐々木倫子を `author`、
-  藤原新也を `commentator` として返した
-- `Sources[0].Values.Authors` は `[著]佐々木倫子` と `[解説]藤原新也` を
-  変更せず返した
-- build tag付きの実サービス統合テスト一式とデモCLIの両方で同じ結果を確認した
-
-2026年8月1日にTODO016の実装結果を実サービスで確認した。
-
-- creator文字列を持つ `M292132` を著者名 `佐々木倫子` で取得した
-- creator文字列がなくAgent参照だけを持つ `M830542` を著者名 `KotzDean` で取得した
-- タイトルと著者名のAND検索で対象の単行本を取得した
-
-2026年8月1日にフリーワード検索を実サービスで確認した。
-
-- `うる星 高橋留美子 新装版` がタイトル、creator、版表示をまたいで一致した
-- タイトル、副題、シリーズ名、creator、出版社、レーベル、版表示、判型の
-  代表値が、それぞれ対応する取得元値を持つ単行本へ一致した
-- フリーワード1語は約1.15秒、2語は約0.53秒、3語は約0.06秒で完了した
-- 各対象フィールドの代表検索は最長約6.7秒で完了した
-- 初回実測ではcreator文字列の著者検索が約25.5秒、Agent参照の著者検索が約17.7秒、
-  タイトルと著者名のAND検索が約0.7秒で完了した
-- build tag付きの実サービス統合テスト一式とデモCLIの `-author` を確認した
-
-2026年8月3日にTODO020のISBN参照を実サービスで確認した。
-
-- ISBN-10 `4088466365` と対応するISBN-13 `9784088466361` の各入力が
-  同じ `M190399` を返した
-- `9784990524302` は `M409358`、`M409359`、`M409360` をURI昇順で別々に返した
-- 複数ISBNを1回のSPARQLで参照し、未収録ISBNを空の `Books` として保持した
-- 成功本文は既存と同じ4 MiB上限内で1回だけ読み込み、変換とraw返却に共用した
-
-実レスポンスは更新されるためリポジトリへ固定保存せず、確認対象のID、
-検索語、件数、判断結果を本仕様書へ記録する。
