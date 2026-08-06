@@ -1,4 +1,4 @@
-// Package api は、漫画本の書誌情報を検索するための共通契約を提供する
+// Package api は、漫画本の書誌情報を検索するための共通の書籍モデルと検索条件を提供する
 package api
 
 // Source は、書誌情報の取得元を表す
@@ -21,7 +21,7 @@ type Book struct {
 type NormalizedBook struct {
 	Title             string            `json:"title,omitempty"`
 	ParallelTitles    []string          `json:"parallel_titles,omitempty"`
-	TitleKana         string            `json:"title_kana,omitempty"`
+	TitleReading      string            `json:"title_reading,omitempty"`
 	Subtitle          string            `json:"subtitle,omitempty"`
 	Series            []Series          `json:"series,omitempty"`
 	Volume            Volume            `json:"volume,omitzero"`
@@ -43,40 +43,11 @@ type NormalizedBook struct {
 	Images            []Image           `json:"images,omitempty"`
 }
 
-// BookSource は、Bookの正規化に使用した取得元と元値を表す
+// BookSource は、Bookの書誌情報を取得した取得元を表す
 type BookSource struct {
-	Source Source           `json:"source"`
-	ID     string           `json:"id,omitempty"`
-	URL    string           `json:"url,omitempty"`
-	Values SourceBookValues `json:"values"`
-}
-
-// SourceBookValues は、取得元から得た正規化前の主な書誌値を表す
-type SourceBookValues struct {
-	Titles        []string      `json:"titles,omitempty"`
-	TitleKana     []string      `json:"title_kana,omitempty"`
-	Subtitles     []string      `json:"subtitles,omitempty"`
-	SeriesNames   []string      `json:"series_names,omitempty"`
-	Volume        string        `json:"volume,omitempty"`
-	Editions      []string      `json:"editions,omitempty"`
-	Authors       []string      `json:"authors,omitempty"`
-	Publishers    []string      `json:"publishers,omitempty"`
-	Imprints      []string      `json:"imprints,omitempty"`
-	ISBNs         []string      `json:"isbns,omitempty"`
-	PublishedDate string        `json:"published_date,omitempty"`
-	Description   string        `json:"description,omitempty"`
-	GenreIDs      []string      `json:"genre_ids,omitempty"`
-	PageCount     *int          `json:"page_count,omitempty"`
-	Size          string        `json:"size,omitempty"`
-	Prices        []SourcePrice `json:"prices,omitempty"`
-}
-
-// SourcePrice は、取得元が返した価格と価格種別の元表記を表す
-type SourcePrice struct {
-	Type        string `json:"type,omitempty"`
-	Amount      int64  `json:"amount"`
-	Currency    string `json:"currency,omitempty"`
-	TaxIncluded *bool  `json:"tax_included,omitempty"`
+	Source Source `json:"source"`
+	ID     string `json:"id,omitempty"`
+	URL    string `json:"url,omitempty"`
 }
 
 // Volume は、整数化できる巻数と正規化済みの巻表示を表す
@@ -133,8 +104,9 @@ const (
 
 // Contributor は、制作への寄与者と複数の役割を表す
 type Contributor struct {
-	Name  string            `json:"name"`
-	Roles []ContributorRole `json:"roles,omitempty"`
+	Name    string            `json:"name"`
+	Reading string            `json:"reading,omitempty"`
+	Roles   []ContributorRole `json:"roles,omitempty"`
 }
 
 // Series は、シリーズ名と取得元内の参照情報を表す

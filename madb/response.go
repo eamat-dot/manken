@@ -338,7 +338,7 @@ func (accumulator *sourceBookAccumulator) finish() sourceBook {
 
 // convertBook は、MADB固有のsourceBookを共通のBookへ変換する
 func convertBook(source sourceBook) Book {
-	sourceAuthors, authors, contributors := convertCreators(source)
+	authors, contributors := convertCreators(source)
 
 	identifiers := make([]Identifier, 0, len(source.ISBNs))
 	for _, value := range source.ISBNs {
@@ -365,10 +365,6 @@ func convertBook(source sourceBook) Book {
 		})
 	}
 
-	seriesNames := uniqueSorted(append(
-		append([]string(nil), source.SeriesNames...),
-		source.RelatedSeriesNames...,
-	))
 	pageCount := normalizePageCount(source.PageCount)
 	physicalSize := normalizePhysicalSize(source.Size)
 	medium := PublicationMediumUnknown
@@ -379,7 +375,7 @@ func convertBook(source sourceBook) Book {
 	return Book{
 		Normalized: NormalizedBook{
 			Title:             firstValue(source.Titles),
-			TitleKana:         normalizeTitleKana(source.TitleKana),
+			TitleReading:      normalizeTitleKana(source.TitleKana),
 			Subtitle:          firstValue(source.Subtitles),
 			Series:            convertSeries(source),
 			Volume:            normalizeVolume(source.VolumeNumber),
@@ -398,29 +394,18 @@ func convertBook(source sourceBook) Book {
 			Source: SourceMADB,
 			ID:     source.ID,
 			URL:    source.ResourceURI,
-			Values: SourceBookValues{
-				Titles:        source.Titles,
-				TitleKana:     source.TitleKana,
-				Subtitles:     source.Subtitles,
-				SeriesNames:   seriesNames,
-				Volume:        source.VolumeNumber,
-				Editions:      source.Versions,
-				Authors:       sourceAuthors,
-				Publishers:    source.Publishers,
-				Imprints:      source.Brands,
-				ISBNs:         source.ISBNs,
-				PublishedDate: source.PublishedDate,
-				PageCount:     pageCount,
-				Size:          source.Size,
-			},
 		}},
 	}
 }
 
 // convertCreators は、MADBのcreator文字列とAgent名を共通の著者と寄与者へ変換する
-func convertCreators(source sourceBook) ([]string, []string, []Contributor) {
+func convertCreators(source sourceBook) ([]string, []Contributor) {
 	if len(source.Creators) == 0 {
-		return source.AgentNames, source.AgentNames, nil
+		contributors := make([]Contributor, 0, len(source.AgentNames))
+		for _, name := range source.AgentNames {
+			contributors = append(contributors, Contributor{Name: name})
+		}
+		return source.AgentNames, contributors
 	}
 
 	authors := make([]string, 0, len(source.Creators))
@@ -428,47 +413,44 @@ func convertCreators(source sourceBook) ([]string, []string, []Contributor) {
 	contributors := make([]Contributor, 0, len(source.Creators))
 	contributorIndexes := make(map[string]int, len(source.Creators))
 	for _, creator := range source.Creators {
-		name, roles, usable := parseCreator(creator)
+		name, roles, hasRole, usable := parseCreator(creator)
 		if !usable {
 			continue
 		}
-		if len(roles) == 0 {
-			authors = appendUniqueString(authors, authorNames, name)
-			continue
-		}
-
-		if containsAuthorRole(roles) {
+		if !hasRole || containsAuthorRole(roles) {
 			authors = appendUniqueString(authors, authorNames, name)
 		}
 		contributors = mergeContributor(contributors, contributorIndexes, name, roles)
 	}
-	return source.Creators, authors, contributors
+	return authors, contributors
 }
 
-// parseCreator は、creator文字列から人物名と確定済みの共通役割を取り出す
-func parseCreator(value string) (string, []ContributorRole, bool) {
+// parseCreator は、creator文字列から人物名、確定済みの共通役割、役割表記の有無を取り出す
+func parseCreator(value string) (string, []ContributorRole, bool, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", nil, false
+		return "", nil, false, false
 	}
 	if !strings.HasPrefix(value, "[") {
-		return value, nil, true
+		return value, nil, false, true
+	}
+	if strings.HasPrefix(value, "[[") {
+		return "", nil, false, false
 	}
 
 	roleEnd := strings.Index(value, "]")
 	if roleEnd < 0 {
-		return "", nil, false
+		return "", nil, false, false
 	}
-	roles, ok := mapCreatorRoles(value[1:roleEnd])
-	if !ok {
-		return "", nil, false
-	}
-
+	roles, rolesOK := mapCreatorRoles(value[1:roleEnd])
 	name, ok := parseCreatorName(value[roleEnd+1:])
 	if !ok {
-		return "", nil, false
+		return "", nil, false, false
 	}
-	return name, roles, true
+	if !rolesOK {
+		return name, nil, true, true
+	}
+	return name, roles, true, true
 }
 
 // mapCreatorRoles は、MADBの単一または複合役割を共通役割へ変換する

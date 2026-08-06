@@ -5,7 +5,6 @@ package madb_test
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -377,34 +376,15 @@ func TestIntegration_SearchBooksFreeTextFields(t *testing.T) {
 	tests := []struct {
 		name     string
 		freeText string
-		matches  func(madb.SourceBookValues) bool
 	}{
-		{name: "title", freeText: "動物のお医者さん", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.Titles, "動物のお医者さん")
-		}},
-		{name: "subtitle", freeText: "幼馴染の大公閣下の溺愛が止まらないのです", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.Subtitles, "幼馴染の大公閣下の溺愛が止まらないのです")
-		}},
-		{name: "series name", freeText: "ねこぱんち文庫", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.SeriesNames, "ねこぱんち文庫")
-		}},
-		{name: "creator", freeText: "佐々木倫子", matches: func(values madb.SourceBookValues) bool {
-			return slices.ContainsFunc(values.Authors, func(author string) bool {
-				return strings.Contains(author, "佐々木倫子")
-			})
-		}},
-		{name: "publisher", freeText: "白泉社", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.Publishers, "白泉社")
-		}},
-		{name: "brand", freeText: "花とゆめCOMICS", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.Imprints, "花とゆめCOMICS")
-		}},
-		{name: "version", freeText: "新装版", matches: func(values madb.SourceBookValues) bool {
-			return slices.Contains(values.Editions, "新装版")
-		}},
-		{name: "size", freeText: "18cm", matches: func(values madb.SourceBookValues) bool {
-			return values.Size == "18cm"
-		}},
+		{name: "title", freeText: "動物のお医者さん"},
+		{name: "subtitle", freeText: "幼馴染の大公閣下の溺愛が止まらないのです"},
+		{name: "series name", freeText: "ねこぱんち文庫"},
+		{name: "creator", freeText: "佐々木倫子"},
+		{name: "publisher", freeText: "白泉社"},
+		{name: "brand", freeText: "花とゆめCOMICS"},
+		{name: "version", freeText: "新装版"},
+		{name: "size", freeText: "18cm"},
 	}
 
 	for _, test := range tests {
@@ -412,17 +392,18 @@ func TestIntegration_SearchBooksFreeTextFields(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
-			result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+			result, rawResponse, err := client.SearchBooksWithRawResponse(ctx, madb.SearchBooksRequest{
 				FreeText: test.freeText,
 				Limit:    100,
 			})
 			if err != nil {
 				t.Fatalf("SearchBooks() error = %v", err)
 			}
-			if !slices.ContainsFunc(result.Books, func(book madb.Book) bool {
-				return len(book.Sources) != 0 && test.matches(book.Sources[0].Values)
-			}) {
-				t.Fatalf("FreeText %q did not return a matching source value", test.freeText)
+			if len(result.Books) == 0 {
+				t.Fatalf("FreeText %q returned no books", test.freeText)
+			}
+			if !strings.Contains(string(rawResponse), test.freeText) {
+				t.Fatalf("Raw response does not contain FreeText %q", test.freeText)
 			}
 		})
 	}
@@ -515,8 +496,8 @@ func TestIntegration_SearchBooksAdditionalFields(t *testing.T) {
 	if book == nil {
 		t.Fatal("M292141 was not found")
 	}
-	if book.Normalized.TitleKana != "ドウブツノオイシャサン" {
-		t.Fatalf("TitleKana = %q", book.Normalized.TitleKana)
+	if book.Normalized.TitleReading != "ドウブツノオイシャサン" {
+		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
 	}
 	assertIntegrationStrings(t, book.Normalized.Publishers, []string{"白泉社"})
 	if book.Normalized.PageCount == nil || *book.Normalized.PageCount != 197 {
@@ -529,10 +510,6 @@ func TestIntegration_SearchBooksAdditionalFields(t *testing.T) {
 		*book.Normalized.PhysicalSize.WidthMM != 106 {
 		t.Fatalf("PhysicalSize = %#v", book.Normalized.PhysicalSize)
 	}
-	assertIntegrationStrings(t, book.Sources[0].Values.Publishers, []string{
-		"白泉社",
-		"白泉社　∥　ハクセンシャ",
-	})
 }
 
 // TestIntegration_SearchBooksContributorRoles は、著者と解説者の役割分離を実サービスで確認する
@@ -557,10 +534,6 @@ func TestIntegration_SearchBooksContributorRoles(t *testing.T) {
 	assertIntegrationContributors(t, book.Normalized.Contributors, []madb.Contributor{
 		{Name: "佐々木倫子", Roles: []madb.ContributorRole{madb.ContributorRoleAuthor}},
 		{Name: "藤原新也", Roles: []madb.ContributorRole{madb.ContributorRoleCommentator}},
-	})
-	assertIntegrationStrings(t, book.Sources[0].Values.Authors, []string{
-		"[著]佐々木倫子",
-		"[解説]藤原新也",
 	})
 }
 

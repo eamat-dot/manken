@@ -12,6 +12,9 @@
 共通モデルの仕様は [manken API仕様](../../spec.md)、パッケージの責務境界は
 [アーキテクチャ](../../../ARCHITECTURE.md)で定義する。
 
+MADBの `schema:provider` 配下にある `schema:price` は、書籍の共通価格へ変換しない。
+所蔵情報も現在の取得対象外とする。
+
 ## 2. 参照資料
 
 2026年7月29日、30日、8月3日に次の公式資料と実サービスを確認した。
@@ -107,24 +110,26 @@ https://mediaarts-db.artmuseums.go.jp/data/class#MangaBook
 | MADBの取得元 | `madb` の非公開型 | `madb.Book` |
 | --- | --- | --- |
 | `schema:identifier` | `ID` | `Sources[0].ID` |
-| 言語タグなしの `schema:name` | `Titles` | `Normalized.Title`、`Sources[0].Values.Titles` |
-| `ja-hrkt` の `schema:name` | `TitleKana` | `Normalized.TitleKana`、`Sources[0].Values.TitleKana` |
-| 言語タグなしの `schema:alternativeHeadline` | `Subtitles` | `Normalized.Subtitle`、`Sources[0].Values.Subtitles` |
-| 言語タグなしの `ma:seriesName` | `SeriesNames` | `Normalized.Series`、`Sources[0].Values.SeriesNames` |
-| 参照先シリーズの言語タグなし `schema:name` | `RelatedSeriesNames` | `Normalized.Series`、`Sources[0].Values.SeriesNames` |
+| 言語タグなしの `schema:name` | `Titles` | `Normalized.Title` |
+| `ja-hrkt` の `schema:name` | `TitleKana` | `Normalized.TitleReading` |
+| 言語タグなしの `schema:alternativeHeadline` | `Subtitles` | `Normalized.Subtitle` |
+| 言語タグなしの `ma:seriesName` | `SeriesNames` | `Normalized.Series` |
+| 参照先シリーズの言語タグなし `schema:name` | `RelatedSeriesNames` | `Normalized.Series` |
 | 参照先シリーズの `schema:identifier` | `SeriesID` | `Normalized.Series[].ID` |
 | 参照先シリーズURI | `SeriesResourceURI` | `Normalized.Series[].URL` |
-| `schema:volumeNumber` | `VolumeNumber` | `Normalized.Volume`、`Sources[0].Values.Volume` |
-| 言語タグなしの `schema:version` | `Versions` | `Normalized.EditionStatements`、`Sources[0].Values.Editions` |
-| `schema:creator` とcreator Agent | `Creators`、`AgentNames` | `Normalized.Authors`、`Sources[0].Values.Authors` |
-| `schema:publisher` | `Publishers` | `Normalized.Publishers`、`Sources[0].Values.Publishers` |
-| 言語タグなしの `schema:brand` | `Brands` | `Normalized.Imprints`、`Sources[0].Values.Imprints` |
-| `schema:isbn` | `ISBNs` | `Normalized.Identifiers`、`Sources[0].Values.ISBNs` |
-| `schema:datePublished` | `PublishedDate` | `Normalized.Dates`、`Sources[0].Values.PublishedDate` |
-| `schema:numberOfPages` | `PageCount` | `Normalized.PageCount`、`Sources[0].Values.PageCount` |
-| `schema:size` | `Size` | `Normalized.PhysicalSize`、`Sources[0].Values.Size` |
+| `schema:volumeNumber` | `VolumeNumber` | `Normalized.Volume` |
+| 言語タグなしの `schema:version` | `Versions` | `Normalized.EditionStatements` |
+| `schema:creator` とcreator Agent | `Creators`、`AgentNames` | `Normalized.Authors`、`Normalized.Contributors` |
+| `schema:publisher` | `Publishers` | `Normalized.Publishers` |
+| 言語タグなしの `schema:brand` | `Brands` | `Normalized.Imprints` |
+| `schema:isbn` | `ISBNs` | `Normalized.Identifiers` |
+| `schema:datePublished` | `PublishedDate` | `Normalized.Dates` |
+| `schema:numberOfPages` | `PageCount` | `Normalized.PageCount` |
+| `schema:size` | `Size` | `Normalized.PhysicalSize` |
 | 固定値 | 対応なし | `Sources[0].Source`、シリーズの `Source` |
 | マンガ単行本URI | `ResourceURI` | `Sources[0].URL` |
+
+中央列はMADB応答を集約するための非公開実装型を示し、公開APIではない。
 
 リソースURIは次の規則を持つ。
 
@@ -150,7 +155,6 @@ bindingを集約してから共通の `madb.Book` へ変換する。MADB固有�
 
 `Titles`、`TitleKana`、`Subtitles`、シリーズ名、版表示、著者、出版社、レーベル、ISBNは、
 空文字列を除外し、完全に同じ値だけを重複除去してGoの文字列昇順にする。
-全候補は `Sources[0].Values` に残す。
 
 - 空文字列を除外する
 - 完全に同じ値だけを重複除去する
@@ -161,13 +165,13 @@ bindingを集約してから共通の `madb.Book` へ変換する。MADB固有�
 実データでは、言語タグなしの値だけでも複数タイトル、副題、シリーズ名が存在する。
 単一の正規値を示すプロパティがないため、`Normalized.Title` と
 `Normalized.Subtitle` には安定ソート後の先頭を暫定値として設定する。
-この選択で失われる候補はなく、すべて取得元値に残る。
+選択しなかった候補を確認する必要がある場合は、リクエスト単位で返すRaw responseを使用する。
 
 タイトル読みは、すべてのUnicode空白を除去して同じ値になった候補を数える。
-最多の候補が1つに決まる場合だけ `Normalized.TitleKana` へ設定し、最多候補が
-同数の場合は空にする。空白除去前の全候補は `Sources[0].Values.TitleKana` に残す。
+最多の候補が1つに決まる場合だけ `Normalized.TitleReading` へ設定し、最多候補が
+同数の場合は空にする。
 
-### 5.2 CreatorsからAuthorsへの変換
+### 5.2 creator文字列からAuthors・Contributorsへの変換
 
 `schema:creator` は文字列であり、次のような役割を含む。
 
@@ -180,12 +184,12 @@ bindingを集約してから共通の `madb.Book` へ変換する。MADB固有�
 `sourceBook.Creators` には言語タグなしの `schema:creator`、
 `sourceBook.AgentNames` には `dcterms:creator` が参照する全Agentの
 `rdfs:label` を別々に格納する。creator文字列とAgentにはRDF上の1対1対応が
-ないため、名前の一致や配列位置から両者を結び付けない。
+ないため、名前の一致や配列位置から両者を結び付けない。人物名と読みの対応も
+確認できないため、MADBでは `Contributor.Reading` を設定しない。
 
-言語タグなしcreator文字列が1件以上ある場合は、役割表記を含む全creator文字列を
-`Sources[0].Values.Authors` に変更せず残す。creator文字列がない場合だけ、
-全Agent名を取得元の著者表示として残す。どちらも空文字列を除外し、完全一致で
-重複除去してGoの文字列昇順にする。
+言語タグなしcreator文字列が1件以上ある場合は、役割表記を解析して著者と寄与者を作る。
+creator文字列がない場合だけ、全Agent名を著者と役割なしの寄与者として使用する。
+どちらも空文字列を除外し、完全一致で重複除去してGoの文字列昇順にする。
 
 #### 5.2.1 MADB役割の対応
 
@@ -219,19 +223,20 @@ bindingを集約してから共通の `madb.Book` へ変換する。MADB固有�
 creator文字列は次の順序で解析する。
 
 1. 前後のUnicode空白を除く
-2. 先頭が `[役割]` で、役割全体を前項の共通役割へ対応できるか確認する
-3. 対応できた場合だけ、最初の `]` より後ろを人物名の候補にする
+2. 先頭が `[役割]` の場合、最初の `]` より後ろを人物名の候補にする
+3. 役割全体を前項の共通役割へ対応できるか確認する
 4. 人物名候補が `[` で始まる場合は、最初に対応する `]` との1組だけを除き、
    角括弧内と後続文字列を連結する
 5. 前後のUnicode空白を除き、空でなければ人物名として使用する
 
-先頭役割を対応できない値、閉じ角括弧がない値、人物名が空になる値からは、
-`Authors` と `Contributors` を作らない。取得元値とRaw responseには残す。
+先頭に役割表記がないcreator文字列は、文字列全体を人物名として `Authors` と
+役割なしの `Contributors` に含める。既知役割を持つ人物は `Contributors` に含め、
+`author`、`original_creator`、`writer`、`artist`、`character_creator`、
+`character_designer` のいずれかを持つ場合だけ `Authors` に含める。役割表記があるが
+対応できない人物は、役割なしの `Contributors` にだけ含める。
 
-先頭に役割がないcreator文字列は、文字列全体を人物名として `Authors` に含める。
-役割を推測できないため `Contributors` には含めない。creator文字列がなく
-Agent名だけがある場合も、全Agent名を `Authors` に含め、`Contributors` は
-作らない。
+閉じ角括弧がない、角括弧が不正に重なる、人物名が空になる値からは、`Authors` と
+`Contributors` を作らない。値を確認する必要がある場合はRaw responseを使用する。
 
 同じ人物名から複数の既知役割を得た場合は、人物名の完全一致で1つの
 `Contributor` にまとめる。人名の異体字、別名、空白差を同一人物と推測しない。
@@ -253,7 +258,7 @@ MADBのRDFはcreatorの順序を持たない。`Creators` と `AgentNames` はGo
 `Normalized.Publishers` では、`∥` より後ろがカタカナ、空白、中黒、長音記号だけで
 構成される場合に限り、区切り以降を出版社名の読みとして除去する。除去後に同じに
 なった出版社名は1件へまとめる。`発行元 ∥ 発売元` など、区切り後がカナ読みでは
-ない値は変更しない。取得した全表記は `Sources[0].Values.Publishers` に残す。
+ない値は変更しない。
 
 ### 5.4 ISBN
 
@@ -263,7 +268,6 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 - 正しいISBN-10は大文字の `X` を含む10文字として `Identifiers` へ設定する
 - 正しいISBN-13は13桁として `Identifiers` へ設定する
 - 検証に失敗した値は `Normalized.Identifiers` へ設定しない
-- 検証前の全値は `Sources[0].Values.ISBNs` に残す
 - 同じ種別が複数ある場合もすべて返す
 
 ### 5.5 刊行日と巻数
@@ -272,11 +276,10 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 精度の異なる文字列である。日付として再解釈せず、取得値をそのまま保持する。
 空文字列は欠落として扱う。不正に見える値も推測で修正しない。
 
-`schema:volumeNumber` の元表記は `Sources[0].Values.Volume` に保持する。
 文字列全体が許可した整数構文へ一致する場合は `Normalized.Volume.Number` と
 10進数の `Label`を設定する。`上`、`中`、`下`、`前編`、`後編`、小数巻、
 `別巻`、`外伝`、`番外編`は `Label`だけを設定する。解析できない値は正規化せず、
-元表記だけを返す。複数の異なる値が返された場合は、スキーマの0または1件という
+`Volume` を設定しない。複数の異なる値が返された場合は、スキーマの0または1件という
 保証事項に反するため `invalid_response` とする。
 
 ### 5.6 ページ数と大きさ
@@ -284,21 +287,21 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 `schema:numberOfPages` は、数字だけ、または数字の後ろに `p` が付く表記だけを
 `Normalized.PageCount` の整数へ変換する。解析できない値はページ数を設定しない。
 
-`schema:size` の元表記は `Sources[0].Values.Size` に残す。整数または小数第1位までの
-センチメートル表記を認識し、先頭の値を高さ、`×` より後ろを幅としてミリメートルへ
-変換する。認識できた場合は `Normalized.PhysicalSize` と `print` の
+整数または小数第1位までのセンチメートル表記を認識し、先頭の値を高さ、
+`×` より後ろを幅としてミリメートルへ変換する。認識できた場合は
+`Normalized.PhysicalSize` と `print` の
 `Normalized.Medium` を設定する。判型名など解析できない値は推測で寸法へ変換しない。
 
 ### 5.7 版表示、単行本レーベル、シリーズ
 
 マンガ単行本へ直接記録された言語タグなしの `schema:version` を
-`Normalized.EditionStatements` と `Sources[0].Values.Editions` として返す。
+`Normalized.EditionStatements` として返す。
 版表示は0件以上存在し、複数の異なる値もすべて返す。値を通常版、新装版、
 愛蔵版、完全版、文庫版などの独自分類へ変換しない。
 
-マンガ単行本へ直接記録された言語タグなしの `schema:brand` を `Imprints` として返す。`ja-hrkt` などの
-言語タグ付きの読みは返さない。レーベルらしくない値が含まれていても、
-文字列の内容から除外または修正しない。
+マンガ単行本へ直接記録された言語タグなしの `schema:brand` を `Imprints` として
+返す。`ja-hrkt` などの言語タグ付きの読みは返さない。レーベルらしくない値が
+含まれていても、文字列の内容から除外または修正しない。
 
 `schema:isPartOf` が参照する `class:MangaBookSeries` から、次を取得する。
 
@@ -478,9 +481,8 @@ VALUES ?matchedISBN { "4088466365" "9784088466361" }
 正規化済み全検索条件のSHA-256を含むJSONを
 パディングなしBase64 URL形式で符号化する。
 
-ISBN参照の分離後も、ハッシュ化する旧条件表現の空ISBN欄は維持する。このため、
-ISBNを含まない既存カーソルは引き続き利用できる。旧APIでISBN検索に使用したカーソルは、
-現在の検索条件から得られるハッシュと一致せず `invalid_argument` になる。
+検索条件のハッシュには空の `isbns` 配列を含める。現在の検索APIはISBN条件を
+持たないため、この値は常に空とする。
 
 - 形式不正、未対応バージョン、URI不正は `invalid_argument` とする
 - カーソルのLimitまたは正規化済み検索条件がリクエストと一致しない場合は

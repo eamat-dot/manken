@@ -52,10 +52,9 @@ type responseProductIdentifier struct {
 	IDValue       string `json:"IDValue"`
 }
 
-// responseDescriptiveDetail は、ONIXのタイトル、シリーズ、寄与者を保持する
+// responseDescriptiveDetail は、ONIXのタイトルと寄与者を保持する
 type responseDescriptiveDetail struct {
 	TitleDetail responseTitleDetail            `json:"TitleDetail"`
-	Collection  oneOrMany[responseCollection]  `json:"Collection"`
 	Contributor oneOrMany[responseContributor] `json:"Contributor"`
 }
 
@@ -76,11 +75,6 @@ type responseTitleElement struct {
 type responseContentValue struct {
 	Content      string `json:"content"`
 	CollationKey string `json:"collationkey"`
-}
-
-// responseCollection は、ONIXのコレクションタイトルを保持する
-type responseCollection struct {
-	TitleDetail responseTitleDetail `json:"TitleDetail"`
 }
 
 // responseContributor は、ONIXの寄与者名、順序、役割を保持する
@@ -122,7 +116,6 @@ type responseHanmoto struct {
 type responseSummary struct {
 	ISBN      string `json:"isbn"`
 	Title     string `json:"title"`
-	Series    string `json:"series"`
 	Author    string `json:"author"`
 	Publisher string `json:"publisher"`
 	PubDate   string `json:"pubdate"`
@@ -131,11 +124,9 @@ type responseSummary struct {
 
 // sourceBook は、openBD固有の主要値を共通モデルへ変換する前に保持する
 type sourceBook struct {
-	ISBNs         []string
-	Titles        []string
-	TitleKana     []string
-	Subtitles     []string
-	SeriesNames   []string
+	Title         string
+	TitleReading  string
+	Subtitle      string
 	Authors       []string
 	Contributors  []Contributor
 	Publishers    []string
@@ -247,13 +238,6 @@ func responseISBNValues(book responseBook) []string {
 // convertBook は、openBDレスポンスを共通のBookへ変換する
 func convertBook(response responseBook, isbn string) Book {
 	source := collectSourceBook(response)
-	title, parallelTitles, volume := parseSourceTitle(firstValue(source.Titles), len(source.SeriesNames) > 0)
-	titleKana := normalizeTitleKana(firstValue(source.TitleKana), firstValue(source.Titles), title, volume)
-
-	series := make([]Series, 0, len(source.SeriesNames))
-	for _, name := range source.SeriesNames {
-		series = append(series, Series{Name: name, Source: SourceOpenBD})
-	}
 
 	dates := make([]BookDate, 0, 1)
 	if source.PublishedDate != "" {
@@ -267,15 +251,12 @@ func convertBook(response responseBook, isbn string) Book {
 
 	return Book{
 		Normalized: NormalizedBook{
-			Title:          title,
-			ParallelTitles: parallelTitles,
-			TitleKana:      titleKana,
-			Subtitle:       firstValue(source.Subtitles),
-			Series:         series,
-			Volume:         volume,
-			Authors:        source.Authors,
-			Contributors:   source.Contributors,
-			Publishers:     source.Publishers,
+			Title:        source.Title,
+			TitleReading: source.TitleReading,
+			Subtitle:     source.Subtitle,
+			Authors:      source.Authors,
+			Contributors: source.Contributors,
+			Publishers:   source.Publishers,
 			Identifiers: []Identifier{{
 				Type:  IdentifierTypeISBN13,
 				Value: isbn,
@@ -286,41 +267,25 @@ func convertBook(response responseBook, isbn string) Book {
 		Sources: []BookSource{{
 			Source: SourceOpenBD,
 			ID:     isbn,
-			Values: SourceBookValues{
-				Titles:        source.Titles,
-				TitleKana:     source.TitleKana,
-				Subtitles:     source.Subtitles,
-				SeriesNames:   source.SeriesNames,
-				Authors:       source.Authors,
-				Publishers:    source.Publishers,
-				ISBNs:         source.ISBNs,
-				PublishedDate: source.PublishedDate,
-			},
 		}},
 	}
 }
 
 // collectSourceBook は、優先順位に従ってopenBDの主要値を収集する
 func collectSourceBook(response responseBook) sourceBook {
-	result := sourceBook{ISBNs: responseISBNValues(response)}
+	var result sourceBook
 	for _, element := range response.Onix.DescriptiveDetail.TitleDetail.TitleElement {
 		if response.Onix.DescriptiveDetail.TitleDetail.TitleType != "01" ||
-			element.TitleElementLevel != "01" {
+			element.TitleElementLevel != "01" || element.TitleText.Content == "" {
 			continue
 		}
-		result.Titles = appendUnique(result.Titles, element.TitleText.Content)
-		result.TitleKana = appendUnique(result.TitleKana, element.TitleText.CollationKey)
-		result.Subtitles = appendUnique(result.Subtitles, element.Subtitle.Content)
+		result.Title = element.TitleText.Content
+		result.TitleReading = element.TitleText.CollationKey
+		result.Subtitle = element.Subtitle.Content
+		break
 	}
-	result.Titles = appendUnique(result.Titles, response.Summary.Title)
-
-	for _, collection := range response.Onix.DescriptiveDetail.Collection {
-		for _, element := range collection.TitleDetail.TitleElement {
-			result.SeriesNames = appendUnique(result.SeriesNames, element.TitleText.Content)
-		}
-	}
-	if len(result.SeriesNames) == 0 {
-		result.SeriesNames = appendUnique(result.SeriesNames, response.Summary.Series)
+	if result.Title == "" {
+		result.Title = response.Summary.Title
 	}
 
 	result.Authors, result.Contributors = convertContributors(response.Onix.DescriptiveDetail.Contributor)
@@ -364,14 +329,14 @@ func convertContributors(values []responseContributor) ([]string, []Contributor)
 		}
 		if len(value.ContributorRole) == 0 {
 			authors = appendUnique(authors, name)
-			continue
 		}
 
 		roles := mapContributorRoles(value.ContributorRole)
-		if len(roles) == 0 {
-			continue
-		}
-		contributors = append(contributors, Contributor{Name: name, Roles: roles})
+		contributors = append(contributors, Contributor{
+			Name:    name,
+			Reading: value.PersonName.CollationKey,
+			Roles:   roles,
+		})
 		if containsAuthorRole(roles) {
 			authors = appendUnique(authors, name)
 		}
@@ -410,12 +375,8 @@ func mapContributorRole(value string) (ContributorRole, bool) {
 		return ContributorRoleAuthor, true
 	case "A03", "A14", "A45":
 		return ContributorRoleWriter, true
-	case "A07", "A12", "A35", "A46", "A47":
+	case "A07", "A12", "A35":
 		return ContributorRoleArtist, true
-	case "A38":
-		return ContributorRoleOriginalCreator, true
-	case "A36":
-		return ContributorRoleDesigner, true
 	case "B01":
 		return ContributorRoleEditor, true
 	case "B06":
@@ -429,8 +390,7 @@ func mapContributorRole(value string) (ContributorRole, bool) {
 func containsAuthorRole(roles []ContributorRole) bool {
 	for _, role := range roles {
 		switch role {
-		case ContributorRoleAuthor, ContributorRoleOriginalCreator,
-			ContributorRoleWriter, ContributorRoleArtist:
+		case ContributorRoleAuthor, ContributorRoleWriter, ContributorRoleArtist:
 			return true
 		}
 	}
@@ -440,7 +400,7 @@ func containsAuthorRole(roles []ContributorRole) bool {
 // selectPublishedDate は、対応可能な出版日を採用順序に従って選ぶ
 func selectPublishedDate(response responseBook) string {
 	for _, date := range response.Onix.PublishingDetail.PublishingDate {
-		if (date.PublishingDateRole == "01" || date.PublishingDateRole == "11") && date.Date != "" {
+		if date.PublishingDateRole == "01" && date.Date != "" {
 			return date.Date
 		}
 	}
@@ -461,12 +421,4 @@ func appendUnique(values []string, value string) []string {
 		}
 	}
 	return append(values, value)
-}
-
-// firstValue は、文字列スライスの先頭または空文字列を返す
-func firstValue(values []string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
 }

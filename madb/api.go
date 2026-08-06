@@ -11,14 +11,8 @@ type Book = api.Book
 // NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
 type NormalizedBook = api.NormalizedBook
 
-// BookSource は、Bookの正規化に使用した取得元と元値を表す
+// BookSource は、Bookの書誌情報を取得した取得元を表す
 type BookSource = api.BookSource
-
-// SourceBookValues は、取得元から得た正規化前の主な書誌値を表す
-type SourceBookValues = api.SourceBookValues
-
-// SourcePrice は、取得元が返した価格と価格種別の元表記を表す
-type SourcePrice = api.SourcePrice
 
 // Volume は、整数化できる巻数と正規化済みの巻表示を表す
 type Volume = api.Volume

@@ -2,6 +2,7 @@ package openbd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -91,27 +92,40 @@ func TestClient_LookupBooksByISBN_RequestAndRaw(t *testing.T) {
 	}
 
 	book := result.Items[0].Books[0]
-	if book.Normalized.Title != "好きって言わせる方法" {
+	if book.Normalized.Title != "好きって言わせる方法 4" {
 		t.Fatalf("Title = %q", book.Normalized.Title)
 	}
-	if book.Normalized.TitleKana != "スキッテイワセルホウホウ" {
-		t.Fatalf("TitleKana = %q", book.Normalized.TitleKana)
+	if book.Normalized.TitleReading != "スキッテイワセルホウホウ 4" {
+		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
 	}
-	if book.Normalized.Volume.Number == nil || *book.Normalized.Volume.Number != 4 {
-		t.Fatalf("Volume = %#v", book.Normalized.Volume)
+	if len(book.Normalized.ParallelTitles) != 0 || book.Normalized.Volume.Number != nil || book.Normalized.Volume.Label != "" ||
+		len(book.Normalized.Series) != 0 || len(book.Normalized.Imprints) != 0 {
+		t.Fatalf("unexpected inferred fields: %#v", book.Normalized)
 	}
 	assertStrings(t, book.Normalized.Authors, []string{"原作者", "作画者"})
 	assertStrings(t, book.Normalized.Publishers, []string{"発行社", "発売社"})
 	if len(book.Normalized.Contributors) != 2 ||
-		book.Normalized.Contributors[0].Name != "原作者" ||
-		book.Normalized.Contributors[1].Name != "作画者" {
+		book.Normalized.Contributors[0].Name != "原作者" || len(book.Normalized.Contributors[0].Roles) != 1 ||
+		book.Normalized.Contributors[0].Roles[0] != ContributorRoleWriter ||
+		book.Normalized.Contributors[1].Name != "作画者" || len(book.Normalized.Contributors[1].Roles) != 1 ||
+		book.Normalized.Contributors[1].Roles[0] != ContributorRoleArtist {
 		t.Fatalf("Contributors = %#v", book.Normalized.Contributors)
+	}
+	if len(book.Normalized.Dates) != 1 || book.Normalized.Dates[0].Value != "2011-03" {
+		t.Fatalf("Dates = %#v", book.Normalized.Dates)
+	}
+	encoded, err := json.Marshal(book)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	for _, field := range []string{"parallel_titles", "volume", "series", "imprints"} {
+		if strings.Contains(string(encoded), `"`+field+`"`) {
+			t.Fatalf("JSON contains inferred field %q: %s", field, encoded)
+		}
 	}
 	if book.Sources[0].ID != "9784088466361" || book.Sources[0].URL != "" {
 		t.Fatalf("Source = %#v", book.Sources[0])
 	}
-	assertStrings(t, book.Sources[0].Values.Titles, []string{"好きって言わせる方法 4"})
-	assertStrings(t, book.Sources[0].Values.ISBNs, []string{"9784088466361", "978-4-08-846636-1"})
 }
 
 // TestClient_LookupBooksByISBN_InvalidInput は、不正な件数、ISBN、Clientを通信前に拒否する
