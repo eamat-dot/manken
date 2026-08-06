@@ -100,17 +100,6 @@ func TestBuildSearchResult_AggregatesAndConverts(t *testing.T) {
 		book.Sources[0].URL != resourceURI("M1") {
 		t.Fatalf("Sources = %#v", book.Sources)
 	}
-	assertStrings(t, book.Sources[0].Values.Titles, []string{"A", "B"})
-	assertStrings(t, book.Sources[0].Values.Subtitles, []string{"副題A", "副題B"})
-	assertStrings(t, book.Sources[0].Values.SeriesNames, []string{"シリーズ", "参照シリーズ"})
-	assertStrings(t, book.Sources[0].Values.Authors, []string{"[著]使わない著者"})
-	assertStrings(t, book.Sources[0].Values.ISBNs, []string{
-		"0-306-40615-2",
-		"0-8044-2957-X",
-		"978-0-306-40615-7",
-		"978-3-16-148410-0",
-		"invalid",
-	})
 }
 
 // TestBuildSearchResult_MADBAdditionalFields は、タイトル読み、ページ数、大きさ、出版社の変換を検証する
@@ -137,8 +126,8 @@ func TestBuildSearchResult_MADBAdditionalFields(t *testing.T) {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
 	book := result.Books[0]
-	if book.Normalized.TitleKana != "ドウブツノオイシャサン" {
-		t.Fatalf("TitleKana = %q", book.Normalized.TitleKana)
+	if book.Normalized.TitleReading != "ドウブツノオイシャサン" {
+		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
 	}
 	assertStrings(t, book.Normalized.Publishers, []string{"白泉社"})
 	if book.Normalized.PageCount == nil || *book.Normalized.PageCount != 197 {
@@ -153,16 +142,6 @@ func TestBuildSearchResult_MADBAdditionalFields(t *testing.T) {
 		t.Fatalf("physical fields = medium %q, size %#v", book.Normalized.Medium, book.Normalized.PhysicalSize)
 	}
 
-	source := book.Sources[0].Values
-	assertStrings(t, source.TitleKana, []string{
-		"ドウブツ ノ オイシャサン",
-		"ドウブツ ノ オイシヤサン",
-		"ドウブツノオイシャサン",
-	})
-	assertStrings(t, source.Publishers, []string{"白泉社", "白泉社　∥　ハクセンシャ"})
-	if source.PageCount == nil || *source.PageCount != 197 || source.Size != "17.3cm　×　10.6cm" {
-		t.Fatalf("source fields = %#v", source)
-	}
 }
 
 // TestNormalizePublishers は、カナ読みだけを除去し任意の併記は維持することを検証する
@@ -234,10 +213,11 @@ func TestBuildSearchResult_CreatorRolesAndMissingValues(t *testing.T) {
 		{Name: "佐々木倫子", Roles: []ContributorRole{ContributorRoleAuthor}},
 		{Name: "藤原新也", Roles: []ContributorRole{ContributorRoleCommentator}},
 	})
-	assertStrings(t, book.Sources[0].Values.Authors, []string{
-		"[著]佐々木倫子",
-		"[解説]藤原新也",
-	})
+	for _, contributor := range book.Normalized.Contributors {
+		if contributor.Reading != "" {
+			t.Fatalf("Contributor.Reading = %q, want empty", contributor.Reading)
+		}
+	}
 	if book.Normalized.Title != "" || book.Normalized.Subtitle != "" ||
 		len(book.Normalized.Series) != 0 || len(book.Normalized.Identifiers) != 0 {
 		t.Fatalf("Normalized = %#v, want omitted optional values", book.Normalized)
@@ -265,16 +245,17 @@ func TestParseCreator(t *testing.T) {
 		value     string
 		wantName  string
 		wantRoles []ContributorRole
+		hasRole   bool
 		wantOK    bool
 	}{
-		{name: "author", value: "[著]佐藤花子", wantName: "佐藤花子", wantRoles: []ContributorRole{ContributorRoleAuthor}, wantOK: true},
-		{name: "compound", value: "[原作・監修]山田太郎", wantName: "山田太郎", wantRoles: []ContributorRole{ContributorRoleOriginalCreator, ContributorRoleSupervisor}, wantOK: true},
-		{name: "author and artist", value: "[作・画]鈴木一郎", wantName: "鈴木一郎", wantRoles: []ContributorRole{ContributorRoleAuthor, ContributorRoleArtist}, wantOK: true},
-		{name: "bracketed full name", value: "[作画][田辺節雄]", wantName: "田辺節雄", wantRoles: []ContributorRole{ContributorRoleArtist}, wantOK: true},
-		{name: "bracketed given part", value: "[画][葛飾]北斎", wantName: "葛飾北斎", wantRoles: []ContributorRole{ContributorRoleArtist}, wantOK: true},
+		{name: "author", value: "[著]佐藤花子", wantName: "佐藤花子", wantRoles: []ContributorRole{ContributorRoleAuthor}, hasRole: true, wantOK: true},
+		{name: "compound", value: "[原作・監修]山田太郎", wantName: "山田太郎", wantRoles: []ContributorRole{ContributorRoleOriginalCreator, ContributorRoleSupervisor}, hasRole: true, wantOK: true},
+		{name: "author and artist", value: "[作・画]鈴木一郎", wantName: "鈴木一郎", wantRoles: []ContributorRole{ContributorRoleAuthor, ContributorRoleArtist}, hasRole: true, wantOK: true},
+		{name: "bracketed full name", value: "[作画][田辺節雄]", wantName: "田辺節雄", wantRoles: []ContributorRole{ContributorRoleArtist}, hasRole: true, wantOK: true},
+		{name: "bracketed given part", value: "[画][葛飾]北斎", wantName: "葛飾北斎", wantRoles: []ContributorRole{ContributorRoleArtist}, hasRole: true, wantOK: true},
 		{name: "roleless", value: "Arinco", wantName: "Arinco", wantOK: true},
-		{name: "unknown role", value: "[協力]佐藤花子"},
-		{name: "unknown compound part", value: "[監修・協力]佐藤花子"},
+		{name: "unknown role", value: "[協力]佐藤花子", wantName: "佐藤花子", hasRole: true, wantOK: true},
+		{name: "unknown compound part", value: "[監修・協力]佐藤花子", wantName: "佐藤花子", hasRole: true, wantOK: true},
 		{name: "malformed brackets", value: "[[著]]近江のこ"},
 		{name: "missing role end", value: "[著佐藤花子"},
 		{name: "missing name end", value: "[著][佐藤花子"},
@@ -284,9 +265,9 @@ func TestParseCreator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotName, gotRoles, gotOK := parseCreator(test.value)
-			if gotName != test.wantName || gotOK != test.wantOK {
-				t.Fatalf("parseCreator(%q) = name %q, roles %#v, ok %t", test.value, gotName, gotRoles, gotOK)
+			gotName, gotRoles, gotHasRole, gotOK := parseCreator(test.value)
+			if gotName != test.wantName || gotHasRole != test.hasRole || gotOK != test.wantOK {
+				t.Fatalf("parseCreator(%q) = name %q, roles %#v, hasRole %t, ok %t", test.value, gotName, gotRoles, gotHasRole, gotOK)
 			}
 			assertContributorRoles(t, gotRoles, test.wantRoles)
 		})
@@ -329,42 +310,37 @@ func TestMapCreatorRole(t *testing.T) {
 
 // TestConvertCreators_MergesRolesAndKeepsStableOrder は、著者順と同名寄与者の役割統合を検証する
 func TestConvertCreators_MergesRolesAndKeepsStableOrder(t *testing.T) {
-	sourceAuthors, authors, contributors := convertCreators(sourceBook{
+	authors, contributors := convertCreators(sourceBook{
 		Creators: []string{
 			"[作画][田辺節雄]",
 			"[原作]山田太郎",
 			"[監修]山田太郎",
 			"[解説]藤原新也",
 			"役割なし",
+			"[協力]佐藤花子",
+			"[監修・協力]鈴木一郎",
 		},
 		AgentNames: []string{"使用しないAgent"},
 	})
 
-	assertStrings(t, sourceAuthors, []string{
-		"[作画][田辺節雄]",
-		"[原作]山田太郎",
-		"[監修]山田太郎",
-		"[解説]藤原新也",
-		"役割なし",
-	})
 	assertStrings(t, authors, []string{"田辺節雄", "山田太郎", "役割なし"})
 	assertContributors(t, contributors, []Contributor{
 		{Name: "田辺節雄", Roles: []ContributorRole{ContributorRoleArtist}},
 		{Name: "山田太郎", Roles: []ContributorRole{ContributorRoleOriginalCreator, ContributorRoleSupervisor}},
 		{Name: "藤原新也", Roles: []ContributorRole{ContributorRoleCommentator}},
+		{Name: "役割なし"},
+		{Name: "佐藤花子"},
+		{Name: "鈴木一郎"},
 	})
 }
 
 // TestConvertCreators_AgentFallback は、creatorがない場合だけAgent名を著者に使用する
 func TestConvertCreators_AgentFallback(t *testing.T) {
-	sourceAuthors, authors, contributors := convertCreators(sourceBook{
+	authors, contributors := convertCreators(sourceBook{
 		AgentNames: []string{"KotzDean", "ZubJim", "皆川由美"},
 	})
-	assertStrings(t, sourceAuthors, []string{"KotzDean", "ZubJim", "皆川由美"})
 	assertStrings(t, authors, []string{"KotzDean", "ZubJim", "皆川由美"})
-	if len(contributors) != 0 {
-		t.Fatalf("Contributors = %#v, want empty", contributors)
-	}
+	assertContributors(t, contributors, []Contributor{{Name: "KotzDean"}, {Name: "ZubJim"}, {Name: "皆川由美"}})
 }
 
 // TestNormalizeVolume は、許可した巻数表記と解析対象外の表記を検証する

@@ -11,7 +11,6 @@ func TestBookJSON_OmitsMissingOptionalFields(t *testing.T) {
 	book := Book{
 		Sources: []BookSource{{
 			Source: SourceMADB,
-			Values: SourceBookValues{},
 		}},
 	}
 
@@ -21,7 +20,7 @@ func TestBookJSON_OmitsMissingOptionalFields(t *testing.T) {
 	}
 	got := string(encoded)
 	for _, field := range []string{
-		"title", "parallel_titles", "subtitle", "volume", "is_final_volume", "page_count", "prices",
+		"title", "title_kana", "parallel_titles", "subtitle", "volume", "is_final_volume", "page_count", "prices", "values",
 	} {
 		if strings.Contains(got, `"`+field+`"`) {
 			t.Fatalf("JSON contains missing field %q: %s", field, got)
@@ -32,19 +31,19 @@ func TestBookJSON_OmitsMissingOptionalFields(t *testing.T) {
 	}
 }
 
-// TestBookJSON_PreservesTitleContracts は、タイトル項目と完全な元タイトルを同時に保持することを検証する
-func TestBookJSON_PreservesTitleContracts(t *testing.T) {
+// TestBookJSON_UsesTitleReading は、タイトル読みをtitle_readingとして出力することを検証する
+func TestBookJSON_UsesTitleReading(t *testing.T) {
 	book := Book{
 		Normalized: NormalizedBook{
-			Title:          "銀河鉄道の夜",
-			ParallelTitles: []string{"Night on the Galactic Railroad", "Nokto de la Galaksia Fervojo"},
-			Subtitle:       "初期形",
+			Title:        "銀河鉄道の夜",
+			TitleReading: "ギンガテツドウノヨル",
+			Contributors: []Contributor{{
+				Name:    "宮沢賢治",
+				Reading: "ミヤザワケンジ",
+			}},
 		},
 		Sources: []BookSource{{
 			Source: SourceMADB,
-			Values: SourceBookValues{
-				Titles: []string{"銀河鉄道の夜 = Night on the Galactic Railroad = Nokto de la Galaksia Fervojo"},
-			},
 		}},
 	}
 
@@ -53,9 +52,46 @@ func TestBookJSON_PreservesTitleContracts(t *testing.T) {
 		t.Fatalf("Marshal() error = %v", err)
 	}
 	got := string(encoded)
-	want := `{"normalized":{"title":"銀河鉄道の夜","parallel_titles":["Night on the Galactic Railroad","Nokto de la Galaksia Fervojo"],"subtitle":"初期形"},"sources":[{"source":"madb","values":{"titles":["銀河鉄道の夜 = Night on the Galactic Railroad = Nokto de la Galaksia Fervojo"]}}]}`
+	want := `{"normalized":{"title":"銀河鉄道の夜","title_reading":"ギンガテツドウノヨル","contributors":[{"name":"宮沢賢治","reading":"ミヤザワケンジ"}]},"sources":[{"source":"madb"}]}`
 	if got != want {
 		t.Fatalf("Marshal() = %s, want %s", got, want)
+	}
+}
+
+// TestBookSourceJSON_UsesOnlySourceReference は、BookSourceが取得元の参照情報だけを出力することを検証する
+func TestBookSourceJSON_UsesOnlySourceReference(t *testing.T) {
+	encoded, err := json.Marshal(BookSource{
+		Source: SourceMADB,
+		ID:     "M292129",
+		URL:    "https://example.test/books/M292129",
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if got, want := string(encoded), `{"source":"madb","id":"M292129","url":"https://example.test/books/M292129"}`; got != want {
+		t.Fatalf("Marshal() = %s, want %s", got, want)
+	}
+}
+
+// TestNormalizedBookJSON_OmitsEmptyTitleReading は、空のタイトル読みと旧JSON名を出力しないことを検証する
+func TestNormalizedBookJSON_OmitsEmptyTitleReading(t *testing.T) {
+	encoded, err := json.Marshal(NormalizedBook{Title: "銀河鉄道の夜"})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if got := string(encoded); got != `{"title":"銀河鉄道の夜"}` {
+		t.Fatalf("Marshal() = %s", got)
+	}
+}
+
+// TestContributorJSON_OmitsEmptyReadingAndRoles は、役割なしの寄与者を名前だけで出力することを検証する
+func TestContributorJSON_OmitsEmptyReadingAndRoles(t *testing.T) {
+	encoded, err := json.Marshal(Contributor{Name: "宮沢賢治"})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if got := string(encoded); got != `{"name":"宮沢賢治"}` {
+		t.Fatalf("Marshal() = %s", got)
 	}
 }
 
@@ -99,7 +135,7 @@ func TestBookJSON_PreservesMeaningfulZeroValues(t *testing.T) {
 				ObservedAt:  "2026-07-31T00:00:00+09:00",
 			}},
 		},
-		Sources: []BookSource{{Source: SourceMADB, Values: SourceBookValues{}}},
+		Sources: []BookSource{{Source: SourceMADB}},
 	}
 
 	encoded, err := json.Marshal(book)

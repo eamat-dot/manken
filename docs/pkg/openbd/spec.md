@@ -98,13 +98,12 @@ openBD応答は非公開型へ変換してから `Book` を組み立てる。未
 | openBDの取得元 | `openbd.Book` |
 | --- | --- |
 | 検証済みISBN-13 | `Sources[0].ID`、`Normalized.Identifiers` |
-| ONIXの商品階層タイトル、`summary.title` | `Normalized.Title`、`Sources[0].Values.Titles` |
-| ONIXのタイトル `collationkey` | `Normalized.TitleKana`、`Sources[0].Values.TitleKana` |
-| ONIXのSubtitle | `Normalized.Subtitle`、`Sources[0].Values.Subtitles` |
-| ONIXのCollection、`summary.series` | `Normalized.Series`、`Sources[0].Values.SeriesNames` |
-| ONIXのContributor | `Normalized.Authors`、`Normalized.Contributors`、`Sources[0].Values.Authors` |
-| ONIXのImprint、Publisher、`summary.publisher` | `Normalized.Publishers`、`Sources[0].Values.Publishers` |
-| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate` | `Normalized.Dates`、`Sources[0].Values.PublishedDate` |
+| ONIXの商品階層 `TitleText.content`、`summary.title` | `Normalized.Title` |
+| `Normalized.Title` に採用した同一ONIX要素の `TitleText.collationkey` | `Normalized.TitleReading` |
+| ONIXのSubtitle | `Normalized.Subtitle` |
+| ONIXのContributor | `Normalized.Authors`、`Normalized.Contributors` |
+| ONIXのImprint、Publisher、`summary.publisher` | `Normalized.Publishers` |
+| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate` | `Normalized.Dates` |
 | `summary.cover` | `Normalized.Images` |
 | 固定値 | `Sources[0].Source` |
 
@@ -113,40 +112,30 @@ openBD応答は非公開型へ変換してから `Book` を組み立てる。未
 
 ### 5.1 採用順序
 
-タイトル、タイトル読み、サブタイトル、シリーズ、寄与者、出版社、出版日は、
+タイトル、タイトル読み、サブタイトル、寄与者、出版社、出版日は、
 意味を確認できるONIX項目を優先する。ONIX項目がない場合だけ、対応する
 `summary` または `hanmoto` の値を使用する。
 
 - タイトルは `TitleType=01` の商品階層 `TitleElementLevel=01` を優先する
-- シリーズはCollection階層のタイトルを優先し、なければ `summary.series` を使う
+- タイトル読みは、採用したタイトルと同じ `TitleElement` の `TitleText.collationkey` を使う
 - 発行元を表すONIXのImprint、発売元を表すPublisherを、この順で出版社候補にする
 - ONIXの出版社候補がない場合だけ `summary.publisher` を使う
-- 出版日は役割を対応付けられるONIX日付、`hanmoto.dateshuppan`、
-  `summary.pubdate` の順で最初の値を使う
+- 出版日は `PublishingDateRole=01`、`hanmoto.dateshuppan`、`summary.pubdate` の順で最初の値を使う
 - 表紙画像は `summary.cover` だけを使用する
 
 取得元の空文字列を候補から除き、完全に同じ値だけを重複除去する。文字列の空白、
-句読点、人名表記、日付精度は変更しない。正規化に使用した主要な元値は
-`Sources[0].Values` に残す。
+句読点、人名表記、日付精度は変更しない。無加工の取得元本文が必要な場合は、
+`WithRawResponse` 系メソッドを使用する。
 
-### 5.2 タイトルと巻数
+### 5.2 タイトル、巻数、Collection
 
-`summary.volume` とCollection階層の `PartNumber` は、出版社コレクション内の
-刊行番号を含むため巻数へ使用しない。
+商品階層タイトルの `TitleText.content` は、区切り記号や末尾表記を解釈せず、全体を
+`Normalized.Title` に設定する。同じ `TitleElement` の `TitleText.collationkey` がある場合は、
+全体を `Normalized.TitleReading` に設定する。`ParallelTitles` と `Volume` は設定しない。
 
-タイトルは次の条件をすべて満たす場合だけ、主タイトル、並列タイトル、巻数へ分ける。
-
-- ` = ` で2項目に分かれ、右側にラテン文字がある場合は右側を並列タイトル候補にする
-- 末尾の巻表示が1から3桁の数字、`第N巻`、`N巻`、`(N)`、`（N）`、`#N` の
-  いずれかに完全一致する
-- 並列タイトルがある場合は、その末尾だけから巻表示を取り除く
-- 並列タイトルがない場合は、シリーズ値が存在するときだけタイトル末尾を分解する
-
-安全に分解できない場合は、取得元タイトル全体を `Normalized.Title` に設定する。
-完全な取得元タイトルは、分解結果にかかわらず `Sources[0].Values.Titles` に残す。
-タイトル読みは独立して扱う。タイトルと同じ巻数を読みの末尾から分離できる場合だけ
-分解後の読みを設定し、対応を確認できない場合は `Normalized.TitleKana` を空にする。
-取得元の読みは `Sources[0].Values.TitleKana` に残す。
+ONIXのCollectionと `summary.series` は、作品シリーズ、出版コレクション、レーベルを
+区別できないため、`Series` と `Imprints` のどちらにも設定しない。Collection階層の
+`PartNumber`、CollectionSequence、`summary.volume` も作品巻数として使用しない。
 
 ### 5.3 寄与者
 
@@ -159,15 +148,16 @@ ONIXの `SequenceNumber` が数値として解釈できる寄与者を番号順�
 | --- | --- |
 | `A01` | `author` |
 | `A03`、`A14`、`A45` | `writer` |
-| `A07`、`A12`、`A35`、`A46`、`A47` | `artist` |
-| `A38` | `original_creator` |
-| `A36` | `designer` |
+| `A07`、`A12`、`A35` | `artist` |
 | `B01` | `editor` |
 | `B06` | `translator` |
 
-役割が空の場合は人物名を `Authors` に含め、`Contributors` には含めない。
-役割が1件以上ある場合は、対応できた役割だけを `Contributors` に設定する。
-`author`、`original_creator`、`writer`、`artist` のいずれかへ対応した人物だけを
+`PersonName` と同じ要素の `collationkey` がある場合は、そのまま同じ
+`Contributor.Reading` に設定する。役割が空の場合は人物名を `Authors` に含め、
+役割が空の `Contributor` も設定する。役割が1件以上ある場合は、対応できた役割だけを
+`Contributors` に設定する。未知の役割しかない人物も、役割を空にして保持する。
+同じ人物名が複数のONIX要素に現れる場合も、要素を統合せず応答順のまま返す。
+`author`、`writer`、`artist` のいずれかへ対応した人物だけを
 `Authors` に含める。未知の役割から共通役割を推測しない。
 
 ONIXの寄与者がない場合、空でない `summary.author` を分割せず1件の
@@ -175,10 +165,11 @@ ONIXの寄与者がない場合、空でない `summary.author` を分割せず1
 
 ### 5.4 変換しない項目
 
-ISBN、タイトル、タイトル読み、サブタイトル、並列タイトル、巻数、シリーズ、
-寄与者、出版社、出版日、表紙画像を共通モデルへ設定する。
+ISBN、タイトル、タイトル読み、サブタイトル、寄与者、出版社、出版日、表紙画像を
+共通モデルへ設定する。
 
-説明、主題、言語、ページ数、判型、物理寸法、価格、ONIX SupportingResource、
+並列タイトル、巻数、シリーズ、レーベル、説明、主題、言語、ページ数、判型、物理寸法、
+価格、ONIX Collection、CollectionSequence、商品階層 `PartNumber`、SupportingResource、
 版表示は共通モデルへ設定しない。これらはRaw responseから確認できる。
 
 ## 6. Raw response
@@ -229,9 +220,10 @@ openbd.LookupBooksByISBN
 openBDのデータは本の販促・紹介目的に限って利用できる。利用者はopenBDの
 利用規約へ同意し、削除要請やサービス変更へ対応する必要がある。
 
-利用規約はデータの任意改変を禁止している。本パッケージは取得元値とRaw responseを
-保持し、安全性を確認した形式分解だけを共通モデルへ設定するが、具体的な利用方法が
-規約へ適合することを保証しない。利用者が用途と表示方法を確認する。
+利用規約はデータの任意改変を禁止している。本パッケージは共通の意味で扱える値だけを
+`Book` へ設定し、無加工の成功レスポンス本文は `WithRawResponse` 系メソッドで返す。
+具体的な利用方法が規約へ適合することは保証しないため、利用者が用途と表示方法を
+確認する。
 
 代替APIは従来のURLと応答形式を維持しているが、提供期間、収録範囲、項目、書影は
 将来変更される可能性がある。

@@ -8,7 +8,7 @@
 `madb/main.go` は、`madb` パッケージでMADBの実サービスを検索・ISBN参照し、結果をJSONで
 確認するためのCLIである。
 
-## 基本的な使い方
+### 基本的な使い方
 
 リポジトリのルートで次を実行する。
 
@@ -19,7 +19,7 @@ go run ./examples/madb -title "動物のおしゃべり" -limit 5
 タイトルに「動物のおしゃべり」を含む単行本を5件まで検索し、共通書籍モデルへ
 変換した結果を標準出力へJSONで出す。
 
-## オプション
+### オプション
 
 | オプション | 内容 |
 | --- | --- |
@@ -39,7 +39,7 @@ ISBN参照では ISBN-10またはISBN-13を位置引数で1件以上500件以下
 [検索条件](../docs/pkg/madb/spec.md#6-検索条件)、ISBNの検証は
 [ISBN参照](../docs/pkg/madb/spec.md#7-isbn参照)を参照する。
 
-## 検索例
+### 実行例
 
 複数のISBNを入力順に参照する。
 
@@ -60,7 +60,7 @@ go run ./examples/madb -author "佐々木倫子"
 go run ./examples/madb -free-text "うる星 高橋留美子" -exclude "復刻box 愛蔵版"
 ```
 
-## 出力
+### 出力
 
 検索結果は `madb.SearchBooksResult`、ISBN参照結果は `madb.ISBNLookupResult` のJSONとして
 標準出力へ出す。ISBN参照の `items` は入力と同じ順序・件数になり、該当なしの項目も
@@ -81,6 +81,10 @@ go run ./examples/madb -free-text "うる星 高橋留美子" -exclude "復刻bo
     }],
     "volume": {"number": 8, "label": "8"},
     "authors": ["佐々木倫子"],
+    "contributors": [{
+      "name": "佐々木倫子",
+      "roles": ["author"]
+    }],
     "publishers": ["白泉社"],
     "imprints": ["白泉社文庫"],
     "identifiers": [{"type": "isbn10", "value": "4592881486"}],
@@ -89,23 +93,17 @@ go run ./examples/madb -free-text "うる星 高橋留美子" -exclude "復刻bo
   "sources": [{
     "source": "madb",
     "id": "M292129",
-    "url": "https://mediaarts-db.artmuseums.go.jp/id/M292129",
-    "values": {
-      "titles": ["動物のお医者さん"],
-      "series_names": ["動物のお医者さん"],
-      "volume": "第8巻",
-      "authors": ["[著]佐々木倫子"],
-      "publishers": ["白泉社　∥　ハクセンシャ"],
-      "imprints": ["白泉社文庫"],
-      "isbns": ["4592881486"],
-      "published_date": "1996-06-19"
-    }
+    "url": "https://mediaarts-db.artmuseums.go.jp/id/M292129"
   }]
 }
 ```
 
-`normalized` は表記を共通形式にそろえた通常利用向けの書誌情報、`sources` は
-その根拠となったMADBの値を表す。項目ごとの変換規則と欠落値の扱いは
+`normalized` は通常利用する共通書誌情報であり、MADB応答との差分や変換履歴を表すものではない。
+`sources` は取得元を参照するための情報を表す。`authors` は表示や簡易利用向けの
+著者名一覧、`contributors` は人物ごとの読みと役割を保持できる詳細情報である。
+読みや共通役割を取得できない人物は、`reading` や `roles` を持たない
+`contributor` として出力される場合がある。変換前のMADB応答を確認する場合は
+`-raw-output` を使う。項目ごとの変換規則と欠落値の扱いは
 [MADBパッケージ仕様](../docs/pkg/madb/spec.md#5-結果変換)を参照する。
 
 終了コードは次のとおり。
@@ -116,7 +114,7 @@ go run ./examples/madb -free-text "うる星 高橋留美子" -exclude "復刻bo
 | `1` | 検索、ISBN参照、保存、JSON出力のいずれかに失敗 |
 | `2` | 必須条件がない、またはCLI引数が不正 |
 
-## 次ページの取得
+### 次ページの取得
 
 結果の `next_cursor` に値がある場合は、次回の `-cursor` へ指定する。
 `-title`、`-author`、`-free-text`、`-exclude`、`-limit` は、初回に
@@ -130,13 +128,13 @@ go run ./examples/madb -title "動物のおしゃべり" -limit 5 -cursor "<next
 カーソルの詳細は [MADBパッケージ仕様](../docs/pkg/madb/spec.md#8-limitとページング)を
 参照する。
 
-## 変換前レスポンスの保存
+### 変換前レスポンスの保存
 
 MADBから受信した変換前のSPARQL Results JSONを確認する場合は、存在しないファイルを
 `-raw-output` へ指定する。
 
 ```text
-go run ./examples/madb -title "動物のおしゃべり" -limit 5 -raw-output __madb-result.json
+go run ./examples/madb -title "動物のおしゃべり" -limit 5 -raw-output madb-raw.json
 ```
 
 - 標準出力には共通書籍モデルへ変換した検索結果だけを出す
@@ -147,7 +145,6 @@ go run ./examples/madb -title "動物のおしゃべり" -limit 5 -raw-output __
   変換前レスポンスを保存する
 - 通信失敗、成功以外のHTTP応答、本文の読み込み失敗、4 MiBの上限超過では保存しない
 
-`__` で始まるファイルはローカル確認用であり、このリポジトリではGit管理対象外となる。
 `SearchBooksWithRawResponse`、`LookupBooksByISBNWithRawResponse` と本文上限の仕様は
 [MADBパッケージ仕様](../docs/pkg/madb/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/madb/spec.md#10-http)を参照する。
@@ -177,7 +174,7 @@ ISBNはISBN-10またはISBN-13を1件以上1,000件以下指定する。
 オプションはISBNより前に指定する。
 
 ```text
-go run ./examples/openbd -raw-output __openbd-result.json 9784098515172 4592730933
+go run ./examples/openbd -raw-output openbd-raw.json 9784098515172 4592730933
 ```
 
 ### 出力
@@ -205,7 +202,6 @@ go run ./examples/openbd -raw-output __openbd-result.json 9784098515172 45927309
   変換前レスポンスを保存する
 - 通信失敗、成功以外のHTTP応答、本文の読み込み失敗、64 MiBの上限超過では保存しない
 
-`__` で始まるファイルはローカル確認用であり、このリポジトリではGit管理対象外となる。
 `LookupBooksByISBNWithRawResponse` と本文上限の仕様は
 [openBDパッケージ仕様](../docs/pkg/openbd/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/openbd/spec.md#7-http)を参照する。

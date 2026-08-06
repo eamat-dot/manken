@@ -58,7 +58,6 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	_ = book.Normalized.EditionStatements
 	_ = book.Normalized.Imprints
 	_ = book.Normalized.Series
-	_ = book.Sources[0].Values
 
 	var lookup madb.ISBNLookupResult
 	lookup, err = client.LookupBooksByISBN(context.Background(), []string{"9784088466361"})
