@@ -48,6 +48,12 @@
 3. Yahoo!ショッピング商品検索API
 4. DMM.com Webサービス
 
+楽天Booksは2026年8月8日に現行仕様と実APIを再調査し、タイトル、ISBN、著者検索、
+漫画ジャンル絞り込み、ページングを確認した。Application IDとAccess Keyは必須だが、
+Affiliate IDは任意で、指定した場合だけアフィリエイトURLが返る。
+次はこの調査を根拠に楽天Booksプロバイダの実装範囲を定める。
+詳細は [楽天ブックス書籍検索APIの現行仕様とmankenでの利用範囲調査](research/030-rakuten-books-api.md)を参照する。
+
 楽天Booksと楽天Koboは、紙書籍と電子書籍で識別子、検索条件、変換規則が
 異なるため、別の調査・実装TODOにする。
 
