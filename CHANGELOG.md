@@ -16,6 +16,7 @@
 - 変換済み検索結果と受信したrawレスポンスを返す公開API
 - 入力順と元のISBN表記を保持して、最大500件のISBNを一括参照する公開API
 - openBDから最大1,000件のISBNを一括参照する `openbd` パッケージ
+- Google Booksを検索し、1件のISBN参照と検索・ISBN参照のrawレスポンス取得に対応する `googlebooks` パッケージ
 - 主タイトルと別言語または別文字体系のタイトルを保持する `ParallelTitles`
 - 検索結果のJSON出力、カーソル、rawレスポンス保存を確認できるCLIデモ
 

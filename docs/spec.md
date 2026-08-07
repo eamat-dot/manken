@@ -14,6 +14,7 @@
 - [アーキテクチャ](../ARCHITECTURE.md)
 - [MADBパッケージ仕様](pkg/madb/spec.md)
 - [openBDパッケージ仕様](pkg/openbd/spec.md)
+- [Google Booksパッケージ仕様](pkg/googlebooks/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -25,12 +26,13 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の3つである。
+提供するパッケージは次の4つである。
 
 ```text
 github.com/eamat-dot/manken/api
 github.com/eamat-dot/manken/madb
 github.com/eamat-dot/manken/openbd
+github.com/eamat-dot/manken/googlebooks
 ```
 
 - `api`
@@ -40,6 +42,9 @@ github.com/eamat-dot/manken/openbd
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 - `openbd`
   - openBDへのISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `googlebooks`
+  - Google Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
@@ -100,9 +105,9 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 
 ### 5.1 Source
 
-`Source` は書誌情報の取得元を識別する文字列型である。`madb` と `openbd` を
-それぞれ `SourceMADB`、`SourceOpenBD` として定義する。取得元パッケージは自身の
-定数をエイリアスとして公開し、JSONではこの短い文字列を出力する。
+`Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks` を
+それぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks` として定義する。取得元パッケージは
+自身の定数をエイリアスとして公開し、JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
 
@@ -232,7 +237,9 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 検索対象の項目、複数条件の組み合わせ、入力値の検証、Limit、カーソルの規則は、
 データ取得元パッケージごとの仕様とする。MADB検索では
 [MADBパッケージ仕様](pkg/madb/spec.md#6-検索条件)と
-[Limitとページング](pkg/madb/spec.md#8-limitとページング)で定義する。
+[Limitとページング](pkg/madb/spec.md#8-limitとページング)、Google Books検索では
+[Google Booksパッケージ仕様](pkg/googlebooks/spec.md#3-検索)で定義する。Google Booksでも
+`ExcludedText` を受け付けるが、取得元固有の除外構文へ安全に変換する。
 
 ### 6.2 SearchBooksResult
 
@@ -249,14 +256,14 @@ ISBNによる書籍参照は、検索条件、Limit、カーソルを持たな�
 
 - 1件以上のISBNを必須とし、最大件数は取得元パッケージごとに定義する
 - `RequestedISBN` は呼び出し側が指定した文字列を変更せず保持する
-- `Items` は入力と同じ件数、同じ順序で返す
-- 同じISBNを複数回指定した場合も入力位置ごとに要素を返す
-- ISBN-10と対応するISBN-13を問い合わせ時に重複除去しても、元の入力位置へ展開する
+- `Items` は、その取得元が受け付けた入力と同じ件数、同じ順序で返す
+- 複数ISBNを受け付ける取得元では、同じISBNを複数回指定した場合も入力位置ごとに要素を返す
+- 複数ISBNを受け付ける取得元では、ISBN-10と対応するISBN-13を問い合わせ時に重複除去しても元の入力位置へ展開する
 - 該当なしはエラーとせず、非nilの空の `Books` を返す
 - 同じISBNに複数書籍が対応する場合は、統合せず `Books` にすべて返す
 - 1件でも不正なISBNがある場合は、外部通信せず呼び出し全体を `invalid_argument` にする
 
-取得元別上限はMADBが500件、openBDが1,000件とする。
+取得元別上限はMADBが500件、openBDが1,000件、Google Booksが1件とする。
 この差は共通型へ埋め込まず、各クライアントが入力検証する。
 
 ## 7. エラーAPI
