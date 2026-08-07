@@ -9,6 +9,8 @@ const (
 	SourceMADB Source = "madb"
 	// SourceOpenBD は、openBDを表す
 	SourceOpenBD Source = "openbd"
+	// SourceGoogleBooks は、Google Booksを表す
+	SourceGoogleBooks Source = "googlebooks"
 )
 
 // Book は、取得した1冊の漫画本を表す

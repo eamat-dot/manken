@@ -37,3 +37,6 @@ dev.yml
 # Archives
 _archive/
 *.zip
+
+# codexpro
+.ai-bridge/

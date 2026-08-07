@@ -51,13 +51,13 @@ capabilityは「共通APIとして必ず公開する機能」という意味で�
 | MADB | 漫画単行本の書誌レコード | 実装済み | `docs/pkg/madb/spec.md`、現行テスト |
 | openBD | ISBNに対応する書誌レコード | 実装済み | `docs/pkg/openbd/spec.md`、現行テスト |
 | DMM.com Webサービス | DMMブックスの電子書籍商品 | 未実装、実測済み | `025-dmm-ebook-api.md`、2026-08-07実API |
-| Google Books API | 書誌レコード、一部販売・閲覧情報 | 未実装、実測済み | `012-02`、`012-06`、2026-07-31実API、既存サンプル |
+| Google Books API | 書誌レコード、一部販売・閲覧情報 | 実装済み | `pkg/googlebooks/spec.md`、現行テスト、`028-google-books-api.md` |
 | 楽天Books API | 紙書籍の販売商品と書誌情報 | 未実装、実測済み | `012-02`、`012-04`、`012-06`、2026-07-31実API |
 | 楽天Kobo API | 電子書籍の販売商品と書誌情報 | 未実装、実測済み | `012-02`、`012-04`、`012-06`、2026-07-31実API |
 | Yahoo!ショッピング商品検索API | Yahoo!ショッピング上の販売商品 | 未実装、実測済み | `012-03`、2026-07-31実API |
 
-Google Booksは実レスポンス自体は2026-07-31に確認しているが、検索パラメータの整理は
-既存サンプルに依存する部分がある。実装前に検索条件、ページング、認証条件を改めて確認する。
+Google Booksは2026年8月7日に現行公式仕様で検索構文、ページング、認証条件を再確認した。
+同日の有効なAPIキーを使った代表検索は未実行のため、検索結果の実例は2026年7月31日の実測を根拠とする。
 
 ## 5. 検索・参照capability
 
@@ -73,7 +73,7 @@ Google Booksは実レスポンス自体は2026-07-31に確認しているが、�
 | MADB | ○ 実装済み | ○ 実装済み | ○ 実装済み | ○ `FreeText` | ○ `ExcludedText` | ○ `MangaBook` 固定 | ○ カーソル |
 | openBD | × | ○ 実装済み | × | × | × | 対象外 | 対象外 |
 | DMM | △ `keyword` はタイトル専用でない | × 実測商品ではISBNなし | △ 既知著者IDなら絞込可能 | ○ `keyword` 商品検索 | × 未確認 | △ `floor=comic` でも雑誌・単話等が混在 | ○ offset、上限あり |
-| Google Books | ○ 既存サンプルは `intitle:` | ○ 既存サンプルは `isbn:` | ○ 既存サンプルは `inauthor:` | ? 共通用途は未整理 | ? | △ 漫画以外が混在し後段確認が必要 | ? 実装前再確認 |
+| Google Books | ○ 実装済み | ○ 実装済み | ○ 実装済み | ○ 実装済み | ○ `ExcludedText` | △ `printType=books` でも小説等を除けない | ○ 不透明カーソル |
 | 楽天Books | ○ `title` 実測済み | ○ 既存サンプルは `isbn` | ○ 既存サンプルは `author` | ? 共通用途は未整理 | × Kobo相当の `NGKeyword` なし | ○ `booksGenreId` 実測済み | ? 実装前再確認 |
 | 楽天Kobo | ○ `title` 実測済み | × 出力項目にISBNなし | ○ `author` 既存サンプル | ○ `keyword` | ○ `NGKeyword` | ○ `koboGenreId` 実測済み | ? 実装前再確認 |
 | Yahoo!ショッピング | △ 商品検索語+後段判定 | ? JAN検索条件は今回未整理 | × 専用著者検索は未確認 | ○ 商品検索 | × 未確認 | △ seller+カテゴリでもセット・関連本が混在 | ? 実装前再確認 |
@@ -104,11 +104,16 @@ DMMは商品検索としては有用だが、`keyword` を現在の `SearchBooks
 
 ### 5.4 Google Books
 
-2026-07-31の実API調査では漫画タイトルの検索結果を取得できたが、原作・派生小説なども混在した。
-既存サンプルでは `intitle:`、`isbn:`、`inauthor:` を使用している。
+2026年8月7日の現行公式仕様で、`intitle:`、`inauthor:`、`isbn:`、通常の全文検索、
+除外語を指定する `-term` 相当の検索例、0始まりの `startIndex` と最大40件の `maxResults` を確認した。
+`manken` では利用者入力を検索演算子として直接解釈せず、`ExcludedText` の各語を安全な除外条件へ変換する。
 
-タイトル・ISBN・著者の検索候補としては有力だが、漫画単行本への絞り込み、検索条件の組み合わせ、
-ページング、現在必要な認証条件は実装TODOで再確認する。
+2026年7月31日の実API調査では漫画タイトルの検索結果を取得できたが、原作・派生小説なども混在した。
+`printType=books` は雑誌を除けるだけで漫画を意味せず、Google Booksを漫画専用データベースとして扱わない。
+
+タイトル・ISBN・著者・フリーワード・除外条件を実装済みとし、漫画候補の判定は後段処理を前提とする。
+詳細は [Google Booksパッケージ仕様](../pkg/googlebooks/spec.md)と
+[Google Books API現行仕様とmankenでの利用範囲調査](028-google-books-api.md)を参照する。
 
 ### 5.5 楽天Books
 
@@ -140,10 +145,10 @@ Yahoo!ショッピング商品検索APIは汎用の商品検索APIであり、�
 
 | プロバイダ | `NormalizedBook` | Raw response | 主な注意 |
 | --- | --- | --- | --- |
-| MADB | ○ 実装済み | ○ `WithRawResponse` 実装済み | 候補値や表記揺れを推測で補完しない |
-| openBD | ○ 実装済み | ○ `WithRawResponse` 実装済み | ONIXにあっても意味を安全に確定できない項目はNormalizedへ入れない |
+| MADB | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | 候補値や表記揺れを推測で補完しない |
+| openBD | ○ 実装済み | ○ `LookupBooksByISBNWithRawResponse` 実装済み | ONIXにあっても意味を安全に確定できない項目はNormalizedへ入れない |
 | DMM | 未実装、変換候補は限定的 | 実APIで取得確認済み、manken未実装 | Rawに認証値が含まれるため秘密情報として扱う必要がある |
-| Google Books | 未実装、共通候補多数 | 実API応答は確認済み、manken未実装 | 著者役割、巻数、漫画判定など追加規則が必要 |
+| Google Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | 著者役割、巻数、漫画判定などは推測しない |
 | 楽天Books | 未実装、共通候補多数 | 実API応答は確認済み、manken未実装 | 商品タイトルから巻数・版等を分解する場合は慎重に扱う |
 | 楽天Kobo | 未実装、共通候補多数 | 実API応答は確認済み、manken未実装 | ISBNなし、分冊・無料版・合本版など電子商品固有の判定が必要 |
 | Yahoo!ショッピング | 未実装、ショップ限定候補あり | 実API応答は確認済み、manken未実装 | 汎用商品APIのため、bookfan固有規則を全ショップへ一般化しない |
@@ -159,7 +164,7 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 | MADB | × | × | × | × | × | 書誌 |
 | openBD | ○ Rawに価格情報あり | ○ Rawに出版・在庫・販売条件あり | × 書籍別販売URLなし | ○ 表紙 | ? 既存資料では未整理 | 書誌 |
 | DMM | ○ 実測済み | ? 2026-08-07調査では未整理 | ○ 実測済み | ○ 実測済み | ○ 実測済み | 電子書籍販売 |
-| Google Books | ○ `saleInfo` | ○ `saleability` | ○ `buyLink` | ○ | ? 既存資料では未整理 | 書誌+販売補助 |
+| Google Books | ○ `saleInfo`、地域依存 | ○ `saleability`、地域依存 | ○ `buyLink` | ○ | ? 現行調査では未確認 | 書誌+販売補助 |
 | 楽天Books | ○ | ○ `availability` | ○ | ○ | ○ | 紙書籍販売 |
 | 楽天Kobo | ○ | ○ `salesType` | ○ | ○ | ○ | 電子書籍販売 |
 | Yahoo!ショッピング | ○ | ○ | ○ | ○ | ? 今回未整理 | 汎用商品販売 |
@@ -173,7 +178,7 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 ### 8.1 書誌タイトル検索
 
 - MADB: 現行の主な実装済み検索元
-- Google Books: 有力候補。漫画単行本判定と検索条件の再確認が必要
+- Google Books: 広い書誌検索を実装済み。漫画専用ではないため後段判定が必要
 - 楽天Books: 紙書籍の商品検索を兼ねた候補。ジャンル絞り込みと後段判定が必要
 - DMM、Yahoo!: 商品検索としては有用だが、タイトル専用検索と同じ意味にはしない
 - openBD: タイトル検索には使わない
@@ -183,7 +188,7 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 - openBD: ISBN参照専用として強い
 - MADB: ISBN参照を実装済み
 - 楽天Books: ISBN検索候補として既存サンプルあり。実装時に現行仕様を再確認する
-- Google Books: ISBN検索候補として既存サンプルあり。実装時に現行仕様を再確認する
+- Google Books: `isbn:` を公式仕様で確認済み。実装では1回のISBN参照を1件に制限し、1 HTTPレスポンスと対応付ける
 - Kobo: ISBNを前提にしない
 - DMM: 2026-08-07のコミック100件ではISBN/JANとも0件
 
@@ -191,12 +196,12 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 
 - 楽天Kobo: 漫画ジャンル、除外キーワード、販売情報があり有力
 - DMM: DMMブックス内の商品検索・販売情報源として有力。ただし書誌検索とは分ける
-- Google Books: 電子販売情報を返す場合があるが、国内電子コミックストア検索としての位置づけは別途確認する
+- Google Books: `saleInfo` と電子書籍絞り込みはあるが、国内電子コミックストアの販売商品検索とは別用途として扱う
 - Yahoo!ショッピング: `ebookjapan` が商品検索APIで取得できないため使用しない
 
 ### 8.4 MCP / LLM
 
-- MADB、openBD: 現在の `NormalizedBook` とRaw responseをそのままMCP層から利用できる候補
+- MADB、openBD、Google Books: 現在の `NormalizedBook` とRaw responseをそのままMCP層から利用できる候補
 - 未実装プロバイダ: 実装時にNormalizedとRawの両経路を維持できるか確認する
 - 販売系API: Raw responseの情報量が多いためLLM利用価値は高いが、認証情報、規約、変動情報の扱いを別途考慮する
 
@@ -265,6 +270,7 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 - `docs/research/012-04-rakuten-comic-genres.md`
 - `docs/research/012-06-title-volume-edition-examples.md`
 - `docs/research/025-dmm-ebook-api.md`
+- `docs/research/028-google-books-api.md`
 - `__sample/book-api/internal/apis/google.go`
 - `__sample/book-api/internal/apis/rakuten.go`
 - `__sample/book-api/internal/apis/kobo.go`

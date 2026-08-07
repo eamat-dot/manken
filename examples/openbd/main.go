@@ -73,6 +73,7 @@ func run() int {
 // writeResult は、結果をインデント付きJSONとして標準出力へ書き込む
 func writeResult(result any) int {
 	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(result); err != nil {
 		fmt.Fprintf(os.Stderr, "ISBN参照結果をJSONで出力できません: %v\n", err)

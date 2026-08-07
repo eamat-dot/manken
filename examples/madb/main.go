@@ -142,6 +142,7 @@ func runISBNLookup(ctx context.Context, client *madb.Client, isbns []string, raw
 // writeResult は、結果をインデント付きJSONとして標準出力へ書き込む
 func writeResult(result any) int {
 	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(result); err != nil {
 		fmt.Fprintf(os.Stderr, "検索結果をJSONで出力できません: %v\n", err)

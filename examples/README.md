@@ -205,3 +205,85 @@ go run ./examples/openbd -raw-output openbd-raw.json 9784098515172 4592730933
 `LookupBooksByISBNWithRawResponse` と本文上限の仕様は
 [openBDパッケージ仕様](../docs/pkg/openbd/spec.md#3-パッケージとclient)と
 [HTTP仕様](../docs/pkg/openbd/spec.md#7-http)を参照する。
+
+## Google Books
+
+`googlebooks/main.go` は、`googlebooks` パッケージでGoogle Booksを検索・ISBN参照し、結果をJSONで
+確認するためのCLIである。実行前にGoogle Books APIキーを環境変数へ設定する。
+
+```powershell
+$env:GOOGLE_BOOKS_API_KEY = "your-key"
+```
+
+### 基本的な使い方
+
+リポジトリのルートで次を実行する。
+
+```text
+go run ./examples/googlebooks -title "動物のお医者さん" -limit 5
+```
+
+タイトルに「動物のお医者さん」を含む書籍候補を5件まで検索し、共通書籍モデルへ変換した結果を
+標準出力へJSONで出す。Google Booksは漫画専用の取得元ではない。
+
+### オプション
+
+| オプション | 内容 |
+| --- | --- |
+| `-title` | タイトルに含める検索語 |
+| `-author` | 著者名に含める検索語 |
+| `-free-text` | 複数の書誌項目を対象にする検索語 |
+| `-exclude` | Google Booksのfull-text検索対象から除外する語。複数語は空白で区切る。タイトル以外の説明文などに含まれる場合も除外されることがある |
+| `-limit` | 検索件数。1から40まで。0は既定値の20件 |
+| `-cursor` | 前回の結果に含まれる `next_cursor` |
+| `-raw-output` | 検索またはISBN参照でGoogle Booksから受信した変換前レスポンスを保存する新規ファイル |
+
+検索では `-title`、`-author`、`-free-text` の少なくとも1つを指定する。ISBN参照ではISBN-10または
+ISBN-13を位置引数で1件だけ指定し、検索条件、`-limit`、`-cursor`とは併用しない。`-raw-output` は
+ISBN参照でも使用できる。オプションはISBNより前に指定する。
+
+### 実行例
+
+著者名で検索する。
+
+```text
+go run ./examples/googlebooks -author "佐々木倫子"
+```
+
+複数の書誌項目を対象に検索する。
+
+```text
+go run ./examples/googlebooks -free-text "日本 漫画"
+```
+
+ISBNを1件参照する。
+
+```text
+go run ./examples/googlebooks 4088466365
+```
+
+変換前レスポンスも保存する。
+
+```text
+go run ./examples/googlebooks -raw-output googlebooks-isbn-raw.json 4088466365
+```
+
+次ページを取得するには、前回の `next_cursor` と同じ検索条件・Limitを指定する。
+
+```text
+go run ./examples/googlebooks -title "動物のお医者さん" -limit 5 -cursor "<next_cursor>"
+```
+
+### 出力と変換前レスポンスの保存
+
+標準出力には検索時は `googlebooks.SearchBooksResult`、ISBN参照時は
+`googlebooks.ISBNLookupResult` のJSONだけを出す。警告、エラー、診断情報は標準エラー出力へ出す。
+ISBN参照の `items` は1要素で、`RequestedISBN` は入力文字列を保持し、該当なしも `books: []` として残る。
+
+`-raw-output` に存在しないファイルを指定すると、検索またはISBN参照で受信した1回の成功レスポンス本文を
+変更せず保存する。既存ファイルは上書きしない。JSON解析または共通書籍モデルへの変換に失敗した場合も、
+読み込み済みの本文を保存する。通信失敗、成功以外のHTTP応答、本文読込失敗、16 MiB超過では保存しない。
+
+検索条件、ISBN参照、変換項目、利用条件は
+[Google Booksパッケージ仕様](../docs/pkg/googlebooks/spec.md)と
+[Google Booksガイド](../docs/pkg/googlebooks/guide.md)を参照する。
