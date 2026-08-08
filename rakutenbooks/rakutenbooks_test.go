@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/eamat-dot/manken/api"
 )
@@ -483,6 +484,56 @@ func TestHTTPAndTransportErrorsDoNotExposeSecrets(t *testing.T) {
 		if strings.Contains(err.Error(), secret) {
 			t.Fatalf("transport error exposes %q: %v", secret, err)
 		}
+	}
+}
+
+// TestSearchBooks_DoesNotFollowRedirects は、Access Keyを含むリクエストがredirect先へ送られないことを確認する
+func TestSearchBooks_DoesNotFollowRedirects(t *testing.T) {
+	targetRequests := 0
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequests++
+	}))
+	defer target.Close()
+	redirect := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", target.URL)
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer redirect.Close()
+
+	redirectCalls := 0
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			redirectCalls++
+			return errors.New("caller redirect policy")
+		},
+	}
+	client, err := NewClient(httpClient,
+		WithApplicationID("app-secret"),
+		WithAccessKey("access-secret"),
+		WithEndpoint(redirect.URL),
+	)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if client.httpClient == httpClient {
+		t.Fatal("Client reused the caller HTTP client")
+	}
+	if httpClient.Timeout != 5*time.Second || httpClient.CheckRedirect == nil {
+		t.Fatalf("caller HTTP client was modified: %#v", httpClient)
+	}
+
+	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	assertErrorKind(t, err, ErrorKindUpstream)
+	var classified *Error
+	if !errors.As(err, &classified) || classified.StatusCode != http.StatusFound {
+		t.Fatalf("classified error = %#v", classified)
+	}
+	if targetRequests != 0 {
+		t.Fatalf("redirect target requests = %d, want 0", targetRequests)
+	}
+	if redirectCalls != 0 {
+		t.Fatalf("caller CheckRedirect calls = %d, want 0", redirectCalls)
 	}
 }
 

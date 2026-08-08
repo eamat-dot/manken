@@ -77,8 +77,12 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
+	internalHTTPClient := *httpClient
+	internalHTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	return &Client{
-		httpClient:    httpClient,
+		httpClient:    &internalHTTPClient,
 		endpoint:      config.endpoint,
 		applicationID: config.applicationID,
 		accessKey:     config.accessKey,
