@@ -31,6 +31,18 @@ func TestParseGenre(t *testing.T) {
 	}
 }
 
+// TestValidateISBNArgs は、CLIのISBN位置引数を1件以下に制限することを確認する
+func TestValidateISBNArgs(t *testing.T) {
+	for _, isbns := range [][]string{nil, {}, {"4088466365"}} {
+		if err := validateISBNArgs(isbns); err != nil {
+			t.Fatalf("validateISBNArgs(%v) error = %v", isbns, err)
+		}
+	}
+	if err := validateISBNArgs([]string{"4088466365", "9784088466361"}); err == nil {
+		t.Fatal("validateISBNArgs(two ISBNs) error = nil")
+	}
+}
+
 // TestWriteResult_DoesNotEscapeHTML は、CLI用JSONでURLの&をUnicodeエスケープしないことを確認する
 func TestWriteResult_DoesNotEscapeHTML(t *testing.T) {
 	originalStdout := os.Stdout

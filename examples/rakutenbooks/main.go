@@ -44,6 +44,10 @@ func run() int {
 		return 2
 	}
 	isbns := flag.Args()
+	if err := validateISBNArgs(isbns); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	if len(isbns) > 0 && (*title != "" || *author != "" || *limit != 0 || *cursor != "") {
 		fmt.Fprintln(os.Stderr, "ISBN参照は検索条件、-limit、-cursor と併用できません")
 		return 2
@@ -74,6 +78,14 @@ func run() int {
 	}
 	request := rakutenbooks.SearchBooksRequest{Title: *title, Author: *author, Limit: *limit, Cursor: *cursor}
 	return runSearch(ctx, client, request, *rawOutput)
+}
+
+// validateISBNArgs は、ISBN参照の位置引数を1件以下に制限する
+func validateISBNArgs(isbns []string) error {
+	if len(isbns) > 1 {
+		return fmt.Errorf("ISBN参照は1件だけ指定してください: %d件", len(isbns))
+	}
+	return nil
 }
 
 // parseGenre は、CLIの漫画区分名を楽天Booksの公開定数へ変換する
