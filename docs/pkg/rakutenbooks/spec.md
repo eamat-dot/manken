@@ -280,6 +280,9 @@ Affiliate IDを設定した場合、楽天Booksが返す `affiliateUrl` はRaw r
 公開エラーには完全なリクエストURLを含めない。通信エラーが `url.Error` を含む場合は、
 認証情報を含み得るURLを除き、原因エラーだけを公開エラーへ保持する。
 
+Access Keyをredirect先へ送らないため、Clientは自動redirectを追跡しない。3xx応答は
+`upstream` として元のHTTPステータスを保持する。渡したHTTP Clientの設定は変更しない。
+
 自動リトライ、内部レート制御、キャッシュ、ログ出力は行わない。
 
 ## 11. エラー

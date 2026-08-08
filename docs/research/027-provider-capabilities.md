@@ -158,7 +158,7 @@ Yahoo!ショッピング商品検索APIは汎用の商品検索APIであり、�
 | openBD | ○ 実装済み | ○ `LookupBooksByISBNWithRawResponse` 実装済み | ONIXにあっても意味を安全に確定できない項目はNormalizedへ入れない |
 | DMM | 未実装、変換候補は限定的 | 実APIで取得確認済み、manken未実装 | Rawに認証値が含まれるため秘密情報として扱う必要がある |
 | Google Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | 著者役割、巻数、漫画判定などは推測しない |
-| 楽天Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | `itemPrice` とAffiliate URLは共通化済み。在庫等はRawに残し、著者分割や巻数を推測しない |
+| 楽天Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | `itemPrice` とAffiliate URLは共通化済み。在庫等はRawに残す。著者は実測済みの `/` 区切りを人物単位へ分割するが、役割や巻数は推測しない |
 | 楽天Kobo | 未実装、共通候補多数 | 実API応答は確認済み、manken未実装 | ISBNなし、分冊・無料版・合本版など電子商品固有の判定が必要 |
 | Yahoo!ショッピング | 未実装、ショップ限定候補あり | 実API応答は確認済み、manken未実装 | 汎用商品APIのため、bookfan固有規則を全ショップへ一般化しない |
 
