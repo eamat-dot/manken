@@ -51,10 +51,10 @@ capabilityは「共通APIとして必ず公開する機能」という意味で�
 | MADB | 漫画単行本の書誌レコード | 実装済み | `docs/pkg/madb/spec.md`、現行テスト |
 | openBD | ISBNに対応する書誌レコード | 実装済み | `docs/pkg/openbd/spec.md`、現行テスト |
 | DMM.com Webサービス | DMMブックスの電子書籍商品 | 未実装、実測済み | `025-dmm-ebook-api.md`、2026-08-07実API |
-| Google Books API | 書誌レコード、一部販売・閲覧情報 | 実装済み | `pkg/googlebooks/spec.md`、現行テスト、`028-google-books-api.md` |
-| 楽天Books API | 紙書籍の販売商品と書誌情報 | 実装済み | `pkg/rakutenbooks/spec.md`、現行テスト、`030-rakuten-books-api.md` |
-| 楽天Kobo API | 電子書籍の販売商品と書誌情報 | 未実装、実測済み | `012-02`、`012-04`、`012-06`、2026-07-31実API |
-| Yahoo!ショッピング商品検索API | Yahoo!ショッピング上の販売商品 | 未実装、実測済み | `012-03`、2026-07-31実API |
+| Google Books API | 書誌レコード、一部販売・閲覧情報 | 実装済み | `docs/pkg/googlebooks/spec.md`、現行テスト、`028-google-books-api.md` |
+| 楽天Books API | 紙書籍の販売商品と書誌情報 | 実装済み | `docs/pkg/rakutenbooks/spec.md`、現行テスト、`030-rakuten-books-api.md` |
+| 楽天Kobo API | 電子書籍の販売商品と書誌情報 | 未実装、実測済み | `docs/research/012-02`、`docs/research/012-04`、`docs/research/012-06`、2026-07-31実API |
+| Yahoo!ショッピング商品検索API | Yahoo!ショッピング上の販売商品 | 未実装、実測済み | `docs/research/012-03`、2026-07-31実API |
 
 Google Booksは2026年8月7日に現行公式仕様で検索構文、ページング、認証条件を再確認した。
 同日の有効なAPIキーを使った代表検索は未実行のため、検索結果の実例は2026年7月31日の実測を根拠とする。

@@ -164,17 +164,35 @@ Google Booksは漫画以外も返す。検索条件、ISBN参照、利用条件�
 楽天Booksを使う場合はApplication IDとAccess Keyを設定する。Affiliate IDは任意である。
 
 ```go
-client, err := rakutenbooks.NewClient(nil,
-    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+package main
+
+import (
+    "context"
+    "log"
+    "os"
+
+    "github.com/eamat-dot/manken/rakutenbooks"
 )
-if err != nil {
-    log.Fatal(err)
+
+func main() {
+    client, err := rakutenbooks.NewClient(nil,
+        rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+        rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    result, err := client.SearchBooks(
+        context.Background(),
+        rakutenbooks.SearchBooksRequest{Title: "動物のお医者さん"},
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    for _, book := range result.Books {
+        log.Println(book.Title)
+    }
 }
-result, err := client.SearchBooks(
-    context.Background(),
-    rakutenbooks.SearchBooksRequest{Title: "動物のお医者さん"},
-)
 ```
 
 既定は一般コミックを検索する。BL・TLの指定、Affiliate ID、利用条件は

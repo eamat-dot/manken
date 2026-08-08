@@ -34,11 +34,11 @@
 
 ## 根拠
 
-- [`../research/030-rakuten-books-api.md`](../research/030-rakuten-books-api.md)
-- [`../research/027-provider-capabilities.md`](../research/027-provider-capabilities.md)
-- [`../research/012-04-rakuten-comic-genres.md`](../research/012-04-rakuten-comic-genres.md)
-- [`../spec.md`](../spec.md)
-- [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md)
+- [`../../research/030-rakuten-books-api.md`](../../research/030-rakuten-books-api.md)
+- [`../../research/027-provider-capabilities.md`](../../research/027-provider-capabilities.md)
+- [`../../research/012-04-rakuten-comic-genres.md`](../../research/012-04-rakuten-comic-genres.md)
+- [`../../spec.md`](../../spec.md)
+- [`../../../ARCHITECTURE.md`](../../../ARCHITECTURE.md)
 - `__sample/book-api/internal/apis/rakuten.go` はHTTPリクエスト例としてのみ参照し、そのまま移植しない
 
 ## 非目的
