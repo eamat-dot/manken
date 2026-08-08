@@ -105,24 +105,25 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 
 ### 5.1 Source
 
-`Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks` を
-それぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks` として定義する。取得元パッケージは
-自身の定数をエイリアスとして公開し、JSONではこの短い文字列を出力する。
+`Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
+`rakutenbooks` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
 
 `Book` は検索またはISBN参照で得た1冊を表す。`Normalized` は通常参照する
-共通書誌情報、`Sources` は書誌情報を取得した取得元への参照を保持する。
+共通書籍情報、`Sources` は情報を取得した取得元と参照先を保持する。
 
 | Goフィールド | JSON項目 | 型 | 必須・省略 | 意味 |
 | --- | --- | --- | --- | --- |
-| `Normalized` | `normalized` | `NormalizedBook` | 常に出力 | 取得元に依存せず利用できる共通書誌情報。取得元応答との差分、変換履歴、項目ごとの出典は表さない。 |
-| `Sources` | `sources` | `[]BookSource` | 常に出力 | 書誌情報を取得したサービスへの参照。取得元固有の本文や項目は含めない。 |
+| `Normalized` | `normalized` | `NormalizedBook` | 常に出力 | 取得元に依存せず利用できる共通書籍情報。取得元応答との差分、変換履歴、項目ごとの出典は表さない。 |
+| `Sources` | `sources` | `[]BookSource` | 常に出力 | 情報を取得したサービスと、そのサービス上の参照先。取得元固有の本文や未共通化項目は含めない。 |
 
-- `Normalized` には、取得元が返す書誌情報のうち、複数の取得元で共通の意味として
+- `Normalized` には、取得元が返す書籍・販売情報のうち、複数の取得元で共通の意味として
   扱える値だけを設定する
 - `Normalized` は取得元応答との差分、変換履歴、項目ごとの出典を表さない
-- `Sources` は取得元への参照だけを保持し、取得元固有の値を含めない
+- `Sources` は取得元と標準化した参照先情報だけを保持し、取得元固有の未共通化項目を含めない
 - 取得元固有の全レスポンスは `Book` に含めず、専用のRaw response用メソッドで返す
 - 欠落項目や項目間の対応を推測で補完しない。取得元ごとの安全な変換規則は、
   各パッケージ仕様で定める
@@ -160,11 +161,13 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 
 | Goフィールド | JSON項目 | 型 | 必須・省略 | 意味 |
 | --- | --- | --- | --- | --- |
-| `Source` | `source` | `Source` | 必須 | 書誌情報を取得したサービス。空文字列の `Source` を持つ要素は作らない。 |
+| `Source` | `source` | `Source` | 必須 | 書籍情報を取得したサービス。空文字列の `Source` を持つ要素は作らない。 |
 | `ID` | `id` | `string` | 空文字列なら省略 | 取得元内の書籍または商品を識別する値。 |
-| `URL` | `url` | `string` | 空文字列なら省略 | 取得元が提供する書籍参照URL。 |
+| `URL` | `url` | `string` | 空文字列なら省略 | 取得元が提供する通常の書籍・商品参照URL。 |
+| `AffiliateURL` | `affiliate_url` | `string` | 空文字列なら省略 | 同じ取得元が提供するアフィリエイト用URL。通常URLとは別に保持する。 |
 
-`BookSource` は取得元への参照だけを表し、取得元固有の本文や項目を含めない。
+`BookSource` は取得元と標準化した参照先情報を表し、取得元固有の本文や未共通化項目を含めない。
+アフィリエイトURLを取得できる場合も `URL` を置き換えず、`AffiliateURL` に分離する。
 無加工の取得元本文が必要な場合は、各パッケージの `WithRawResponse` 系メソッドを
 使用する。
 

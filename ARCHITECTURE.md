@@ -9,11 +9,12 @@
 公開型の詳細な仕様は [共通API仕様](docs/spec.md)、取得元固有の検索・変換規則は
 [MADBパッケージ仕様](docs/pkg/madb/spec.md)と
 [openBDパッケージ仕様](docs/pkg/openbd/spec.md)と
-[Google Booksパッケージ仕様](docs/pkg/googlebooks/spec.md)を一次文書とする。
+[Google Booksパッケージ仕様](docs/pkg/googlebooks/spec.md)と
+[楽天Booksパッケージ仕様](docs/pkg/rakutenbooks/spec.md)を一次文書とする。
 
 現在のモジュールは共通モデルを定義する `api`、MADBを検索・参照する `madb`、
-openBDをISBNで参照する `openbd` を提供する。
-Google Booksを検索・ISBN参照する `googlebooks` も提供する。
+openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する `googlebooks`、
+楽天Booksを検索・ISBN参照する `rakutenbooks` を提供する。
 ルートパッケージ、複数の取得元をまとめるファサード、MCPサーバーは提供しない。
 
 ## 構成と依存方向
@@ -33,11 +34,17 @@ Google Booksを検索・ISBN参照する `googlebooks` も提供する。
                   |
                   `------> openBD
        |
-       `------> googlebooks -> api
-                       |
-                       +------> internal/isbn
-                       |
-                       `------> Google Books Volumes API
+       +------> googlebooks -> api
+       |                |
+       |                +------> internal/isbn
+       |                |
+       |                `------> Google Books Volumes API
+       |
+       `------> rakutenbooks -> api
+                        |
+                        +------> internal/isbn
+                        |
+                        `------> 楽天ブックス書籍検索API
 ```
 
 - `api`
@@ -55,17 +62,23 @@ Google Booksを検索・ISBN参照する `googlebooks` も提供する。
   - Google Booksの検索文字列生成、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
   - Google Books固有レスポンス型、APIキー、販売・閲覧情報をパッケージ外へ公開しない
+- `rakutenbooks`
+  - 楽天Booksのタイトル・著者検索、漫画区分、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - 取得時点価格とアフィリエイトURLは共通モデルへ変換し、楽天Books固有レスポンス型、認証情報、在庫等はパッケージ外へ公開しない
 - `internal/isbn`
   - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
 - `examples`
-  - `madb`、`openbd`、`googlebooks` の公開APIを使う動作確認用CLIを置く
+  - `madb`、`openbd`、`googlebooks`、`rakutenbooks` の公開APIを使う動作確認用CLIを置く
   - ライブラリの一部として再利用する内部処理は置かない
 
 `api` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
-`madb`、`openbd`、`googlebooks` の必要なパッケージだけをimportでき、共通型を直接扱う用途では `api` をimportできる。
+`madb`、`openbd`、`googlebooks`、`rakutenbooks` の必要なパッケージだけをimportでき、共通型を直接扱う用途では `api` をimportできる。
 
-## 検索処理の流れ
+## MADBの検索処理の流れ
+
+次の流れはMADBのタイトル・著者名・フリーワード検索にだけ適用する。
 
 ```text
 SearchBooksRequest
@@ -112,7 +125,7 @@ Google Booksの検索では、共通検索条件を引用済みのGoogle Books�
   - 取得元に依存しない形で利用できる書誌情報を保持する
   - MADB固有の表記を変換する場合も、仕様で認めた規則だけを適用する
 - `Sources`
-  - 取得元、取得元内ID、参照URLを保持する
+  - 取得元、取得元内ID、通常の参照URL、アフィリエイトURLを保持する
   - 正規化前の値や取得元固有のレスポンス本文は保持しない
 
 取得元に存在しない情報は、タイトル、版表示、レーベルなどから推測しない。

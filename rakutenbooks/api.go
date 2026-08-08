@@ -1,4 +1,5 @@
-package madb
+// Package rakutenbooks は、楽天ブックス書籍検索APIから紙書籍の書誌情報を検索する機能を提供する
+package rakutenbooks
 
 import "github.com/eamat-dot/manken/api"
 
@@ -14,17 +15,11 @@ type NormalizedBook = api.NormalizedBook
 // BookSource は、Bookの情報を取得した取得元と参照先を表す
 type BookSource = api.BookSource
 
-// Volume は、整数化できる巻数と正規化済みの巻表示を表す
-type Volume = api.Volume
-
 // IdentifierType は、書誌識別子の種類を表す
 type IdentifierType = api.IdentifierType
 
 // Identifier は、種類を明示した書誌識別子を表す
 type Identifier = api.Identifier
-
-// ContributorRole は、制作への寄与者の役割を表す
-type ContributorRole = api.ContributorRole
 
 // Contributor は、制作への寄与者と複数の役割を表す
 type Contributor = api.Contributor
@@ -44,7 +39,7 @@ type PublicationMedium = api.PublicationMedium
 // PhysicalSize は、紙書籍の判型名と寸法をミリメートル単位で表す
 type PhysicalSize = api.PhysicalSize
 
-// PriceType は、価格が定価または取得時点価格のどちらかを表す
+// PriceType は、価格の種類を表す
 type PriceType = api.PriceType
 
 // Price は、種類と出典を明示した価格を表す
@@ -75,50 +70,16 @@ type ErrorKind = api.ErrorKind
 type Error = api.Error
 
 const (
-	// SourceMADB は、メディア芸術データベースを表す
-	SourceMADB = api.SourceMADB
+	// SourceRakutenBooks は、楽天ブックス書籍検索APIを表す
+	SourceRakutenBooks = api.SourceRakutenBooks
 	// IdentifierTypeISBN10 は、ISBN-10を表す
 	IdentifierTypeISBN10 = api.IdentifierTypeISBN10
 	// IdentifierTypeISBN13 は、ISBN-13を表す
 	IdentifierTypeISBN13 = api.IdentifierTypeISBN13
-	// IdentifierTypeJAN は、JANコードを表す
-	IdentifierTypeJAN = api.IdentifierTypeJAN
-	// ContributorRoleAuthor は、著者を表す
-	ContributorRoleAuthor = api.ContributorRoleAuthor
-	// ContributorRoleOriginalCreator は、原作者または原案者を表す
-	ContributorRoleOriginalCreator = api.ContributorRoleOriginalCreator
-	// ContributorRoleWriter は、構成または脚本の執筆者を表す
-	ContributorRoleWriter = api.ContributorRoleWriter
-	// ContributorRoleArtist は、漫画または作画の担当者を表す
-	ContributorRoleArtist = api.ContributorRoleArtist
-	// ContributorRoleCharacterCreator は、キャラクター原案者を表す
-	ContributorRoleCharacterCreator = api.ContributorRoleCharacterCreator
-	// ContributorRoleCharacterDesigner は、キャラクターデザイン担当者を表す
-	ContributorRoleCharacterDesigner = api.ContributorRoleCharacterDesigner
-	// ContributorRoleEditor は、編集者を表す
-	ContributorRoleEditor = api.ContributorRoleEditor
-	// ContributorRoleTranslator は、翻訳者を表す
-	ContributorRoleTranslator = api.ContributorRoleTranslator
-	// ContributorRoleSupervisor は、監修者を表す
-	ContributorRoleSupervisor = api.ContributorRoleSupervisor
-	// ContributorRoleCommentator は、解説者を表す
-	ContributorRoleCommentator = api.ContributorRoleCommentator
-	// ContributorRoleDesigner は、装丁またはデザインの担当者を表す
-	ContributorRoleDesigner = api.ContributorRoleDesigner
-	// BookDateTypePublished は、出版日を表す
-	BookDateTypePublished = api.BookDateTypePublished
 	// BookDateTypeReleased は、発売日を表す
 	BookDateTypeReleased = api.BookDateTypeReleased
-	// BookDateTypeDigitalReleased は、電子版の配信開始日を表す
-	BookDateTypeDigitalReleased = api.BookDateTypeDigitalReleased
-	// PublicationMediumUnknown は、紙または電子を判定できない状態を表す
-	PublicationMediumUnknown = api.PublicationMediumUnknown
 	// PublicationMediumPrint は、紙書籍を表す
 	PublicationMediumPrint = api.PublicationMediumPrint
-	// PublicationMediumDigital は、電子書籍を表す
-	PublicationMediumDigital = api.PublicationMediumDigital
-	// PriceTypeList は、定価を表す
-	PriceTypeList = api.PriceTypeList
 	// PriceTypeCurrent は、API取得時点の販売価格を表す
 	PriceTypeCurrent = api.PriceTypeCurrent
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
@@ -129,4 +90,44 @@ const (
 	ErrorKindUnavailable = api.ErrorKindUnavailable
 	// ErrorKindInvalidResponse は、取得元の成功応答を解釈できない状態を表す
 	ErrorKindInvalidResponse = api.ErrorKindInvalidResponse
+)
+
+// ComicGenre は、楽天Books検索で対象にする漫画区分を表す
+type ComicGenre string
+
+const (
+	// ComicGenreGeneral は、一般コミックを表す
+	ComicGenreGeneral ComicGenre = "general"
+	// ComicGenreBL は、ボーイズラブコミックを表す
+	ComicGenreBL ComicGenre = "bl"
+	// ComicGenreTL は、ティーンズラブコミックを表す
+	ComicGenreTL ComicGenre = "tl"
+)
+
+// BookSize は、楽天Books検索で指定できる商品形態の分類を表す
+type BookSize int
+
+const (
+	// BookSizeAll は、商品形態で絞り込まない既定値を表す
+	BookSizeAll BookSize = iota
+	// BookSizeTankobon は、単行本を表す
+	BookSizeTankobon
+	// BookSizeBunko は、文庫を表す
+	BookSizeBunko
+	// BookSizeShinsho は、新書を表す
+	BookSizeShinsho
+	// BookSizeZenshuSosho は、全集・双書を表す
+	BookSizeZenshuSosho
+	// BookSizeJiten は、事・辞典を表す
+	BookSizeJiten
+	// BookSizeZukan は、図鑑を表す
+	BookSizeZukan
+	// BookSizeEhon は、絵本を表す
+	BookSizeEhon
+	// BookSizeCassetteCD は、カセット、CDなどを表す
+	BookSizeCassetteCD
+	// BookSizeComic は、コミックを表す
+	BookSizeComic
+	// BookSizeMookOther は、ムックその他を表す
+	BookSizeMookOther
 )
