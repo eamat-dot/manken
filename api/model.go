@@ -21,7 +21,7 @@ type Book struct {
 	Sources    []BookSource   `json:"sources"`
 }
 
-// NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
+// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
 type NormalizedBook struct {
 	Title             string            `json:"title,omitempty"`
 	ParallelTitles    []string          `json:"parallel_titles,omitempty"`
@@ -47,11 +47,12 @@ type NormalizedBook struct {
 	Images            []Image           `json:"images,omitempty"`
 }
 
-// BookSource は、Bookの書誌情報を取得した取得元を表す
+// BookSource は、Bookの情報を取得した取得元と参照先を表す
 type BookSource struct {
-	Source Source `json:"source"`
-	ID     string `json:"id,omitempty"`
-	URL    string `json:"url,omitempty"`
+	Source       Source `json:"source"`
+	ID           string `json:"id,omitempty"`
+	URL          string `json:"url,omitempty"`
+	AffiliateURL string `json:"affiliate_url,omitempty"`
 }
 
 // Volume は、整数化できる巻数と正規化済みの巻表示を表す

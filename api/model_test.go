@@ -61,14 +61,15 @@ func TestBookJSON_UsesTitleReading(t *testing.T) {
 // TestBookSourceJSON_UsesOnlySourceReference は、BookSourceが取得元の参照情報だけを出力することを検証する
 func TestBookSourceJSON_UsesOnlySourceReference(t *testing.T) {
 	encoded, err := json.Marshal(BookSource{
-		Source: SourceMADB,
-		ID:     "M292129",
-		URL:    "https://example.test/books/M292129",
+		Source:       SourceMADB,
+		ID:           "M292129",
+		URL:          "https://example.test/books/M292129",
+		AffiliateURL: "https://example.test/affiliate/M292129",
 	})
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	if got, want := string(encoded), `{"source":"madb","id":"M292129","url":"https://example.test/books/M292129"}`; got != want {
+	if got, want := string(encoded), `{"source":"madb","id":"M292129","url":"https://example.test/books/M292129","affiliate_url":"https://example.test/affiliate/M292129"}`; got != want {
 		t.Fatalf("Marshal() = %s, want %s", got, want)
 	}
 }

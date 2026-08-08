@@ -36,6 +36,7 @@ type booksItem struct {
 	Size           string `json:"size"`
 	ItemURL        string `json:"itemUrl"`
 	AffiliateURL   string `json:"affiliateUrl"`
+	ItemPrice      *int64 `json:"itemPrice"`
 	SmallImageURL  string `json:"smallImageUrl"`
 	MediumImageURL string `json:"mediumImageUrl"`
 	LargeImageURL  string `json:"largeImageUrl"`
@@ -58,7 +59,7 @@ func decodeBooksResponse(body []byte) (booksResponse, error) {
 }
 
 // convertItem は、楽天Books商品を共通のBookへ変換する
-func convertItem(value booksItem) Book {
+func convertItem(value booksItem, observedAt string) Book {
 	book := Book{
 		Normalized: NormalizedBook{
 			Title:        value.Title,
@@ -69,7 +70,11 @@ func convertItem(value booksItem) Book {
 			Subjects:     subjects(value.BooksGenreID),
 			Images:       images(value),
 		},
-		Sources: []BookSource{{Source: SourceRakutenBooks, URL: sourceURL(value.ItemURL)}},
+		Sources: []BookSource{{
+			Source:       SourceRakutenBooks,
+			URL:          sourceURL(value.ItemURL),
+			AffiliateURL: sourceURL(value.AffiliateURL),
+		}},
 	}
 	if value.SeriesName != "" {
 		book.Normalized.Series = []Series{{Name: value.SeriesName}}
@@ -89,6 +94,17 @@ func convertItem(value booksItem) Book {
 	}
 	if value.Size != "" {
 		book.Normalized.PhysicalSize = &PhysicalSize{Name: value.Size}
+	}
+	if value.ItemPrice != nil {
+		taxIncluded := true
+		book.Normalized.Prices = []Price{{
+			Type:        PriceTypeCurrent,
+			Amount:      *value.ItemPrice,
+			Currency:    "JPY",
+			TaxIncluded: &taxIncluded,
+			Source:      SourceRakutenBooks,
+			ObservedAt:  observedAt,
+		}}
 	}
 	return book
 }

@@ -36,6 +36,19 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	if got := firstAffiliateURL(t, raw); got != "" {
 		t.Fatalf("affiliateUrl without Affiliate ID = %q", got)
 	}
+	if len(result.Books[0].Sources) == 0 || result.Books[0].Sources[0].AffiliateURL != "" {
+		t.Fatalf("normalized affiliate URL without Affiliate ID = %#v", result.Books[0].Sources)
+	}
+	if len(result.Books[0].Normalized.Prices) == 0 {
+		t.Fatalf("normalized price is missing: %#v", result.Books[0].Normalized)
+	}
+	price := result.Books[0].Normalized.Prices[0]
+	if price.Type != rakutenbooks.PriceTypeCurrent || price.Currency != "JPY" || price.TaxIncluded == nil || !*price.TaxIncluded || price.Source != rakutenbooks.SourceRakutenBooks {
+		t.Fatalf("normalized price = %#v", price)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, price.ObservedAt); err != nil {
+		t.Fatalf("price ObservedAt = %q: %v", price.ObservedAt, err)
+	}
 
 	time.Sleep(integrationRequestInterval)
 	result, err = client.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Author: "佐々木倫子", Limit: 3})
@@ -75,12 +88,16 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	}
 	time.Sleep(integrationRequestInterval)
 	affiliateClient := newIntegrationClient(t, applicationID, accessKey, affiliateID, rakutenbooks.ComicGenreGeneral)
-	_, raw, err = affiliateClient.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
+	affiliateResult, raw, err := affiliateClient.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil {
 		t.Fatalf("affiliate search error = %v", err)
 	}
-	if got := firstAffiliateURL(t, raw); got == "" {
+	got := firstAffiliateURL(t, raw)
+	if got == "" {
 		t.Fatal("affiliateUrl with Affiliate ID is empty")
+	}
+	if len(affiliateResult.Books) == 0 || len(affiliateResult.Books[0].Sources) == 0 || affiliateResult.Books[0].Sources[0].AffiliateURL != got {
+		t.Fatalf("normalized affiliate URL = %#v, raw = %q", affiliateResult.Books, got)
 	}
 }
 

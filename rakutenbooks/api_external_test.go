@@ -37,6 +37,10 @@ func TestPublicAPI(t *testing.T) {
 	if rakutenbooks.SourceRakutenBooks != "rakutenbooks" {
 		t.Fatalf("SourceRakutenBooks = %q", rakutenbooks.SourceRakutenBooks)
 	}
+	if rakutenbooks.PriceTypeCurrent != "current" {
+		t.Fatalf("PriceTypeCurrent = %q", rakutenbooks.PriceTypeCurrent)
+	}
+	_ = rakutenbooks.Price{Type: rakutenbooks.PriceTypeCurrent, Source: rakutenbooks.SourceRakutenBooks}
 	requireRawSearchSignature(client.SearchBooksWithRawResponse)
 	requireRawLookupSignature(client.LookupBooksByISBNWithRawResponse)
 }

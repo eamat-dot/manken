@@ -158,7 +158,7 @@ Yahoo!ショッピング商品検索APIは汎用の商品検索APIであり、�
 | openBD | ○ 実装済み | ○ `LookupBooksByISBNWithRawResponse` 実装済み | ONIXにあっても意味を安全に確定できない項目はNormalizedへ入れない |
 | DMM | 未実装、変換候補は限定的 | 実APIで取得確認済み、manken未実装 | Rawに認証値が含まれるため秘密情報として扱う必要がある |
 | Google Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | 著者役割、巻数、漫画判定などは推測しない |
-| 楽天Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | 価格・在庫・Affiliate URL等はRawに残し、著者分割や巻数を推測しない |
+| 楽天Books | ○ 実装済み | ○ `SearchBooksWithRawResponse` / `LookupBooksByISBNWithRawResponse` 実装済み | `itemPrice` とAffiliate URLは共通化済み。在庫等はRawに残し、著者分割や巻数を推測しない |
 | 楽天Kobo | 未実装、共通候補多数 | 実API応答は確認済み、manken未実装 | ISBNなし、分冊・無料版・合本版など電子商品固有の判定が必要 |
 | Yahoo!ショッピング | 未実装、ショップ限定候補あり | 実API応答は確認済み、manken未実装 | 汎用商品APIのため、bookfan固有規則を全ショップへ一般化しない |
 
@@ -183,10 +183,11 @@ MCP / LLM向けには、実装済みプロバイダと同様に、将来の各�
 | Yahoo!ショッピング | ○ | ○ | ○ | ○ | ? 今回未整理 | 汎用商品販売 |
 
 この表は、販売情報をすべて `NormalizedBook` に入れることを意味しない。
-価格、在庫、商品URL、アフィリエイトURLは書誌情報と更新頻度・利用条件が異なるため、
-販売系プロバイダを複数比較してから共通モデルの必要性を判断する。
+価格は既存の `NormalizedBook.Prices`、通常商品URLとアフィリエイトURLは `BookSource` の別フィールドとして
+共通化する。販売状態、在庫、送料、レビューなどは更新頻度・意味を比較してから追加を判断する。
 
 楽天BooksではAffiliate IDを指定しなくても検索でき、指定した場合だけ `affiliateUrl` が返る。
+`itemPrice` は取得時点の税込JPY価格、`affiliateUrl` は `BookSource.AffiliateURL` として実装済みである。
 検索認証とアフィリエイト利用は別のcapabilityとして扱う。
 
 ## 8. 用途別の現時点の評価

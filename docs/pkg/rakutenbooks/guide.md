@@ -52,8 +52,8 @@ client, err := rakutenbooks.NewClient(nil,
 )
 ```
 
-Affiliate IDを設定しても検索条件や共通書籍モデルは変わらない。楽天BooksのRaw responseに
-`affiliateUrl` が含まれるようになる。
+Affiliate IDを設定しても検索条件は変わらない。楽天Booksが返す `affiliateUrl` は
+`BookSource.AffiliateURL` とRaw responseの両方から利用できる。
 
 ## 3. タイトル検索
 
@@ -143,16 +143,14 @@ result, raw, err := client.SearchBooksWithRawResponse(ctx, request)
 
 ISBN参照にも `LookupBooksByISBNWithRawResponse` がある。
 
-Raw responseには共通モデルへ変換していない次の情報が含まれ得る。
+変換済み結果では、楽天Booksの販売情報のうち次を共通モデルから利用できる。
 
-- 価格
-- 在庫・販売状態
-- レビュー
-- 試し読みURL
-- アフィリエイトURL
-- 楽天Books固有の商品情報
+- `itemPrice`: `Normalized.Prices` の `current` 価格。JPY、税込、取得時刻付き
+- `itemUrl`: `BookSource.URL` の通常商品URL
+- `affiliateUrl`: Affiliate ID指定時の `BookSource.AffiliateURL`
 
-`BookSource.URL` には通常の商品URLを使用し、アフィリエイトURLは入れない。
+Raw responseには、共通モデルへ変換していない在庫・販売状態、レビュー、試し読みURLなども
+含まれ得る。通常商品URLとアフィリエイトURLは別フィールドとして保持する。
 
 Rawを取得できることは、取得した情報を無期限に保存・再配布できることを意味しない。
 楽天ウェブサービスの現行利用条件を確認する。

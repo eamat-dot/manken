@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -55,11 +56,12 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	if err != nil {
 		return SearchBooksResult{}, body, err
 	}
+	observedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	response, err := decodeBooksResponse(body)
 	if err != nil {
 		return SearchBooksResult{}, body, newError(operationSearchBooks, ErrorKindInvalidResponse, err)
 	}
-	result, err := buildSearchResult(response, page, searchKey, limit)
+	result, err := buildSearchResult(response, page, searchKey, limit, observedAt)
 	if err != nil {
 		return SearchBooksResult{}, body, newError(operationSearchBooks, ErrorKindInvalidResponse, err)
 	}
@@ -123,7 +125,7 @@ func baseValues() url.Values {
 }
 
 // buildSearchResult は、検索応答を共通の検索結果と次カーソルへ変換する
-func buildSearchResult(response booksResponse, page int, searchKey string, limit int) (SearchBooksResult, error) {
+func buildSearchResult(response booksResponse, page int, searchKey string, limit int, observedAt string) (SearchBooksResult, error) {
 	if response.PageCount > 0 && page > response.PageCount {
 		return SearchBooksResult{}, errors.New("response pageCount is smaller than requested page")
 	}
@@ -132,7 +134,7 @@ func buildSearchResult(response booksResponse, page int, searchKey string, limit
 	}
 	books := make([]Book, 0, len(response.Items))
 	for _, item := range response.Items {
-		books = append(books, convertItem(item))
+		books = append(books, convertItem(item, observedAt))
 	}
 	result := SearchBooksResult{Books: books}
 	if len(response.Items) == 0 || response.PageCount == 0 || page >= response.PageCount || page >= maxPage {

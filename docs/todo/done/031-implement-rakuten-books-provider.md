@@ -49,12 +49,12 @@
   - `FreeText` または `ExcludedText` を後段フィルターだけで擬似対応すること
   - 商品タイトルから巻数、版、特装版、完結状態を推測すること
   - `author` 文字列を非公式な区切り規則で複数人物へ分解すること
-  - 在庫、送料、レビュー、試し読みURL、アフィリエイトURLの共通モデル追加
+  - 在庫、送料、レビュー、試し読みURLの共通モデル追加
   - 自動リトライ、キャッシュ、ログ、内部レートリミッター、バックグラウンドgoroutine
   - 複数プロバイダの横断検索、重複統合、販売情報共通モデルの確定
 - 別TODOまたはbacklogで扱うこと:
   - 楽天Koboプロバイダ
-  - DMM、楽天Kobo等を比較した販売・アフィリエイト情報共通モデル
+  - DMM、楽天Kobo等を比較した在庫、送料、レビュー等の追加販売情報モデル
   - 複数漫画区分を横断する検索APIが必要になった場合の共通インターフェース設計
 
 ## 前提・制約
@@ -130,7 +130,7 @@
 
 初期変換では次を対象とする。
 
-- `itemUrl` -> `BookSource.URL`。Affiliate URLを入れない
+- `itemUrl` -> `BookSource.URL`。`affiliateUrl` は `BookSource.AffiliateURL` に分離する
 - `BookSource.ID` は楽天Books固有の安定IDを確認できないため空にする
 - `title` -> `Title`
 - `titleKana` -> `TitleReading`
@@ -147,7 +147,7 @@
 - Books Book Searchの紙書籍結果 -> `PublicationMediumPrint`
 - small / medium / large画像URL -> `Images`
 
-初期変換では `itemPrice`、`availability`、`postageFlag`、`limitedFlag`、レビュー、`chirayomiUrl`、`affiliateUrl`、`contents` を共通モデルへ追加しない。これらはRaw responseから利用できる状態を維持する。
+`itemPrice` は取得時点の税込JPY価格として `Normalized.Prices`、`affiliateUrl` は `BookSource.AffiliateURL` へ変換する。`availability`、`postageFlag`、`limitedFlag`、レビュー、`chirayomiUrl`、`contents` は共通モデルへ追加せず、Raw responseから利用できる状態を維持する。
 
 ### Raw response・HTTP・エラー
 
@@ -213,7 +213,7 @@
 - [x] `NewClient`、`WithApplicationID`、`WithAccessKey`、`WithAffiliateID`、`WithComicGenre`、`WithEndpoint` を実装する
 - [x] 必須認証未設定、nil Option、不正genre、不正endpointを通信前に `invalid_argument` とする
 - [x] Affiliate ID未設定でもClient作成と検索を可能にする
-- [x] 認証値を公開エラー、Cursor、Raw responseへ追加しない
+- [x] Application ID / Access Key等の認証値を公開エラー、Cursor、Raw responseへライブラリ側から追加しない。楽天Booksが返すAffiliate URLはそのまま保持する
 
 ### 検索・ページング
 
@@ -241,7 +241,7 @@
 - [x] `author` / `authorKana` を分割せず1人分の表示文字列・読みとして保持し、役割を推測しない
 - [x] 楽天ジャンルID、判型名、紙媒体、3サイズ画像を仕様どおり変換する
 - [x] `BookSource.ID` をURL等から推測しない
-- [x] 価格・在庫・レビュー・試し読み・Affiliate URL等を初期共通化しない
+- [x] `itemPrice` を取得時点価格、Affiliate URLを取得元参照情報として共通化し、在庫・レビュー・試し読み等は初期共通化しない
 - [x] 欠落任意項目を正常として扱い、不正なページングやJSON等だけを `invalid_response` とする
 
 ### HTTP・エラー・秘密情報
@@ -260,7 +260,7 @@
 - [x] 0件、複数件、次ページあり/なし、100ページ境界をテストする
 - [x] NormalizedBookの採用項目・非採用項目と任意項目欠落をテストする
 - [x] ISBN入力検証、一致・不一致・該当なし、Raw responseをテストする
-- [x] Affiliate IDの有無でqueryとRaw `affiliateUrl` の扱いが変わることをテストする
+- [x] Affiliate IDの有無でquery、`BookSource.AffiliateURL`、Raw `affiliateUrl` の扱いが変わることをテストする
 - [x] 429 / 5xx、その他HTTPエラー、通信失敗、本文上限、不正JSONをテストする
 - [x] 認証値がエラー文字列へ出ないことを明示的にテストする
 - [x] 通常テストが実楽天Booksへ接続しないことを維持する
@@ -270,7 +270,7 @@
 - [x] `integration` build tagの楽天Books統合テストを追加する
 - [x] 必須認証を使い、タイトル・著者・ISBN検索を実サービスで確認する
 - [x] 一般・BL・TLの各ジャンルで代表検索を実サービスで確認する
-- [x] Affiliate IDあり・なしを実サービスで確認し、未設定でも検索可能、設定時はRawに `affiliateUrl` が返ることを確認する
+- [x] Affiliate IDあり・なしを実サービスで確認し、未設定でも検索可能、設定時は `BookSource.AffiliateURL` とRawに `affiliateUrl` が返ることを確認する
 - [x] 実サービス呼び出しは1秒以上間隔を空ける
 - [x] 認証情報が利用できない環境ではintegrationテストを明示的にskipする
 
@@ -320,9 +320,9 @@ CodexProのsafe bashでは `go build -v ./...` と `golangci-lint run` が許可
 - [x] Limit 1〜30とNextCursorで次ページを取得できる
 - [x] ISBN入力を1件に制限し、1件の `ISBNLookupResult.Items` と1回のHTTPレスポンスを対応付ける
 - [x] 楽天Books固有レスポンス型が公開APIへ露出していない
-- [x] 通常商品URLとAffiliate URLを混同せず、Affiliate URLは初期共通モデルへ入れていない
-- [x] 認証値が公開エラー、Raw response、Cursor、ドキュメント例へ漏れていない
-- [x] 価格・在庫・レビュー等の変動販売情報を初期共通モデルへ混在させていない
+- [x] 通常商品URLとAffiliate URLを混同せず、`BookSource.URL` と `BookSource.AffiliateURL` に分離している
+- [x] Application ID / Access Key等の認証値が公開エラー、Cursor、ドキュメント例へ漏れていない。Raw responseと `BookSource.AffiliateURL` には楽天Booksが返すAffiliate URLを保持する
+- [x] `itemPrice` は取得時点価格として共通化し、在庫・レビュー等の未整理な変動販売情報は共通モデルへ混在させていない
 - [x] 楽天Booksの結果をライブラリ内部で独自に並べ替えていない
 - [x] README、共通spec、楽天Books spec / guide、ARCHITECTURE、examples READMEが実装と一致している
 - [x] 既存プロバイダを含む通常テスト、コンパイル確認、`go vet`相当の検証が成功する
@@ -340,7 +340,7 @@ CodexProのsafe bashでは `go build -v ./...` と `golangci-lint run` が許可
 ## 未決事項
 
 - TODO031の実装開始を妨げる未決事項はない
-- 販売・Affiliate URLの共通モデル化は楽天Kobo、DMM等の比較後に判断する
+- 在庫、送料、レビューなど未共通化の販売情報は楽天Kobo、DMM等の比較後に判断する
 - 複数漫画区分の横断検索が必要になった場合は共通検索設計と合わせて別TODOで検討する
 
 ## AIへの入力メモ（任意）
@@ -355,5 +355,5 @@ CodexProのsafe bashでは `go build -v ./...` と `golangci-lint run` が許可
   - パッケージ名は `rakutenbooks`
   - 既定検索区分は一般コミック、BL/TLはClient Optionで明示する
   - `size=9` はBL/TLも取得できるが漫画文庫等を落とし得るため固定しない
-  - Affiliate URLはRaw responseに残し、通常商品URLや共通書誌と混同しない
+  - Affiliate URLは `BookSource.AffiliateURL`、`itemPrice` は取得時点価格として共通化し、通常商品URLや未整理な販売情報と混同しない
   - 内部レートリミッターは追加せず、利用者へ1秒1回以下の制限を案内する

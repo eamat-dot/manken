@@ -238,8 +238,8 @@ FANZAは今回の対象外である。`service` と `floor` だけでは一般�
 | `affiliateURL` | `al.dmm.com` | `lurl`、`af_id`、`ch` をqueryに持つ |
 
 `BookSource.URL` は通常の `URL` を使用し、アフィリエイトURLを混同しない。
-アフィリエイトURLは広告・販売用途の情報であり、将来必要になった場合も
-書誌参照とは別のモデルで扱う。
+TODO031のレビューで `BookSource.AffiliateURL` が共通項目として追加されたため、DMMを実装する場合も
+公式の `affiliateURL` をこの項目へ対応付ける候補になる。
 
 ## 11. 価格、画像、説明文の利用条件
 

@@ -176,6 +176,8 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 
 // TestConvertItem_MapsSupportedFieldsOnly は、楽天Books項目を推測せず共通モデルへ変換することを確認する
 func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
+	price := int64(999)
+	const observedAt = "2026-08-08T01:23:45Z"
 	book := convertItem(booksItem{
 		Title:          "作品 1",
 		TitleKana:      "サクヒンイチ",
@@ -191,10 +193,11 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 		Size:           "コミック",
 		ItemURL:        "https://books.rakuten.co.jp/rb/123/",
 		AffiliateURL:   "https://hb.afl.rakuten.co.jp/secret",
+		ItemPrice:      &price,
 		SmallImageURL:  "https://example.invalid/s.jpg",
 		MediumImageURL: "https://example.invalid/m.jpg",
 		LargeImageURL:  "https://example.invalid/l.jpg",
-	})
+	}, observedAt)
 	if book.Normalized.Title != "作品 1" || book.Normalized.TitleReading != "サクヒンイチ" || book.Normalized.Subtitle != "副題" {
 		t.Fatalf("titles = %#v", book.Normalized)
 	}
@@ -219,10 +222,14 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 	if book.Normalized.Medium != PublicationMediumPrint || book.Normalized.PhysicalSize == nil || book.Normalized.PhysicalSize.Name != "コミック" {
 		t.Fatalf("medium/size = %q / %#v", book.Normalized.Medium, book.Normalized.PhysicalSize)
 	}
-	if len(book.Normalized.Images) != 3 || len(book.Normalized.Prices) != 0 {
+	if len(book.Normalized.Images) != 3 || len(book.Normalized.Prices) != 1 {
 		t.Fatalf("images/prices = %#v / %#v", book.Normalized.Images, book.Normalized.Prices)
 	}
-	if len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].ID != "" || book.Sources[0].URL != "https://books.rakuten.co.jp/rb/123/" {
+	gotPrice := book.Normalized.Prices[0]
+	if gotPrice.Type != PriceTypeCurrent || gotPrice.Amount != 999 || gotPrice.Currency != "JPY" || gotPrice.TaxIncluded == nil || !*gotPrice.TaxIncluded || gotPrice.Source != SourceRakutenBooks || gotPrice.ObservedAt != observedAt {
+		t.Fatalf("price = %#v", gotPrice)
+	}
+	if len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].ID != "" || book.Sources[0].URL != "https://books.rakuten.co.jp/rb/123/" || book.Sources[0].AffiliateURL != "https://hb.afl.rakuten.co.jp/secret" {
 		t.Fatalf("sources = %#v", book.Sources)
 	}
 	if strings.Contains(book.Sources[0].URL, "afl.rakuten") {
@@ -232,12 +239,21 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 
 // TestConvertItem_MissingOptionalFields は、楽天Booksの任意項目欠落を正常な空値として扱うことを確認する
 func TestConvertItem_MissingOptionalFields(t *testing.T) {
-	book := convertItem(booksItem{Title: "title"})
-	if book.Normalized.Title != "title" || book.Normalized.Authors != nil || book.Normalized.Series != nil || book.Normalized.Identifiers != nil || book.Normalized.Dates != nil || book.Normalized.PhysicalSize != nil {
+	book := convertItem(booksItem{Title: "title"}, "")
+	if book.Normalized.Title != "title" || book.Normalized.Authors != nil || book.Normalized.Series != nil || book.Normalized.Identifiers != nil || book.Normalized.Dates != nil || book.Normalized.PhysicalSize != nil || book.Normalized.Prices != nil {
 		t.Fatalf("book = %#v", book)
 	}
-	if book.Normalized.Medium != PublicationMediumPrint || len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks {
+	if book.Normalized.Medium != PublicationMediumPrint || len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].AffiliateURL != "" {
 		t.Fatalf("medium/sources = %q / %#v", book.Normalized.Medium, book.Sources)
+	}
+}
+
+// TestConvertItem_PreservesZeroPrice は、itemPriceの0円を欠落と区別して取得時点価格として保持することを確認する
+func TestConvertItem_PreservesZeroPrice(t *testing.T) {
+	zero := int64(0)
+	book := convertItem(booksItem{Title: "free", ItemPrice: &zero}, "2026-08-08T02:00:00Z")
+	if len(book.Normalized.Prices) != 1 || book.Normalized.Prices[0].Amount != 0 || book.Normalized.Prices[0].Type != PriceTypeCurrent {
+		t.Fatalf("prices = %#v", book.Normalized.Prices)
 	}
 }
 
@@ -394,7 +410,7 @@ func TestHTTPStatusClassification(t *testing.T) {
 // TestBuildSearchResult_RejectsPageMismatch は、楽天Booksの応答ページが要求ページと異なる場合を拒否することを確認する
 func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 	response := booksResponse{Count: 2, Page: 1, PageCount: 2, Hits: 1, Items: []booksItem{{Title: "unexpected"}}}
-	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", ComicGenreGeneral), 1)
+	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", ComicGenreGeneral), 1, "")
 	if err == nil {
 		t.Fatal("buildSearchResult() error = nil")
 	}
@@ -403,7 +419,7 @@ func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 // TestPaginationStopsAtPage100 は、楽天Booksの最大100ページで次カーソルを生成しないことを確認する
 func TestPaginationStopsAtPage100(t *testing.T) {
 	response := booksResponse{Count: 3000, Page: 100, PageCount: 100, Hits: 30, Items: []booksItem{{Title: "last"}}}
-	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", ComicGenreGeneral), 30)
+	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", ComicGenreGeneral), 30, "")
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}

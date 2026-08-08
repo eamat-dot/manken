@@ -9,10 +9,10 @@ type Source = api.Source
 // Book は、取得した1冊の漫画本を表す
 type Book = api.Book
 
-// NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
+// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
 type NormalizedBook = api.NormalizedBook
 
-// BookSource は、Bookの書誌情報を取得した取得元を表す
+// BookSource は、Bookの情報を取得した取得元と参照先を表す
 type BookSource = api.BookSource
 
 // IdentifierType は、書誌識別子の種類を表す
@@ -38,6 +38,12 @@ type PublicationMedium = api.PublicationMedium
 
 // PhysicalSize は、紙書籍の判型名と寸法をミリメートル単位で表す
 type PhysicalSize = api.PhysicalSize
+
+// PriceType は、価格の種類を表す
+type PriceType = api.PriceType
+
+// Price は、種類と出典を明示した価格を表す
+type Price = api.Price
 
 // Subject は、取得元の分類体系に基づく主題またはジャンルを表す
 type Subject = api.Subject
@@ -74,6 +80,8 @@ const (
 	BookDateTypeReleased = api.BookDateTypeReleased
 	// PublicationMediumPrint は、紙書籍を表す
 	PublicationMediumPrint = api.PublicationMediumPrint
+	// PriceTypeCurrent は、API取得時点の販売価格を表す
+	PriceTypeCurrent = api.PriceTypeCurrent
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
 	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
 	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す

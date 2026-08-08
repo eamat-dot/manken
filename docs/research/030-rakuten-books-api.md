@@ -436,9 +436,9 @@ Affiliate IDあり:
 | `itemPrice` | `Normalized.Prices` | 税込の取得時点価格として意味は明確。ただし保存・更新条件あり |
 | 画像URL | `Normalized.Images` | 商品画像として保持可能。利用条件に従う |
 
-`itemPrice` を `Prices` へ変換する場合は、`PriceTypeCurrent`、通貨JPY、税込として
-表現できる。取得日時も付けるべきである。ただし価格情報のキャッシュ期限が24時間の
-ため、初期実装へ含める場合はguideで利用条件を明示する。
+`itemPrice` は `PriceTypeCurrent`、通貨JPY、税込、取得日時付きで `Prices` へ変換できる。
+TODO031のレビュー時にこの対応を採用した。価格情報のキャッシュ期限が24時間のため、guideで
+利用条件を明示する。
 
 ### 12.2 実装前に追加確認する項目
 
@@ -463,7 +463,7 @@ Affiliate IDあり:
 
 ### 12.3 初期共通化を見送る項目
 
-次はRaw responseへ残し、現行の書誌共通モデルへ無理に入れない。
+次はRaw responseへ残し、現行の共通モデルへ無理に入れない。
 
 - `availability`
 - `postageFlag`
@@ -471,11 +471,10 @@ Affiliate IDあり:
 - `reviewCount`
 - `reviewAverage`
 - `chirayomiUrl`
-- `affiliateUrl`
 - `contents` / `contentsKana`
 
 在庫、送料、限定販売、レビューは書誌ではなく販売運用情報である。
-`chirayomiUrl` と `affiliateUrl` はURLの用途が既存 `BookSource.URL` と異なる。
+`chirayomiUrl` も通常の商品参照URLとは用途が異なるため、現時点ではRawに残す。
 
 ## 13. 取得元IDとURL
 
@@ -503,13 +502,13 @@ ISBNは `Identifiers` に保持し、楽天固有IDを公式に確認できな�
 
 `affiliateUrl` はAffiliate IDを指定した場合だけ返る。通常の `itemUrl` とは別情報である。
 
-初期実装では `BookSource.URL` へアフィリエイトURLを入れない。
+TODO031のレビュー時に、販売系プロバイダでも共通利用できる取得元参照情報として
+`BookSource.AffiliateURL` を追加する方針を採用した。
 
-- `BookSource.URL`: 通常の商品参照URL候補
-- `affiliateUrl`: Raw responseから利用できる楽天固有の販促情報
+- `BookSource.URL`: 通常の商品参照URL
+- `BookSource.AffiliateURL`: アフィリエイト用URL
 
-将来、楽天Kobo、DMM等と販売情報モデルを比較した後で、アフィリエイトURL用の共通項目が
-必要か判断する。
+アフィリエイトURLがある場合も通常URLを置き換えず、両方を別項目として保持する。
 
 ## 14. Raw response
 
@@ -689,8 +688,8 @@ Affiliate ID未設定でもClientを作成・検索できることをテスト�
 - タイトル、読み、サブタイトル、シリーズ、出版社、ISBN、発売日、説明、ジャンル
 - 複数著者の分割規則を実例で追加確認
 - `salesDate` の精度を保持し、完全な日付へ補完しない
-- 価格を含める場合は税込・JPY・取得時点価格として扱う
-- アフィリエイトURLを `BookSource.URL` に入れない
+- `itemPrice` は税込・JPY・取得時点価格として扱う
+- アフィリエイトURLは `BookSource.URL` に入れず、`BookSource.AffiliateURL` に分離する
 
 ### Raw response
 
@@ -710,14 +709,15 @@ Affiliate ID未設定でもClientを作成・検索できることをテスト�
 
 ## 19. 未決事項
 
-TODO030の完了を妨げない未決事項として、実装時に次を確認する。
+TODO030時点の未決事項のうち、TODO031で次を確定した。
 
-- ISBN検索0件時に通常タイトル検索と同じHTTP 200 + `count=0` となるか
+- `itemPrice` は `Normalized.Prices` の取得時点価格として共通化する
+- 通常商品URLは `BookSource.URL`、アフィリエイトURLは `BookSource.AffiliateURL` に分離する
+- `size=9` は固定せず、一般・BL・TLのジャンルIDをClientで選択する
+- 1秒1回以下の制御はライブラリ内部で行わず、呼び出し側へ委ねる
+
+今後の確認事項は次のとおり。
+
 - `author` / `authorKana` の複数寄与者区切りをどこまで安全に分解できるか
 - `size` の出力が常に日本語文字列か、条件によって数値等が返ることがあるか
-- 漫画検索で `booksGenreId` に加えて `size=9` を固定する利点があるか
-- `itemPrice` と画像を初期のNormalizedへ含めるか、それともRaw利用を優先するか
-- 通常の商品URLを現行 `BookSource.URL` へ設定する最終判断
-- ライブラリ内部で1秒1回以下を制御するか、呼び出し側へ委ねるか
-
-販売情報・アフィリエイト情報の共通モデルは、楽天KoboとDMM等を比較してから判断する。
+- 在庫、送料、レビューなど未共通化の販売情報をどこまで共通モデルへ含めるか

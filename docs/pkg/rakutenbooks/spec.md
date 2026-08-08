@@ -11,8 +11,8 @@ import path:
 github.com/eamat-dot/manken/rakutenbooks
 ```
 
-楽天Books固有の販売情報をすべて共通モデルへ変換することは目的としない。価格、在庫、
-レビュー、試し読みURL、アフィリエイトURLなどはRaw responseから参照できる。
+楽天Books固有の販売情報をすべて共通モデルへ変換することは目的としない。取得時点価格と
+アフィリエイトURLは共通モデルへ変換し、在庫、レビュー、試し読みURLなどはRaw responseから参照できる。
 
 ## 2. Client
 
@@ -181,7 +181,8 @@ formatVersion=2
 
 | 楽天Books | 共通モデル | 規則 |
 | --- | --- | --- |
-| `itemUrl` | `BookSource.URL` | 有効なHTTP(S) URLだけを使用 |
+| `itemUrl` | `BookSource.URL` | 有効なHTTP(S) URLだけを通常商品URLとして使用 |
+| `affiliateUrl` | `BookSource.AffiliateURL` | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない |
 | `title` | `Normalized.Title` | そのまま保持 |
 | `titleKana` | `Normalized.TitleReading` | そのまま保持 |
 | `subTitle` | `Normalized.Subtitle` | そのまま保持 |
@@ -194,6 +195,7 @@ formatVersion=2
 | `itemCaption` | `Normalized.Description` | そのまま保持 |
 | `booksGenreId` | `Normalized.Subjects` | `/` で分割し、Scheme=`rakuten_books` とする |
 | `size` | `Normalized.PhysicalSize.Name` | 判型名として保持 |
+| `itemPrice` | `Normalized.Prices` | `current` / JPY / 税込。取得時刻を `ObservedAt` に保持 |
 | API種別 | `Normalized.Medium` | `print` |
 | 3種の画像URL | `Normalized.Images` | small / medium / largeの順に保持 |
 
@@ -203,12 +205,22 @@ formatVersion=2
 `BookSource.ID` は設定しない。楽天Books固有の安定した商品IDをレスポンスの専用項目から
 確認できないため、商品URLのpath等から独自IDを生成しない。
 
-### 7.2 初期共通化しない項目
+### 7.2 販売情報
+
+`itemPrice` が存在する場合は、取得時点の販売価格として次の `Price` を1件設定する。
+
+- `Type`: `current`
+- `Amount`: `itemPrice`。0円も保持する
+- `Currency`: `JPY`
+- `TaxIncluded`: `true`
+- `Source`: `rakutenbooks`
+- `ObservedAt`: そのHTTP成功レスポンスを取得した時刻
+
+`affiliateUrl` は `BookSource.AffiliateURL` に設定し、通常商品URLの `BookSource.URL` と分離する。
+Affiliate IDを指定しておらず楽天Booksが `affiliateUrl` を返さない場合は省略する。
 
 次はRaw responseへ残し、初期実装では共通モデルへ変換しない。
 
-- `affiliateUrl`
-- `itemPrice`
 - `availability`
 - `postageFlag`
 - `limitedFlag`
@@ -216,8 +228,6 @@ formatVersion=2
 - `reviewAverage`
 - `chirayomiUrl`
 - `contents` / `contentsKana`
-
-特に `affiliateUrl` を `BookSource.URL` へ設定しない。`BookSource.URL` は通常の `itemUrl` を使う。
 
 ## 8. Raw response
 

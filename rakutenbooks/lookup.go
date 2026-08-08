@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 )
@@ -84,6 +85,7 @@ func (client *Client) lookupISBN(ctx context.Context, isbn string) ([]Book, []by
 	if err != nil {
 		return nil, body, err
 	}
+	observedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	response, err := decodeBooksResponse(body)
 	if err != nil {
 		return nil, body, newError(operationISBNLookup, ErrorKindInvalidResponse, err)
@@ -93,7 +95,7 @@ func (client *Client) lookupISBN(ctx context.Context, isbn string) ([]Book, []by
 		if !itemHasISBN(item, isbn) {
 			continue
 		}
-		books = append(books, convertItem(item))
+		books = append(books, convertItem(item, observedAt))
 	}
 	return books, body, nil
 }

@@ -360,10 +360,13 @@ go run ./examples/rakutenbooks -genre general -title "動物のお医者さん" 
 標準出力には検索時は `rakutenbooks.SearchBooksResult`、ISBN参照時は
 `rakutenbooks.ISBNLookupResult` のJSONだけを出す。警告、エラー、診断情報は標準エラー出力へ出す。
 
+変換済み結果では、`itemPrice` を取得時点の税込JPY価格として `normalized.prices` に出力する。
+Affiliate IDを設定した場合は、通常商品URLとは別に `sources[].affiliate_url` へ楽天の
+アフィリエイトURLを出力する。
+
 `-raw-output` に存在しないファイルを指定すると、検索またはISBN参照で受信した1回の成功レスポンス本文を
 変更せず保存する。既存ファイルは上書きしない。JSON解析または共通書籍モデルへの変換に失敗した場合も、
 読み込み済みの本文を保存する。通信失敗、成功以外のHTTP応答、本文読込失敗、16 MiB超過では保存しない。
-Affiliate IDを設定した場合、Raw responseには楽天が返す `affiliateUrl` が含まれ得る。
 
 楽天ウェブサービスはApplication ID単位のリクエスト頻度、クレジット表示、取得データの保存・更新に
 利用条件がある。CLIデモ自体はレート制御やキャッシュを行わない。
