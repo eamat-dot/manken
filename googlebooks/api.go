@@ -9,10 +9,10 @@ type Source = api.Source
 // Book は、取得した1冊の漫画本を表す
 type Book = api.Book
 
-// NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
+// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
 type NormalizedBook = api.NormalizedBook
 
-// BookSource は、Bookの書誌情報を取得した取得元を表す
+// BookSource は、Bookの情報を取得した取得元と参照先を表す
 type BookSource = api.BookSource
 
 // IdentifierType は、書誌識別子の種類を表す
