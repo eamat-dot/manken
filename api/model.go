@@ -11,6 +11,8 @@ const (
 	SourceOpenBD Source = "openbd"
 	// SourceGoogleBooks は、Google Booksを表す
 	SourceGoogleBooks Source = "googlebooks"
+	// SourceRakutenBooks は、楽天ブックス書籍検索APIを表す
+	SourceRakutenBooks Source = "rakutenbooks"
 )
 
 // Book は、取得した1冊の漫画本を表す

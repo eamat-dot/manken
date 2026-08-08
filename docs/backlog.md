@@ -33,7 +33,7 @@
 
 ## データ取得元
 
-現在はMADBとGoogle Booksの書誌検索・ISBN参照、openBDのISBN参照を実装している。
+現在はMADB、Google Books、楽天Booksの書誌検索・ISBN参照、openBDのISBN参照を実装している。
 未実装の取得元は、直前の取得元で確立したパッケージ構造、エラー処理、
 テスト方法を反映しながら、詳細TODOを1件ずつ作成して調査・実装する。
 
@@ -43,19 +43,12 @@
 
 現時点の主な候補は次のとおり。
 
-1. 楽天Books API
-2. 楽天Kobo API
-3. Yahoo!ショッピング商品検索API
-4. DMM.com Webサービス
+1. 楽天Kobo API
+2. Yahoo!ショッピング商品検索API
+3. DMM.com Webサービス
 
-楽天Booksは2026年8月8日に現行仕様と実APIを再調査し、タイトル、ISBN、著者検索、
-漫画ジャンル絞り込み、ページングを確認した。Application IDとAccess Keyは必須だが、
-Affiliate IDは任意で、指定した場合だけアフィリエイトURLが返る。
-次はこの調査を根拠に楽天Booksプロバイダの実装範囲を定める。
-詳細は [楽天ブックス書籍検索APIの現行仕様とmankenでの利用範囲調査](research/030-rakuten-books-api.md)を参照する。
-
-楽天Booksと楽天Koboは、紙書籍と電子書籍で識別子、検索条件、変換規則が
-異なるため、別の調査・実装TODOにする。
+楽天Koboは楽天Booksと異なり、電子書籍固有の商品番号、検索条件、変換規則を持つため、
+別の調査・実装TODOにする。
 
 Yahoo!ショッピングは、`bookfan` の紙書籍では実レスポンスを確認済みで、
 `ebookjapan` は商品検索APIから取得できなかった。ほかの販売者を漫画・販売情報源として

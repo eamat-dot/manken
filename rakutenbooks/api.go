@@ -1,0 +1,97 @@
+// Package rakutenbooks は、楽天ブックス書籍検索APIから紙書籍の書誌情報を検索する機能を提供する
+package rakutenbooks
+
+import "github.com/eamat-dot/manken/api"
+
+// Source は、書誌情報の取得元を表す
+type Source = api.Source
+
+// Book は、取得した1冊の漫画本を表す
+type Book = api.Book
+
+// NormalizedBook は、取得元に依存せず利用できる書誌情報を表す
+type NormalizedBook = api.NormalizedBook
+
+// BookSource は、Bookの書誌情報を取得した取得元を表す
+type BookSource = api.BookSource
+
+// IdentifierType は、書誌識別子の種類を表す
+type IdentifierType = api.IdentifierType
+
+// Identifier は、種類を明示した書誌識別子を表す
+type Identifier = api.Identifier
+
+// Contributor は、制作への寄与者と複数の役割を表す
+type Contributor = api.Contributor
+
+// Series は、シリーズ名と取得元内の参照情報を表す
+type Series = api.Series
+
+// BookDateType は、書誌に関係する日付の種類を表す
+type BookDateType = api.BookDateType
+
+// BookDate は、種類と精度を維持した日付文字列を表す
+type BookDate = api.BookDate
+
+// PublicationMedium は、出版物が紙または電子のどちらかを表す
+type PublicationMedium = api.PublicationMedium
+
+// PhysicalSize は、紙書籍の判型名と寸法をミリメートル単位で表す
+type PhysicalSize = api.PhysicalSize
+
+// Subject は、取得元の分類体系に基づく主題またはジャンルを表す
+type Subject = api.Subject
+
+// Image は、表紙など書籍に関係する画像を表す
+type Image = api.Image
+
+// SearchBooksRequest は、漫画本の検索条件を表す
+type SearchBooksRequest = api.SearchBooksRequest
+
+// SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
+type SearchBooksResult = api.SearchBooksResult
+
+// ISBNLookupResult は、入力ISBNごとの書籍参照結果を表す
+type ISBNLookupResult = api.ISBNLookupResult
+
+// ISBNLookupItem は、指定された1つのISBNと対応する書籍を表す
+type ISBNLookupItem = api.ISBNLookupItem
+
+// ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
+type ErrorKind = api.ErrorKind
+
+// Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
+type Error = api.Error
+
+const (
+	// SourceRakutenBooks は、楽天ブックス書籍検索APIを表す
+	SourceRakutenBooks = api.SourceRakutenBooks
+	// IdentifierTypeISBN10 は、ISBN-10を表す
+	IdentifierTypeISBN10 = api.IdentifierTypeISBN10
+	// IdentifierTypeISBN13 は、ISBN-13を表す
+	IdentifierTypeISBN13 = api.IdentifierTypeISBN13
+	// BookDateTypeReleased は、発売日を表す
+	BookDateTypeReleased = api.BookDateTypeReleased
+	// PublicationMediumPrint は、紙書籍を表す
+	PublicationMediumPrint = api.PublicationMediumPrint
+	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
+	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
+	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す
+	ErrorKindUpstream = api.ErrorKindUpstream
+	// ErrorKindUnavailable は、取得元または通信が一時的に利用できない状態を表す
+	ErrorKindUnavailable = api.ErrorKindUnavailable
+	// ErrorKindInvalidResponse は、取得元の成功応答を解釈できない状態を表す
+	ErrorKindInvalidResponse = api.ErrorKindInvalidResponse
+)
+
+// ComicGenre は、楽天Books検索で対象にする漫画区分を表す
+type ComicGenre string
+
+const (
+	// ComicGenreGeneral は、一般コミックを表す
+	ComicGenreGeneral ComicGenre = "general"
+	// ComicGenreBL は、ボーイズラブコミックを表す
+	ComicGenreBL ComicGenre = "bl"
+	// ComicGenreTL は、ティーンズラブコミックを表す
+	ComicGenreTL ComicGenre = "tl"
+)

@@ -1,0 +1,234 @@
+# 楽天Booksガイド
+
+## 1. 利用前に準備するもの
+
+楽天Booksプロバイダは楽天ウェブサービスの「楽天ブックス書籍検索API」を使用する。
+利用には次が必要である。
+
+- Application ID
+- Access Key
+
+Affiliate IDは検索に必須ではない。楽天アフィリエイトURLが必要な場合だけ設定する。
+
+楽天ウェブサービス:
+https://webservice.rakuten.co.jp/
+
+楽天ブックス書籍検索API:
+https://webservice.rakuten.co.jp/documentation/books-book-search
+
+## 2. 認証情報の設定
+
+認証情報をソースコードへ直接記述せず、環境変数や利用側の秘密情報管理から読み込む。
+
+このリポジトリのCLIデモでは次の環境変数を使用する。
+
+```text
+RAKUTEN_APP_ID
+RAKUTEN_ACCESS_KEY
+RAKUTEN_AFFILIATE_ID
+```
+
+`RAKUTEN_AFFILIATE_ID` は省略できる。
+
+Clientの最小構成:
+
+```go
+client, err := rakutenbooks.NewClient(nil,
+    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+Affiliate IDを利用する場合だけOptionを追加する。
+
+```go
+client, err := rakutenbooks.NewClient(nil,
+    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+    rakutenbooks.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID")),
+)
+```
+
+Affiliate IDを設定しても検索条件や共通書籍モデルは変わらない。楽天BooksのRaw responseに
+`affiliateUrl` が含まれるようになる。
+
+## 3. タイトル検索
+
+既定では一般コミックを検索する。
+
+```go
+result, err := client.SearchBooks(
+    context.Background(),
+    rakutenbooks.SearchBooksRequest{Title: "動物のお医者さん"},
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+`Title` と `Author` は同時に指定できる。
+
+楽天BooksはBooks Book Search APIに汎用フリーワード検索と除外キーワード検索を持たないため、
+`FreeText` と `ExcludedText` は利用できない。
+
+## 4. 一般・BL・TLコミック
+
+検索対象はClient作成時に1区分を選ぶ。
+
+```go
+client, err := rakutenbooks.NewClient(nil,
+    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+    rakutenbooks.WithComicGenre(rakutenbooks.ComicGenreBL),
+)
+```
+
+利用できる区分:
+
+- `ComicGenreGeneral`: 一般コミック。既定値
+- `ComicGenreBL`: BLコミック
+- `ComicGenreTL`: TLコミック
+
+1回の検索で3区分を自動的に横断しない。別区分を検索する場合は、その区分を指定したClientを
+作成する。
+
+## 5. ISBN参照
+
+ISBN-10またはISBN-13を1件だけ指定する。
+
+```go
+result, err := client.LookupBooksByISBN(
+    context.Background(),
+    []string{"4088466365"},
+)
+```
+
+ISBN参照では一般・BL・TLの漫画区分を使用しない。入力ISBNに一致する楽天Booksの商品を
+参照する。
+
+該当商品がない場合はエラーではなく、1件の入力結果の `books` が空になる。
+
+## 6. 次ページの取得
+
+`Limit` は1〜30件を指定できる。0は既定値の20件である。
+
+```go
+request := rakutenbooks.SearchBooksRequest{
+    Title: "動物のお医者さん",
+    Limit: 5,
+}
+result, err := client.SearchBooks(ctx, request)
+```
+
+`result.NextCursor` が空でなければ、同じ検索条件・Limit・漫画区分で次回の `Cursor` へ渡す。
+
+```go
+request.Cursor = result.NextCursor
+next, err := client.SearchBooks(ctx, request)
+```
+
+楽天Books側のページ番号は公開APIから隠蔽している。Cursorを別の検索条件、Limit、漫画区分で
+再利用すると入力エラーになる。
+
+## 7. Raw response
+
+楽天Books固有の販売情報を確認する場合はRaw response用メソッドを使う。
+
+```go
+result, raw, err := client.SearchBooksWithRawResponse(ctx, request)
+```
+
+ISBN参照にも `LookupBooksByISBNWithRawResponse` がある。
+
+Raw responseには共通モデルへ変換していない次の情報が含まれ得る。
+
+- 価格
+- 在庫・販売状態
+- レビュー
+- 試し読みURL
+- アフィリエイトURL
+- 楽天Books固有の商品情報
+
+`BookSource.URL` には通常の商品URLを使用し、アフィリエイトURLは入れない。
+
+Rawを取得できることは、取得した情報を無期限に保存・再配布できることを意味しない。
+楽天ウェブサービスの現行利用条件を確認する。
+
+## 8. CLIデモ
+
+リポジトリのルートで、必要な環境変数を設定して実行する。
+
+一般コミックをタイトル検索する。
+
+```text
+go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
+```
+
+BLコミックを検索する。
+
+```text
+go run ./examples/rakutenbooks -genre bl -title "セブンティーンシロップス"
+```
+
+TLコミックを検索する。
+
+```text
+go run ./examples/rakutenbooks -genre tl -title "メロすぎ朔椰"
+```
+
+ISBNを参照する。
+
+```text
+go run ./examples/rakutenbooks 9784758088732
+```
+
+Raw responseも保存する。
+
+```text
+go run ./examples/rakutenbooks -raw-output rakutenbooks-raw.json -title "動物のお医者さん"
+```
+
+全オプションは [CLIデモ](../../../examples/README.md) を参照する。
+
+## 9. リクエスト頻度
+
+楽天ウェブサービスの公式ヘルプでは、1つのApplication IDにつき1秒に1回以下の
+リクエストとするよう案内されている。
+
+`rakutenbooks.Client` は待機、直列化、自動リトライを行わない。複数goroutineや複数Clientから
+同じApplication IDを使用する場合も、利用側で全体のリクエスト頻度を管理する。
+
+公式ヘルプ:
+https://webservice.faq.rakuten.net/hc/ja
+
+## 10. 表示・保存上の注意
+
+楽天ウェブサービスの利用条件はAPIで取得できることとは別に確認する必要がある。
+2026年8月の調査では、主に次を確認している。
+
+- 楽天APIを利用するアプリには指定のクレジット表示が必要
+- 商品の価格情報・販売可能情報の一般的なキャッシュ期間は24時間
+- その他の情報の一般的なキャッシュ期間は3か月
+- 価格または販売可能情報の表示には更新頻度や更新日時表示に関する条件がある
+- API取得情報を利用する収益化方法にも条件がある
+
+ライブラリはこれらの条件を自動的に履行しない。表示、保存、広告利用を行うアプリケーションは、
+利用時点の公式ガイドと規約を確認する。
+
+クレジット表示:
+https://webservice.rakuten.co.jp/guide/credit
+
+利用規約:
+https://webservice.rakuten.co.jp/guide/rule
+
+調査時点の詳細と判断根拠は
+[楽天ブックス書籍検索APIの現行仕様とmankenでの利用範囲調査](../../research/030-rakuten-books-api.md)
+を参照する。
+
+## 11. 詳細仕様
+
+検索条件、漫画区分、Cursor、ISBN参照、変換項目、HTTP・エラーの完全な動作は
+[楽天Booksパッケージ仕様](spec.md)を参照する。

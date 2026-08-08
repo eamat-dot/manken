@@ -105,9 +105,10 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 
 ### 5.1 Source
 
-`Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks` を
-それぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks` として定義する。取得元パッケージは
-自身の定数をエイリアスとして公開し、JSONではこの短い文字列を出力する。
+`Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
+`rakutenbooks` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
 

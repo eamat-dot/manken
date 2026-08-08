@@ -287,3 +287,86 @@ ISBN参照の `items` は1要素で、`RequestedISBN` は入力文字列を保�
 検索条件、ISBN参照、変換項目、利用条件は
 [Google Booksパッケージ仕様](../docs/pkg/googlebooks/spec.md)と
 [Google Booksガイド](../docs/pkg/googlebooks/guide.md)を参照する。
+
+## 楽天Books
+
+`rakutenbooks/main.go` は、`rakutenbooks` パッケージで楽天Booksの紙書籍を検索・ISBN参照し、
+結果をJSONで確認するためのCLIである。実行前にApplication IDとAccess Keyを環境変数へ設定する。
+Affiliate IDは任意である。
+
+```text
+RAKUTEN_APP_ID=<Application ID>
+RAKUTEN_ACCESS_KEY=<Access Key>
+RAKUTEN_AFFILIATE_ID=<Affiliate ID。任意>
+```
+
+### 基本的な使い方
+
+一般コミックをタイトル検索する。
+
+```text
+go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
+```
+
+### オプション
+
+| オプション | 内容 |
+| --- | --- |
+| `-title` | タイトルに含める検索語 |
+| `-author` | 著者名に含める検索語 |
+| `-genre` | 漫画区分。`general`、`bl`、`tl`。既定値は `general` |
+| `-limit` | 検索件数。1から30まで。0は既定値の20件 |
+| `-cursor` | 前回の結果に含まれる `next_cursor` |
+| `-raw-output` | 検索またはISBN参照で楽天Booksから受信した変換前レスポンスを保存する新規ファイル |
+
+検索では `-title` または `-author` の少なくとも1つを指定する。ISBN参照ではISBN-10または
+ISBN-13を位置引数で1件だけ指定し、検索条件、`-limit`、`-cursor`とは併用しない。
+楽天Booksではフリーワード検索と除外語検索は提供しない。
+
+### 実行例
+
+著者名で検索する。
+
+```text
+go run ./examples/rakutenbooks -author "佐々木倫子"
+```
+
+BLコミックを検索する。
+
+```text
+go run ./examples/rakutenbooks -genre bl -title "セブンティーンシロップス"
+```
+
+TLコミックを検索する。
+
+```text
+go run ./examples/rakutenbooks -genre tl -title "メロすぎ朔椰"
+```
+
+ISBNを1件参照する。
+
+```text
+go run ./examples/rakutenbooks 9784758088732
+```
+
+次ページを取得するには、前回の `next_cursor` と同じタイトル・著者・Limit・漫画区分を指定する。
+
+```text
+go run ./examples/rakutenbooks -genre general -title "動物のお医者さん" -limit 5 -cursor "<next_cursor>"
+```
+
+### 出力と変換前レスポンスの保存
+
+標準出力には検索時は `rakutenbooks.SearchBooksResult`、ISBN参照時は
+`rakutenbooks.ISBNLookupResult` のJSONだけを出す。警告、エラー、診断情報は標準エラー出力へ出す。
+
+`-raw-output` に存在しないファイルを指定すると、検索またはISBN参照で受信した1回の成功レスポンス本文を
+変更せず保存する。既存ファイルは上書きしない。JSON解析または共通書籍モデルへの変換に失敗した場合も、
+読み込み済みの本文を保存する。通信失敗、成功以外のHTTP応答、本文読込失敗、16 MiB超過では保存しない。
+Affiliate IDを設定した場合、Raw responseには楽天が返す `affiliateUrl` が含まれ得る。
+
+楽天ウェブサービスはApplication ID単位のリクエスト頻度、クレジット表示、取得データの保存・更新に
+利用条件がある。CLIデモ自体はレート制御やキャッシュを行わない。
+検索条件、漫画区分、ISBN参照、変換項目、利用条件は
+[楽天Booksパッケージ仕様](../docs/pkg/rakutenbooks/spec.md)と
+[楽天Booksガイド](../docs/pkg/rakutenbooks/guide.md)を参照する。
