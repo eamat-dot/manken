@@ -7,6 +7,10 @@
 ## 検索機能
 
 - マンガ単行本シリーズ検索
+- 共通検索条件 `SearchBooksRequest.Publisher` の追加
+  - 楽天Booksの `publisherName`、MADBの `schema:publisher`、Google Booksの `inpublisher:` を共通の出版社条件として扱えるか実装前に再確認する
+  - MADBは現行FreeTextの対象に `schema:publisher` を含むため、専用Publisher条件へ切り出す候補とする
+  - 共通APIと複数の既存プロバイダへ変更が及ぶため、楽天Books改善TODOとは分離し、別ブランチ・別TODOで実装する
 - 複数データ取得元の横断検索
   - 取得元ごとに異なる検索能力をどう指定するか
   - 取得元をまたぐ検索条件とLimitの意味
@@ -18,6 +22,11 @@
 
 ## 書誌データの変換
 
+- `Series`、出版コレクション、レーベルの共通モデル再検討
+  - MADBの `Series` は作品シリーズとして比較的明確だが、楽天Booksの `seriesName` やopenBD Collectionにはレーベル・出版コレクション相当の値が含まれる
+  - 情報を捨てると版・系統の判断材料が減るため、楽天Booksの `seriesName` は当面 `Normalized.Series` に残す
+  - TODO024で共通モデルから除外したopenBD Collectionも、未実装プロバイダの同種項目が出そろった後に `Series` へ戻すか、新しい共通型を設けるか再検討する。現時点ではコードを戻さない
+  - 名称辞書や接尾辞だけで `Series` / `Imprints` を推測分類しない
 - MADBの人物読みの再調査
   - 同一Agent URI内に通常表記と読みがあり、言語タグも確認できる実例が得られた場合だけ着手する
   - または、直接 `schema:creator` と `dcterms:creator` のAgentを明示的に結び付ける取得元プロパティが確認できた場合に着手する
@@ -79,3 +88,10 @@ DMM.com Webサービスは、現行の `keyword` がタイトル専用ではな�
   - Raw responseを返す用途
   - `NormalizedBook` とRaw responseの両方を返す用途
 - stdioとStreamable HTTPの提供範囲
+
+## fix
+### rakutenbooksで対応した修正を他のプロバイダに適応
+- examples\googlebooks\main.go isbnの位置引数を1件に制限する
+    - (examples\rakutenbooks\main.go) と同様に
+
+- price 
