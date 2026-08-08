@@ -31,6 +31,21 @@ func TestParseGenre(t *testing.T) {
 	}
 }
 
+// TestParseBookSize は、CLIの商品形態番号を公開定数へ変換できることを確認する
+func TestParseBookSize(t *testing.T) {
+	for value := 0; value <= 10; value++ {
+		got, err := parseBookSize(value)
+		if err != nil || got != rakutenbooks.BookSize(value) {
+			t.Fatalf("parseBookSize(%d) = %d, %v", value, got, err)
+		}
+	}
+	for _, value := range []int{-1, 11} {
+		if _, err := parseBookSize(value); err == nil {
+			t.Fatalf("parseBookSize(%d) error = nil", value)
+		}
+	}
+}
+
 // TestValidateISBNArgs は、CLIのISBN位置引数を1件以下に制限することを確認する
 func TestValidateISBNArgs(t *testing.T) {
 	for _, isbns := range [][]string{nil, {}, {"4088466365"}} {

@@ -132,71 +132,73 @@
 
 ### 調査
 
-- [ ] 現行 `rakutenbooks` のClient Option、検索query、Cursor、レスポンス変換、examplesを確認する
-- [ ] RESEARCH030に記録した `+releaseDate`、`/` 区切り、size 0〜10の前提と現行実装の差分を確認する
-- [ ] `seriesName`、Publisher、openBDを今回変更しないことを影響範囲として確認する
+- [x] 現行 `rakutenbooks` のClient Option、検索query、Cursor、レスポンス変換、examplesを確認する
+- [x] RESEARCH030に記録した `+releaseDate`、`/` 区切り、size 0〜10の前提と現行実装の差分を確認する
+- [x] `seriesName`、Publisher、openBDを今回変更しないことを影響範囲として確認する
 
 ### 実装
 
-- [ ] 楽天Books固有の `BookSize` 型、0〜10の公開定数、`WithBookSize` を追加する
-- [ ] size未指定時はqueryへsizeを送らず、指定時だけSearchBooksへ送る
-- [ ] ISBN参照ではsizeを送らない
-- [ ] Cursorの検索条件へBookSizeを含め、別sizeでの再利用を拒否する
-- [ ] SearchBooksの固定sortを `+releaseDate` へ変更する
-- [ ] `author` を `/` で分割して `Authors` と人物単位の `Contributors` へ変換する
-- [ ] `authorKana` は分割数が一致した場合だけ各ContributorのReadingへ対応付ける
-- [ ] 著者名内部の空白・カンマ、Contributor Roles、`seriesName` の現行変換を変更しない
-- [ ] examples/rakutenbooksからsizeを指定して動作確認できるようにする。CLIでは公式0〜10を検証してClient Optionへ変換する
+- [x] 楽天Books固有の `BookSize` 型、0〜10の公開定数、`WithBookSize` を追加する
+- [x] size未指定時はqueryへsizeを送らず、指定時だけSearchBooksへ送る
+- [x] ISBN参照ではsizeを送らない
+- [x] Cursorの検索条件へBookSizeを含め、別sizeでの再利用を拒否する
+- [x] SearchBooksの固定sortを `+releaseDate` へ変更する
+- [x] `author` を `/` で分割して `Authors` と人物単位の `Contributors` へ変換する
+- [x] `authorKana` は分割数が一致した場合だけ各ContributorのReadingへ対応付ける
+- [x] 著者名内部の空白・カンマ、Contributor Roles、`seriesName` の現行変換を変更しない
+- [x] examples/rakutenbooksからsizeを指定して動作確認できるようにする。CLIでは公式0〜10を検証してClient Optionへ変換する
 
 ### テスト
 
-- [ ] `WithBookSize` の0〜10正常系と範囲外エラーをテストする
-- [ ] size=0/未指定でqueryにsizeがなく、1〜10指定時だけ正しい値が入ることをテストする
-- [ ] ISBN参照queryにsizeが入らないことをテストする
-- [ ] Cursorが同じsizeでは継続でき、異なるsizeでは通信前に拒否されることをテストする
-- [ ] 検索queryのsortが `+releaseDate` であることをテストする
-- [ ] 複数 `author` を `/` で分割し、前後空白だけを除去することをテストする
-- [ ] `authorKana` の件数一致時にReadingを対応付け、不一致時はReadingを推測しないことをテストする
-- [ ] `采　和輝` の全角空白や `苗字, 名前` のカンマ等、氏名内部表記を保持する退行防止テストを追加する
-- [ ] 単一著者、空著者、ISBN参照結果でも共通変換が成立することをテストする
-- [ ] `seriesName` が従来どおり `Normalized.Series` に残ることを退行防止テストで確認する
-- [ ] examplesのsize引数正常系・範囲外をテストする
+- [x] `WithBookSize` の0〜10正常系と範囲外エラーをテストする
+- [x] size=0/未指定でqueryにsizeがなく、1〜10指定時だけ正しい値が入ることをテストする
+- [x] ISBN参照queryにsizeが入らないことをテストする
+- [x] Cursorが同じsizeでは継続でき、異なるsizeでは通信前に拒否されることをテストする
+- [x] 検索queryのsortが `+releaseDate` であることをテストする
+- [x] 複数 `author` を `/` で分割し、前後空白だけを除去することをテストする
+- [x] `authorKana` の件数一致時にReadingを対応付け、不一致時はReadingを推測しないことをテストする
+- [x] `采　和輝` の全角空白や `苗字, 名前` のカンマ等、氏名内部表記を保持する退行防止テストを追加する
+- [x] 単一著者、空著者、ISBN参照結果でも共通変換が成立することをテストする
+- [x] `seriesName` が従来どおり `Normalized.Series` に残ることを退行防止テストで確認する
+- [x] examplesのsize引数正常系・範囲外をテストする
 
 ### ドキュメント
 
-- [ ] `docs/pkg/rakutenbooks/spec.md` を `+releaseDate`、BookSize、Cursor、著者分割の現在仕様へ同期する
-- [ ] `docs/pkg/rakutenbooks/guide.md` にsizeの用途と公式0〜10の意味、`size=9` を既定固定しない理由を案内する
-- [ ] `examples/README.md` に楽天Booksのsize指定方法と例を追加する
-- [ ] README / CHANGELOGを利用者向け変更に必要な範囲で同期する
-- [ ] `docs/backlog.md` のPublisher案とSeries保留事項を残し、完了扱いにしない
+- [x] `docs/pkg/rakutenbooks/spec.md` を `+releaseDate`、BookSize、Cursor、著者分割の現在仕様へ同期する
+- [x] `docs/pkg/rakutenbooks/guide.md` にsizeの用途と公式0〜10の意味、`size=9` を既定固定しない理由を案内する
+- [x] `examples/README.md` に楽天Booksのsize指定方法と例を追加する
+- [x] README / CHANGELOGを利用者向け変更に必要な範囲で同期する
+- [x] `docs/backlog.md` のPublisher案とSeries保留事項を残し、完了扱いにしない
 
 ## 検証
 
-- [ ] `go test -v ./rakutenbooks ./examples/rakutenbooks` を実行する
-- [ ] `go test -v ./...` を実行する
-- [ ] `go test -run TestDoesNotExist ./...` を実行して全パッケージのコンパイルを確認する
-- [ ] `go test -vet=all ./...` を実行する
-- [ ] リポジトリで利用可能なgofmt相当チェックを実行する
-- [ ] 認証情報が利用可能なら `go test -v -tags=integration ./rakutenbooks` または既存gitignored検証でsize指定と通常検索を実API確認する。利用できない場合は未実行理由を記録する
-- [ ] CodexProの差分確認で `api.SearchBooksRequest`、MADB、Google Books、openBD、Taskfileの意図しない変更がないことを確認する
+- [x] `go test -v ./rakutenbooks ./examples/rakutenbooks` を実行する
+- [x] `go test -v ./...` を実行する
+- [x] `go test -run TestDoesNotExist ./...` を実行して全パッケージのコンパイルを確認する
+- [x] `go test -vet=all ./...` を実行する
+- [x] リポジトリで利用可能なgofmt相当チェックを実行する
+- [x] 認証情報が利用可能なら `go test -v -tags=integration ./rakutenbooks` または既存gitignored検証でsize指定と通常検索を実API確認する。利用できない場合は未実行理由を記録する
+- [x] CodexProの差分確認で `api.SearchBooksRequest`、MADB、Google Books、openBD、Taskfileの意図しない変更がないことを確認する
 
 ## 受け入れ条件
 
-- [ ] 楽天Booksの通常検索が `sort=+releaseDate` を送信し、返却順をライブラリ側で並べ替えない
-- [ ] `WithBookSize` 未指定またはAllではsize絞り込みをせず、1〜10指定時だけ検索queryへsizeを送る
-- [ ] BookSizeの範囲外値は通信前の `invalid_argument` になる
-- [ ] CursorはBookSizeを検索条件として拘束し、異なるsizeでは再利用できない
-- [ ] ISBN参照のリクエストと複数ISBN方針は変更されていない
-- [ ] `/` 区切りの複数著者が人物単位の `Authors` / `Contributors` として返る
-- [ ] `authorKana` は人物数が一致する場合だけReadingへ対応し、不一致時に推測しない
-- [ ] 氏名内部の空白・カンマ等を独自正規化せず保持する
-- [ ] Contributorの役割を推測しない
-- [ ] `seriesName` のNormalized変換は変更されていない
-- [ ] `SearchBooksRequest.Publisher`、MADB、Google Books、openBDには実装変更が入っていない
-- [ ] 楽天Booksのspec / guide / examplesが実装後の現在仕様と一致する
-- [ ] 既存providerを含む通常テスト、コンパイル確認、vet相当検証が成功する
+- [x] 楽天Booksの通常検索が `sort=+releaseDate` を送信し、返却順をライブラリ側で並べ替えない
+- [x] `WithBookSize` 未指定またはAllではsize絞り込みをせず、1〜10指定時だけ検索queryへsizeを送る
+- [x] BookSizeの範囲外値は通信前の `invalid_argument` になる
+- [x] CursorはBookSizeを検索条件として拘束し、異なるsizeでは再利用できない
+- [x] ISBN参照のリクエストと複数ISBN方針は変更されていない
+- [x] `/` 区切りの複数著者が人物単位の `Authors` / `Contributors` として返る
+- [x] `authorKana` は人物数が一致する場合だけReadingへ対応し、不一致時に推測しない
+- [x] 氏名内部の空白・カンマ等を独自正規化せず保持する
+- [x] Contributorの役割を推測しない
+- [x] `seriesName` のNormalized変換は変更されていない
+- [x] `SearchBooksRequest.Publisher`、MADB、Google Books、openBDには実装変更が入っていない
+- [x] 楽天Booksのspec / guide / examplesが実装後の現在仕様と一致する
+- [x] 既存providerを含む通常テスト、コンパイル確認、vet相当検証が成功する
 
 ## リスク・懸念
+
+- Codexハンドオフ実行中の `go test -v -tags=integration ./rakutenbooks` は送信ソケット制限で実APIへ接続できなかった。その後、CodexProからgitignoredのprovider検証を `.env` の認証情報で実行し、`WithBookSize(BookSizeComic)` を含むタイトル検索、著者検索、ISBN参照、一般/BL/TL、Affiliate URL、価格変換が成功することを確認した。
 
 - `+releaseDate` は発売日の古い順であり、作品の巻数順を保証しない。新装版、特装版、再刊等が混在する場合は発売日順として扱う。
 - `author` / `authorKana` の `/` 区切りは実データで確認済みだが公式出力表に区切り規則の明記はない。Raw responseは引き続き利用可能にし、分割以外の人物推測を行わない。

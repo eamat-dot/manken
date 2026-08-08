@@ -31,6 +31,7 @@ type Client struct {
 	accessKey     string
 	affiliateID   string
 	comicGenre    ComicGenre
+	bookSize      BookSize
 }
 
 // clientOptions は、Clientの生成時に適用する設定を保持する
@@ -40,6 +41,7 @@ type clientOptions struct {
 	accessKey     string
 	affiliateID   string
 	comicGenre    ComicGenre
+	bookSize      BookSize
 }
 
 // Option は、Clientの生成時に適用する設定を表す
@@ -82,6 +84,7 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 		accessKey:     config.accessKey,
 		affiliateID:   config.affiliateID,
 		comicGenre:    config.comicGenre,
+		bookSize:      config.bookSize,
 	}, nil
 }
 
@@ -129,6 +132,17 @@ func WithComicGenre(genre ComicGenre) Option {
 	})
 }
 
+// WithBookSize は、楽天Books検索で商品形態を絞り込む条件を設定する
+func WithBookSize(size BookSize) Option {
+	return optionFunc(func(options *clientOptions) error {
+		if err := validateBookSize(size); err != nil {
+			return err
+		}
+		options.bookSize = size
+		return nil
+	})
+}
+
 // WithEndpoint は、楽天Booksへの問い合わせに使用するエンドポイントを設定する
 func WithEndpoint(endpoint string) Option {
 	return optionFunc(func(options *clientOptions) error {
@@ -152,6 +166,14 @@ func comicGenreID(genre ComicGenre) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported comic genre %q", genre)
 	}
+}
+
+// validateBookSize は、楽天Books検索で指定できる商品形態か検証する
+func validateBookSize(size BookSize) error {
+	if size < BookSizeAll || size > BookSizeMookOther {
+		return fmt.Errorf("book size must be between %d and %d", BookSizeAll, BookSizeMookOther)
+	}
+	return nil
 }
 
 // validateEndpoint は、楽天Booksエンドポイントとして使用できる絶対URLか検証する

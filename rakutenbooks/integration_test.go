@@ -25,7 +25,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	client := newIntegrationClient(t, applicationID, accessKey, "", rakutenbooks.ComicGenreGeneral)
+	client := newIntegrationClient(t, applicationID, accessKey, "", rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeAll)
 	result, raw, err := client.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil {
 		t.Fatalf("general title search error = %v", err)
@@ -57,6 +57,18 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	}
 
 	time.Sleep(integrationRequestInterval)
+	sizeClient := newIntegrationClient(t, applicationID, accessKey, "", rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeComic)
+	sizeResult, err := sizeClient.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
+	if err != nil || len(sizeResult.Books) == 0 {
+		t.Fatalf("comic size search result = %#v, error = %v", sizeResult, err)
+	}
+	for _, book := range sizeResult.Books {
+		if book.Normalized.PhysicalSize == nil || book.Normalized.PhysicalSize.Name != "コミック" {
+			t.Fatalf("comic size search physical size = %#v", book.Normalized.PhysicalSize)
+		}
+	}
+
+	time.Sleep(integrationRequestInterval)
 	lookup, raw, err := client.LookupBooksByISBNWithRawResponse(ctx, []string{"9784758088732"})
 	if err != nil {
 		t.Fatalf("ISBN lookup error = %v", err)
@@ -74,7 +86,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	}
 	for _, test := range genreCases {
 		time.Sleep(integrationRequestInterval)
-		genreClient := newIntegrationClient(t, applicationID, accessKey, "", test.genre)
+		genreClient := newIntegrationClient(t, applicationID, accessKey, "", test.genre, rakutenbooks.BookSizeAll)
 		genreResult, err := genreClient.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Title: test.title, Limit: 3})
 		if err != nil || len(genreResult.Books) == 0 {
 			t.Fatalf("genre %q search result = %#v, error = %v", test.genre, genreResult, err)
@@ -87,7 +99,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 		return
 	}
 	time.Sleep(integrationRequestInterval)
-	affiliateClient := newIntegrationClient(t, applicationID, accessKey, affiliateID, rakutenbooks.ComicGenreGeneral)
+	affiliateClient := newIntegrationClient(t, applicationID, accessKey, affiliateID, rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeAll)
 	affiliateResult, raw, err := affiliateClient.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil {
 		t.Fatalf("affiliate search error = %v", err)
@@ -102,12 +114,15 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 }
 
 // newIntegrationClient は、実サービス確認用の楽天Books Clientを生成する
-func newIntegrationClient(t *testing.T, applicationID string, accessKey string, affiliateID string, genre rakutenbooks.ComicGenre) *rakutenbooks.Client {
+func newIntegrationClient(t *testing.T, applicationID string, accessKey string, affiliateID string, genre rakutenbooks.ComicGenre, size rakutenbooks.BookSize) *rakutenbooks.Client {
 	t.Helper()
 	options := []rakutenbooks.Option{
 		rakutenbooks.WithApplicationID(applicationID),
 		rakutenbooks.WithAccessKey(accessKey),
 		rakutenbooks.WithComicGenre(genre),
+	}
+	if size != rakutenbooks.BookSizeAll {
+		options = append(options, rakutenbooks.WithBookSize(size))
 	}
 	if affiliateID != "" {
 		options = append(options, rakutenbooks.WithAffiliateID(affiliateID))

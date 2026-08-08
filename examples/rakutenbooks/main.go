@@ -23,6 +23,7 @@ func run() int {
 	title := flag.String("title", "", "タイトルに含める検索語")
 	author := flag.String("author", "", "著者名に含める検索語")
 	genreName := flag.String("genre", "general", "検索する漫画区分: general, bl, tl")
+	size := flag.Int("size", 0, "楽天Booksの商品形態。0は絞り込みなし、1から10は公式分類")
 	limit := flag.Int("limit", 0, "検索件数。1から30まで。0は既定値の20件")
 	cursor := flag.String("cursor", "", "前回の結果に含まれる next_cursor")
 	rawOutput := flag.String("raw-output", "", "検索またはISBN参照の変換前楽天Booksレスポンスを保存する新規ファイル")
@@ -39,6 +40,11 @@ func run() int {
 		return 2
 	}
 	genre, err := parseGenre(*genreName)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	bookSize, err := parseBookSize(*size)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -62,6 +68,7 @@ func run() int {
 		rakutenbooks.WithApplicationID(applicationID),
 		rakutenbooks.WithAccessKey(accessKey),
 		rakutenbooks.WithComicGenre(genre),
+		rakutenbooks.WithBookSize(bookSize),
 	}
 	if affiliateID := os.Getenv("RAKUTEN_AFFILIATE_ID"); affiliateID != "" {
 		options = append(options, rakutenbooks.WithAffiliateID(affiliateID))
@@ -78,6 +85,15 @@ func run() int {
 	}
 	request := rakutenbooks.SearchBooksRequest{Title: *title, Author: *author, Limit: *limit, Cursor: *cursor}
 	return runSearch(ctx, client, request, *rawOutput)
+}
+
+// parseBookSize は、CLIの商品形態番号を楽天Booksの公開定数へ変換する
+func parseBookSize(value int) (rakutenbooks.BookSize, error) {
+	size := rakutenbooks.BookSize(value)
+	if size < rakutenbooks.BookSizeAll || size > rakutenbooks.BookSizeMookOther {
+		return 0, fmt.Errorf("-size は 0 から 10 の整数を指定してください: %d", value)
+	}
+	return size, nil
 }
 
 // validateISBNArgs は、ISBN参照の位置引数を1件以下に制限する

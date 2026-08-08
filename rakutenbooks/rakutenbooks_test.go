@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -25,6 +26,8 @@ func TestNewClient_ValidatesOptions(t *testing.T) {
 		{name: "missing application ID", options: []Option{WithAccessKey("access-secret")}},
 		{name: "blank affiliate", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), WithAffiliateID(" \t ")}},
 		{name: "invalid genre", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), WithComicGenre("unknown")}},
+		{name: "invalid book size", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), WithBookSize(BookSize(-1))}},
+		{name: "book size too large", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), WithBookSize(BookSize(11))}},
 		{name: "nil option", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), nil}},
 		{name: "endpoint query", options: []Option{WithApplicationID("app-secret"), WithAccessKey("access-secret"), WithEndpoint("https://example.invalid/books?applicationId=secret")}},
 	}
@@ -44,8 +47,13 @@ func TestNewClient_ValidatesOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	if client.affiliateID != "" || client.comicGenre != ComicGenreGeneral {
-		t.Fatalf("defaults = affiliate %q, genre %q", client.affiliateID, client.comicGenre)
+	if client.affiliateID != "" || client.comicGenre != ComicGenreGeneral || client.bookSize != BookSizeAll {
+		t.Fatalf("defaults = affiliate %q, genre %q, book size %d", client.affiliateID, client.comicGenre, client.bookSize)
+	}
+	for size := BookSizeAll; size <= BookSizeMookOther; size++ {
+		if _, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(size)); err != nil {
+			t.Fatalf("NewClient(WithBookSize(%d)) error = %v", size, err)
+		}
 	}
 }
 
@@ -68,6 +76,7 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 		WithAccessKey("access-secret"),
 		WithAffiliateID("affiliate-secret"),
 		WithComicGenre(ComicGenreBL),
+		WithBookSize(BookSizeComic),
 		WithEndpoint(server.URL),
 	)
 	if err != nil {
@@ -92,7 +101,8 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 		"page":          "1",
 		"format":        "json",
 		"formatVersion": "2",
-		"sort":          "standard",
+		"sort":          "+releaseDate",
+		"size":          "9",
 	} {
 		if got := query.Get(key); got != want {
 			t.Fatalf("%s = %q, want %q", key, got, want)
@@ -160,7 +170,7 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 		t.Fatalf("hits = %q, result = %#v", hits, result)
 	}
 
-	cursor, err := encodeCursor(2, buildSearchKey("title", "", ComicGenreGeneral), 20)
+	cursor, err := encodeCursor(2, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 20)
 	if err != nil {
 		t.Fatalf("encodeCursor() error = %v", err)
 	}
@@ -172,6 +182,66 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "different", Cursor: cursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
+	sizeClient, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(BookSizeComic), WithEndpoint("http://127.0.0.1:1"))
+	if err != nil {
+		t.Fatalf("NewClient(size) error = %v", err)
+	}
+	_, err = sizeClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "title", Cursor: cursor})
+	assertErrorKind(t, err, ErrorKindInvalidArgument)
+}
+
+// TestSearchBooks_BookSizeIsOptionalAndCursorBound は、商品形態の検索条件とカーソル拘束を確認する
+func TestSearchBooks_BookSizeIsOptionalAndCursorBound(t *testing.T) {
+	var queries []url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		queries = append(queries, request.URL.Query())
+		page, _ := strconv.Atoi(request.URL.Query().Get("page"))
+		_, _ = writer.Write([]byte(sampleResponse(2, page, 2, sampleItem(strconv.Itoa(page), "9784088466361"))))
+	}))
+	defer server.Close()
+	allClient, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(BookSizeAll), WithEndpoint(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient(All) error = %v", err)
+	}
+	if _, err := allClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "all"}); err != nil {
+		t.Fatalf("SearchBooks(All) error = %v", err)
+	}
+	comicClient, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(BookSizeComic), WithEndpoint(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient(Comic) error = %v", err)
+	}
+	first, err := comicClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "comic"})
+	if err != nil {
+		t.Fatalf("SearchBooks(Comic) error = %v", err)
+	}
+	if queries[0].Has("size") || queries[1].Get("size") != "9" {
+		t.Fatalf("queries = %#v", queries)
+	}
+	if _, err := comicClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "comic", Cursor: first.NextCursor}); err != nil {
+		t.Fatalf("SearchBooks(same size cursor) error = %v", err)
+	}
+	if len(queries) != 3 || queries[2].Get("page") != "2" {
+		t.Fatalf("cursor query = %#v", queries)
+	}
+}
+
+// TestSearchValues_BookSize は、商品形態の値に応じた検索queryを組み立てることを確認する
+func TestSearchValues_BookSize(t *testing.T) {
+	for size := BookSizeAll; size <= BookSizeMookOther; size++ {
+		values := searchValues("title", "author", "001001", size, 20, 1)
+		if got := values.Get("sort"); got != "+releaseDate" {
+			t.Fatalf("sort = %q, want +releaseDate", got)
+		}
+		if size == BookSizeAll {
+			if values.Has("size") {
+				t.Fatalf("size = %q, want absent", values.Get("size"))
+			}
+			continue
+		}
+		if got, want := values.Get("size"), strconv.Itoa(int(size)); got != want {
+			t.Fatalf("size for %d = %q, want %q", size, got, want)
+		}
+	}
 }
 
 // TestConvertItem_MapsSupportedFieldsOnly は、楽天Books項目を推測せず共通モデルへ変換することを確認する
@@ -201,10 +271,10 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 	if book.Normalized.Title != "作品 1" || book.Normalized.TitleReading != "サクヒンイチ" || book.Normalized.Subtitle != "副題" {
 		t.Fatalf("titles = %#v", book.Normalized)
 	}
-	if len(book.Normalized.Authors) != 1 || book.Normalized.Authors[0] != "原作者/作画者" {
+	if len(book.Normalized.Authors) != 2 || book.Normalized.Authors[0] != "原作者" || book.Normalized.Authors[1] != "作画者" {
 		t.Fatalf("authors = %#v", book.Normalized.Authors)
 	}
-	if len(book.Normalized.Contributors) != 1 || book.Normalized.Contributors[0].Name != "原作者/作画者" || book.Normalized.Contributors[0].Reading != "ゲンサクシャ/サクガシャ" {
+	if len(book.Normalized.Contributors) != 2 || book.Normalized.Contributors[0].Name != "原作者" || book.Normalized.Contributors[0].Reading != "ゲンサクシャ" || book.Normalized.Contributors[1].Name != "作画者" || book.Normalized.Contributors[1].Reading != "サクガシャ" || len(book.Normalized.Contributors[0].Roles) != 0 || len(book.Normalized.Contributors[1].Roles) != 0 {
 		t.Fatalf("contributors = %#v", book.Normalized.Contributors)
 	}
 	if len(book.Normalized.Series) != 1 || book.Normalized.Series[0].Name != "シリーズ" || len(book.Normalized.Publishers) != 1 {
@@ -235,6 +305,40 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 	if strings.Contains(book.Sources[0].URL, "afl.rakuten") {
 		t.Fatalf("source URL uses affiliate URL: %q", book.Sources[0].URL)
 	}
+}
+
+// TestContributors_SplitsAuthorsWithoutNormalizingNames は、著者を人物単位へ分割し内部表記を維持することを確認する
+func TestContributors_SplitsAuthorsWithoutNormalizingNames(t *testing.T) {
+	authors, values := contributors("  采　和輝 / 苗字, 名前 / / 単著  ", "サイ　カズキ/ミョウジ, ナマエ")
+	wantAuthors := []string{"采　和輝", "苗字, 名前", "単著"}
+	if !slicesEqual(authors, wantAuthors) {
+		t.Fatalf("authors = %#v, want %#v", authors, wantAuthors)
+	}
+	if len(values) != 3 || values[0].Reading != "" || values[1].Reading != "" || values[2].Reading != "" {
+		t.Fatalf("contributors with unmatched readings = %#v", values)
+	}
+
+	authors, values = contributors(" 単著 ", " タンチョ ")
+	if !slicesEqual(authors, []string{"単著"}) || len(values) != 1 || values[0].Reading != "タンチョ" {
+		t.Fatalf("single author = %#v / %#v", authors, values)
+	}
+	authors, values = contributors("", "")
+	if authors != nil || values != nil {
+		t.Fatalf("empty authors = %#v / %#v", authors, values)
+	}
+}
+
+// slicesEqual は、文字列スライスの要素と順序が等しいか判定する
+func slicesEqual(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // TestConvertItem_MissingOptionalFields は、楽天Booksの任意項目欠落を正常な空値として扱うことを確認する
@@ -310,7 +414,7 @@ func TestLookupBooksByISBN_ValidatesAndMatches(t *testing.T) {
 	if len(result.Items) != 1 || result.Items[0].RequestedISBN != "4088466365" || len(result.Items[0].Books) != 1 || len(raw) == 0 {
 		t.Fatalf("result/raw = %#v / %d bytes", result, len(raw))
 	}
-	if query.Get("isbn") != "9784088466361" || query.Get("booksGenreId") != "" || query.Get("hits") != "30" || query.Get("page") != "1" {
+	if query.Get("isbn") != "9784088466361" || query.Get("booksGenreId") != "" || query.Get("size") != "" || query.Get("hits") != "30" || query.Get("page") != "1" {
 		t.Fatalf("query = %#v", query)
 	}
 	for _, isbns := range [][]string{nil, {}, {"bad"}, {"4088466365", "9784088466361"}} {
@@ -410,7 +514,7 @@ func TestHTTPStatusClassification(t *testing.T) {
 // TestBuildSearchResult_RejectsPageMismatch は、楽天Booksの応答ページが要求ページと異なる場合を拒否することを確認する
 func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 	response := booksResponse{Count: 2, Page: 1, PageCount: 2, Hits: 1, Items: []booksItem{{Title: "unexpected"}}}
-	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", ComicGenreGeneral), 1, "")
+	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 1, "")
 	if err == nil {
 		t.Fatal("buildSearchResult() error = nil")
 	}
@@ -419,7 +523,7 @@ func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 // TestPaginationStopsAtPage100 は、楽天Booksの最大100ページで次カーソルを生成しないことを確認する
 func TestPaginationStopsAtPage100(t *testing.T) {
 	response := booksResponse{Count: 3000, Page: 100, PageCount: 100, Hits: 30, Items: []booksItem{{Title: "last"}}}
-	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", ComicGenreGeneral), 30, "")
+	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 30, "")
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}

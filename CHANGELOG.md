@@ -25,6 +25,7 @@
 
 ### Changed
 
+- 楽天Books検索を発売日の古い順へ変更し、商品形態による任意の絞り込みと複数著者の人物単位変換に対応
 - ISBN条件を `SearchBooks` から削除し、ISBN専用の `LookupBooksByISBN` へ分離
 - `Book`を、利用者向けの`Normalized`と取得元別の`Sources`を持つ構造へ
   破壊的に変更

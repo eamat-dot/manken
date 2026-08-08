@@ -34,6 +34,7 @@ WithApplicationID(applicationID string)
 WithAccessKey(accessKey string)
 WithAffiliateID(affiliateID string)
 WithComicGenre(genre ComicGenre)
+WithBookSize(size BookSize)
 WithEndpoint(endpoint string)
 ```
 
@@ -43,6 +44,7 @@ WithEndpoint(endpoint string)
 | `WithAccessKey` | 必須 | 楽天ウェブサービスのAccess Key |
 | `WithAffiliateID` | 任意 | アフィリエイトURL生成に使用するAffiliate ID |
 | `WithComicGenre` | 任意 | 検索対象の漫画区分。省略時は一般コミック |
+| `WithBookSize` | 任意 | 検索対象の商品形態。省略時は絞り込まない |
 | `WithEndpoint` | 任意 | 通常は使用しない。HTTP(S)の絶対URLだけを受け付ける |
 
 空文字列または空白だけの認証値を明示設定した場合は `invalid_argument` となる。
@@ -66,7 +68,28 @@ Clientの既定値は `ComicGenreGeneral` である。
 
 ISBN参照ではClientの漫画区分を使用しない。
 
-## 4. SearchBooks
+## 4. 商品形態
+
+`BookSize` は、楽天Booksの検索専用の商品形態分類を表す。`WithBookSize` に指定できる値は次のとおりである。
+
+| 定数 | 値 | 楽天Booksの意味 |
+| --- | ---: | --- |
+| `BookSizeAll` | 0 | 全て。既定値で、検索queryに`size`を送らない |
+| `BookSizeTankobon` | 1 | 単行本 |
+| `BookSizeBunko` | 2 | 文庫 |
+| `BookSizeShinsho` | 3 | 新書 |
+| `BookSizeZenshuSosho` | 4 | 全集・双書 |
+| `BookSizeJiten` | 5 | 事・辞典 |
+| `BookSizeZukan` | 6 | 図鑑 |
+| `BookSizeEhon` | 7 | 絵本 |
+| `BookSizeCassetteCD` | 8 | カセット、CDなど |
+| `BookSizeComic` | 9 | コミック |
+| `BookSizeMookOther` | 10 | ムックその他 |
+
+範囲外の値を`WithBookSize`へ指定した場合は、Client作成時に`invalid_argument`となる。ISBN参照では
+`WithBookSize`の設定を使用せず、`size`を送らない。
+
+## 5. SearchBooks
 
 ```go
 func (client *Client) SearchBooks(
@@ -84,7 +107,7 @@ func (client *Client) SearchBooksWithRawResponse(
 ) (SearchBooksResult, []byte, error)
 ```
 
-### 4.1 対応する共通検索条件
+### 5.1 対応する共通検索条件
 
 | `SearchBooksRequest` | 楽天Books | 動作 |
 | --- | --- | --- |
@@ -101,20 +124,21 @@ func (client *Client) SearchBooksWithRawResponse(
 `FreeText` と `ExcludedText` は取得後フィルターで擬似対応しない。楽天Books上の件数と
 ページングの意味が変わるため、非空入力を通信前に拒否する。
 
-### 4.2 固定パラメータ
+### 5.2 固定パラメータ
 
 検索では次を設定する。
 
 ```text
 format=json
 formatVersion=2
-sort=standard
+sort=+releaseDate
 booksGenreId=<Clientの漫画区分>
+size=<Clientの商品形態。ただしBookSizeAllでは省略>
 ```
 
 楽天Booksが返した順序を維持し、ライブラリ内で独自に並べ替えない。
 
-## 5. Limitとページング
+## 6. Limitとページング
 
 `Limit == 0` は20件として扱う。有効範囲は1〜30件である。
 
@@ -127,8 +151,9 @@ booksGenreId=<Clientの漫画区分>
 - Title
 - Author
 - Clientの漫画区分
+- Clientの商品形態
 
-Cursorを異なる検索条件、Limit、漫画区分で再利用した場合は `invalid_argument` となる。
+Cursorを異なる検索条件、Limit、漫画区分、商品形態で再利用した場合は `invalid_argument` となる。
 Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 
 次のいずれかでは `NextCursor` を返さない。
@@ -140,7 +165,7 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 
 楽天Booksの上限に合わせ、100ページを超える取得は行わない。
 
-## 6. ISBN参照
+## 7. ISBN参照
 
 ```go
 func (client *Client) LookupBooksByISBN(
@@ -169,15 +194,15 @@ format=json
 formatVersion=2
 ```
 
-`booksGenreId` は指定しない。返却商品のISBNを再検証し、要求ISBNと一致する商品だけを
+`booksGenreId` と`size`は指定しない。返却商品のISBNを再検証し、要求ISBNと一致する商品だけを
 `Books` に含める。
 
 `ISBNLookupResult.Items` は1要素で、`RequestedISBN` は利用者が入力した文字列を保持する。
 該当商品がない場合もエラーにせず、`Books` はnon-nilの空スライスになる。
 
-## 7. 共通モデルへの変換
+## 8. 共通モデルへの変換
 
-### 7.1 変換する項目
+### 8.1 変換する項目
 
 | 楽天Books | 共通モデル | 規則 |
 | --- | --- | --- |
@@ -187,8 +212,8 @@ formatVersion=2
 | `titleKana` | `Normalized.TitleReading` | そのまま保持 |
 | `subTitle` | `Normalized.Subtitle` | そのまま保持 |
 | `seriesName` | `Normalized.Series[].Name` | 1要素として保持 |
-| `author` | `Normalized.Authors` | 取得元の文字列を1要素として保持 |
-| `author` / `authorKana` | `Normalized.Contributors` | 1要素のName / Reading。役割は設定しない |
+| `author` | `Normalized.Authors` | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外 |
+| `author` / `authorKana` | `Normalized.Contributors` | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
 | `publisherName` | `Normalized.Publishers` | 1要素として保持 |
 | `isbn` | `Normalized.Identifiers` | 検証できるISBN-10 / ISBN-13だけを保持 |
 | `salesDate` | `Normalized.Dates` | `released` として原文の精度を維持 |
@@ -199,13 +224,13 @@ formatVersion=2
 | API種別 | `Normalized.Medium` | `print` |
 | 3種の画像URL | `Normalized.Images` | small / medium / largeの順に保持 |
 
-`author` に `/` が含まれても人物へ分割しない。楽天Booksの公式仕様から一般的な人物区切り規則を
-保証できないためである。Contributorの役割も推測しない。
+`authorKana`の分割要素数が`author`と一致しない場合は、Readingを推測せず全ContributorのReadingを空にする。
+氏名内部の半角・全角空白、カンマなどは変更しない。Contributorの役割も推測しない。
 
 `BookSource.ID` は設定しない。楽天Books固有の安定した商品IDをレスポンスの専用項目から
 確認できないため、商品URLのpath等から独自IDを生成しない。
 
-### 7.2 販売情報
+### 8.2 販売情報
 
 `itemPrice` が存在する場合は、取得時点の販売価格として次の `Price` を1件設定する。
 
@@ -229,7 +254,7 @@ Affiliate IDを指定しておらず楽天Booksが `affiliateUrl` を返さな�
 - `chirayomiUrl`
 - `contents` / `contentsKana`
 
-## 8. Raw response
+## 9. Raw response
 
 Raw response用メソッドは、1回の2xx成功HTTPレスポンス本文を変更せず `[]byte` で返す。
 
@@ -242,7 +267,7 @@ Raw response用メソッドは、1回の2xx成功HTTPレスポンス本文を変
 Affiliate IDを設定した場合、楽天Booksが返す `affiliateUrl` はRaw responseに含まれ得る。
 ライブラリはRaw responseを永続保存しない。
 
-## 9. 認証情報とHTTP
+## 10. 認証情報とHTTP
 
 リクエストでは認証情報を次のように送る。
 
@@ -257,7 +282,7 @@ Affiliate IDを設定した場合、楽天Booksが返す `affiliateUrl` はRaw r
 
 自動リトライ、内部レート制御、キャッシュ、ログ出力は行わない。
 
-## 10. エラー
+## 11. エラー
 
 楽天Booksパッケージは共通の `api.Error` / `ErrorKind` を使用する。
 
@@ -273,7 +298,7 @@ HTTPエラーでは `StatusCode` を保持する。`Retry-After` が秒数また
 
 contextのcancel / deadlineは原因エラーを保持し、`errors.Is` で判定できる。
 
-## 11. 並行利用とリクエスト制限
+## 12. 並行利用とリクエスト制限
 
 Clientは検索ごとの可変状態を保持しないため、共有可能である。ただし楽天ウェブサービスの
 リクエスト制限を満たすための待機・直列化は行わない。

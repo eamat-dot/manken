@@ -315,6 +315,7 @@ go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
 | `-title` | タイトルに含める検索語 |
 | `-author` | 著者名に含める検索語 |
 | `-genre` | 漫画区分。`general`、`bl`、`tl`。既定値は `general` |
+| `-size` | 楽天Booksの商品形態。`0`は絞り込みなし、`1`から`10`は公式分類 |
 | `-limit` | 検索件数。1から30まで。0は既定値の20件 |
 | `-cursor` | 前回の結果に含まれる `next_cursor` |
 | `-raw-output` | 検索またはISBN参照で楽天Booksから受信した変換前レスポンスを保存する新規ファイル |
@@ -343,13 +344,19 @@ TLコミックを検索する。
 go run ./examples/rakutenbooks -genre tl -title "メロすぎ朔椰"
 ```
 
+文庫を検索する。
+
+```text
+go run ./examples/rakutenbooks -size 2 -title "動物のお医者さん"
+```
+
 ISBNを1件参照する。
 
 ```text
 go run ./examples/rakutenbooks 9784758088732
 ```
 
-次ページを取得するには、前回の `next_cursor` と同じタイトル・著者・Limit・漫画区分を指定する。
+次ページを取得するには、前回の `next_cursor` と同じタイトル・著者・Limit・漫画区分・商品形態を指定する。
 
 ```text
 go run ./examples/rakutenbooks -genre general -title "動物のお医者さん" -limit 5 -cursor "<next_cursor>"

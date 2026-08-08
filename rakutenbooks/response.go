@@ -79,10 +79,7 @@ func convertItem(value booksItem, observedAt string) Book {
 	if value.SeriesName != "" {
 		book.Normalized.Series = []Series{{Name: value.SeriesName}}
 	}
-	if value.Author != "" {
-		book.Normalized.Authors = []string{value.Author}
-		book.Normalized.Contributors = []Contributor{{Name: value.Author, Reading: value.AuthorKana}}
-	}
+	book.Normalized.Authors, book.Normalized.Contributors = contributors(value.Author, value.AuthorKana)
 	if value.PublisherName != "" {
 		book.Normalized.Publishers = []string{value.PublisherName}
 	}
@@ -107,6 +104,31 @@ func convertItem(value booksItem, observedAt string) Book {
 		}}
 	}
 	return book
+}
+
+// contributors は、楽天Booksのスラッシュ区切り著者と読みを人物単位へ変換する
+func contributors(author string, authorKana string) ([]string, []Contributor) {
+	originalAuthors := strings.Split(author, "/")
+	originalReadings := strings.Split(authorKana, "/")
+	readingsMatch := len(originalAuthors) == len(originalReadings)
+	authors := make([]string, 0, len(originalAuthors))
+	contributors := make([]Contributor, 0, len(originalAuthors))
+	for index, originalAuthor := range originalAuthors {
+		name := strings.TrimSpace(originalAuthor)
+		if name == "" {
+			continue
+		}
+		contributor := Contributor{Name: name}
+		if readingsMatch {
+			contributor.Reading = strings.TrimSpace(originalReadings[index])
+		}
+		authors = append(authors, name)
+		contributors = append(contributors, contributor)
+	}
+	if len(authors) == 0 {
+		return nil, nil
+	}
+	return authors, contributors
 }
 
 // sourceURL は、通常商品URLとして利用できるHTTP(S) URLだけを返す

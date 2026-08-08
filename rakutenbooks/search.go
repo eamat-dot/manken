@@ -47,12 +47,12 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	if err != nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
 	}
-	searchKey := buildSearchKey(title, author, client.comicGenre)
+	searchKey := buildSearchKey(title, author, client.comicGenre, client.bookSize)
 	page, err := decodeCursor(request.Cursor, searchKey, limit)
 	if err != nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
 	}
-	body, err := client.execute(ctx, operationSearchBooks, searchValues(title, author, genreID, limit, page))
+	body, err := client.execute(ctx, operationSearchBooks, searchValues(title, author, genreID, client.bookSize, limit, page))
 	if err != nil {
 		return SearchBooksResult{}, body, err
 	}
@@ -96,12 +96,12 @@ func effectiveLimit(limit int) (int, error) {
 }
 
 // buildSearchKey は、カーソルを検索条件と漫画区分へ関連付ける文字列を生成する
-func buildSearchKey(title string, author string, genre ComicGenre) string {
-	return title + "\x00" + author + "\x00" + string(genre)
+func buildSearchKey(title string, author string, genre ComicGenre, size BookSize) string {
+	return title + "\x00" + author + "\x00" + string(genre) + "\x00" + strconv.Itoa(int(size))
 }
 
 // searchValues は、楽天ブックス書籍検索APIの検索パラメーターを組み立てる
-func searchValues(title string, author string, genreID string, limit int, page int) url.Values {
+func searchValues(title string, author string, genreID string, size BookSize, limit int, page int) url.Values {
 	values := baseValues()
 	if title != "" {
 		values.Set("title", title)
@@ -112,7 +112,10 @@ func searchValues(title string, author string, genreID string, limit int, page i
 	values.Set("booksGenreId", genreID)
 	values.Set("hits", strconv.Itoa(limit))
 	values.Set("page", strconv.Itoa(page))
-	values.Set("sort", "standard")
+	values.Set("sort", "+releaseDate")
+	if size != BookSizeAll {
+		values.Set("size", strconv.Itoa(int(size)))
+	}
 	return values
 }
 

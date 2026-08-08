@@ -103,3 +103,31 @@ const (
 	// ComicGenreTL は、ティーンズラブコミックを表す
 	ComicGenreTL ComicGenre = "tl"
 )
+
+// BookSize は、楽天Books検索で指定できる商品形態の分類を表す
+type BookSize int
+
+const (
+	// BookSizeAll は、商品形態で絞り込まない既定値を表す
+	BookSizeAll BookSize = iota
+	// BookSizeTankobon は、単行本を表す
+	BookSizeTankobon
+	// BookSizeBunko は、文庫を表す
+	BookSizeBunko
+	// BookSizeShinsho は、新書を表す
+	BookSizeShinsho
+	// BookSizeZenshuSosho は、全集・双書を表す
+	BookSizeZenshuSosho
+	// BookSizeJiten は、事・辞典を表す
+	BookSizeJiten
+	// BookSizeZukan は、図鑑を表す
+	BookSizeZukan
+	// BookSizeEhon は、絵本を表す
+	BookSizeEhon
+	// BookSizeCassetteCD は、カセット、CDなどを表す
+	BookSizeCassetteCD
+	// BookSizeComic は、コミックを表す
+	BookSizeComic
+	// BookSizeMookOther は、ムックその他を表す
+	BookSizeMookOther
+)
