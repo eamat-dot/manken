@@ -87,6 +87,151 @@ func TestIntegration_SearchBooksPagination(t *testing.T) {
 	}
 }
 
+// TestIntegration_SearchBooksCursorPaginationRegression は、FTS経路ごとのCursorページング回帰を実サービスで確認する
+func TestIntegration_SearchBooksCursorPaginationRegression(t *testing.T) {
+	client := newIntegrationClient(t)
+
+	t.Run("title all pages", func(t *testing.T) {
+		books := collectSearchBooksPages(t, client, madb.SearchBooksRequest{
+			Title: "動物のお医者さん",
+			Limit: 20,
+		})
+		if len(books) < 40 {
+			t.Fatalf("book count = %d, want at least 40", len(books))
+		}
+		assertBooksContainSourceIDs(t, books, []string{
+			"M407756", "M407765", "M966959", "M971855", "M973074",
+		})
+	})
+
+	t.Run("publisher and title all pages", func(t *testing.T) {
+		books := collectSearchBooksPages(t, client, madb.SearchBooksRequest{
+			Title:     "動物のお医者さん",
+			Publisher: "小学館",
+			Limit:     3,
+		})
+		if len(books) < 9 {
+			t.Fatalf("book count = %d, want at least 9", len(books))
+		}
+		assertBooksContainSourceIDs(t, books, []string{
+			"M1034511", "M947862", "M965972", "M966959", "M968211",
+			"M969381", "M970439", "M971855", "M973074",
+		})
+	})
+
+	for _, test := range []struct {
+		name              string
+		request           madb.SearchBooksRequest
+		minimumBookCount  int
+		wantSourceBookIDs []string
+	}{
+		{
+			name:              "author",
+			request:           madb.SearchBooksRequest{Author: "佐々木倫子", Limit: 50},
+			minimumBookCount:  105,
+			wantSourceBookIDs: []string{"M1034511", "M292132", "M973074"},
+		},
+		{
+			name:              "free text",
+			request:           madb.SearchBooksRequest{FreeText: "うる星", Limit: 100},
+			minimumBookCount:  238,
+			wantSourceBookIDs: []string{"M211689", "M962888"},
+		},
+		{
+			name:              "excluded text",
+			minimumBookCount:  234,
+			wantSourceBookIDs: []string{"M211689", "M962888"},
+			request: madb.SearchBooksRequest{
+				Title:        "うる星",
+				ExcludedText: "復刻box",
+				Limit:        50,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			books := collectSearchBooksPages(t, client, test.request)
+			if len(books) < test.minimumBookCount {
+				t.Fatalf("book count = %d, want at least %d", len(books), test.minimumBookCount)
+			}
+			if len(test.wantSourceBookIDs) > 0 {
+				assertBooksContainSourceIDs(t, books, test.wantSourceBookIDs)
+			}
+		})
+	}
+}
+
+// assertBooksContainSourceIDs は、書籍のMADBリソースURLに指定したIDがすべて含まれることを確認する
+func assertBooksContainSourceIDs(t *testing.T, books []madb.Book, wantIDs []string) {
+	t.Helper()
+	actual := make(map[string]struct{}, len(books))
+	for _, book := range books {
+		if len(book.Sources) == 0 {
+			t.Fatalf("book has no source: %#v", book)
+		}
+		actual[sourceIDFromURL(t, book.Sources[0].URL)] = struct{}{}
+	}
+	for _, wantID := range wantIDs {
+		if _, found := actual[wantID]; !found {
+			t.Fatalf("source ID %q was not found in books: %#v", wantID, books)
+		}
+	}
+}
+
+// sourceIDFromURL は、MADBリソースURLから書籍IDを取得する
+func sourceIDFromURL(t *testing.T, sourceURL string) string {
+	t.Helper()
+	const prefix = "https://mediaarts-db.artmuseums.go.jp/id/"
+	id, found := strings.CutPrefix(sourceURL, prefix)
+	if !found || id == "" || strings.Contains(id, "/") {
+		t.Fatalf("source URL = %q, want MADB resource URL", sourceURL)
+	}
+	return id
+}
+
+// collectSearchBooksPages は、Cursorがなくなるまで同一検索条件のページを集める
+func collectSearchBooksPages(t *testing.T, client *madb.Client, request madb.SearchBooksRequest) []madb.Book {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	var books []madb.Book
+	for page := 0; page < 100; page++ {
+		result, err := client.SearchBooks(ctx, request)
+		if err != nil {
+			t.Fatalf("SearchBooks() error = %v", err)
+		}
+		books = append(books, result.Books...)
+		if result.NextCursor == "" {
+			assertBooksHaveUniqueAscendingURLs(t, books)
+			return books
+		}
+		request.Cursor = result.NextCursor
+	}
+	t.Fatalf("SearchBooks() did not finish within 100 pages")
+	return nil
+}
+
+// assertBooksHaveUniqueAscendingURLs は、各書籍のMADBリソースURIが重複せず昇順であることを確認する
+func assertBooksHaveUniqueAscendingURLs(t *testing.T, books []madb.Book) {
+	t.Helper()
+	seen := make(map[string]struct{}, len(books))
+	lastURL := ""
+	for _, book := range books {
+		if len(book.Sources) == 0 {
+			t.Fatalf("book has no source: %#v", book)
+		}
+		url := book.Sources[0].URL
+		if _, exists := seen[url]; exists {
+			t.Fatalf("duplicate source URL = %q", url)
+		}
+		if lastURL >= url {
+			t.Fatalf("source URLs are not strictly ordered: %q then %q", lastURL, url)
+		}
+		seen[url] = struct{}{}
+		lastURL = url
+	}
+}
+
 // TestIntegration_SearchBooksMultipleTerms は、複数語のAND検索とページングを実サービスで確認する
 func TestIntegration_SearchBooksMultipleTerms(t *testing.T) {
 	client := newIntegrationClient(t)

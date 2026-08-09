@@ -328,6 +328,15 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 複数を指定した場合は、それぞれの条件をAND結合する。検索結果は必ず
 `rdf:type class:MangaBook` で絞り込む。
 
+`Title`、`schema:creator`、`FreeText`、独立した`ExcludedText`の全文検索では、
+`?resource` を返すNeptune FTS候補を `Neptune#fts.entity_id` の昇順で取得する。このentity IDは
+MADB書籍リソースURIに対応し、ページングで使用するリソースURI昇順と同じ順序とする。
+
+`Author` のAgent `rdfs:label`検索では、FTSは `?searchAgent` を返す。この経路のentity IDは
+Agent URIに対応するため、Agent候補をentity ID昇順で取得してから
+`?resource dcterms:creator ?searchAgent` へ結合する。最終的な書籍のページングは、ほかの検索と同じく
+MADB書籍リソースURI昇順で行う。
+
 ### 6.1 タイトル検索
 
 タイトル検索にはAmazon Neptuneの全文検索拡張を使用する。
@@ -354,8 +363,10 @@ field:     schema:name
 大文字小文字、Unicode正規化、表記揺れはライブラリ側で変換せず、
 全文検索サービスの解析に従う。
 
-全文検索の既定の最大結果窓は10,000件である。これを超える一致結果の
-完全なページングは保証しない。
+全文検索の完全性は、最終的に返すマンガ単行本件数ではなく、FTS raw候補に適用される
+OpenSearch result windowに制約される。実行計画がFTS候補を先に評価する場合、RDFの
+`class:MangaBook` とPublisherの条件はFTS候補の後に評価されるため、最終Book件数がresult window未満でも、
+FTS raw候補がwindowを超える検索の完全なページングは保証しない。
 
 ### 6.2 著者名検索
 
@@ -388,11 +399,6 @@ Agent参照の逆引きはcreator文字列だけの検索より遅くなる可�
 安全に扱い、SPARQL構文として解釈しない。
 
 `Title`、`Author`、`FreeText` と同時指定した場合は、すべての正条件をAND結合する。
-
-`Publisher` を `Title`、`Author`、`FreeText`、`ExcludedText` のいずれかと併用する場合は、
-該当する各Neptune全文検索SERVICEへ `batchSize: 10000` を設定する。これはNeptune FTSの取得
-バッチサイズであり、結果上限や `maxResults` を表すものではない。`Publisher` 単独ではこの設定を
-行わず、`Publisher` 未指定時の全文検索の設定も変更しない。
 
 `FreeText` の検索対象にも `schema:publisher` を含める。`Publisher` はその対象を限定する
 専用条件であり、`FreeText` の対象項目を変更しない。
@@ -497,6 +503,11 @@ VALUES ?matchedISBN { "4088466365" "9784088466361" }
 ページングにはMADBリソースURIの昇順によるキーセット方式を使用する。
 初回は先頭から取得し、次ページでは直前ページの末尾URIより大きいURIを取得する。
 `OFFSET` は、検索中の追加データによって位置がずれるため使用しない。
+
+`?resource` を返す全文検索では、FTS候補を書籍リソースURIに対応するentity ID昇順で取得した後に、
+同じリソースURI順でページ境界を判定する。Agent `rdfs:label`検索では、Agent URIに対応するentity ID順で
+候補を取得してから書籍リソースへ結合し、書籍リソースURI順でページ境界を判定する。Neptuneの既定
+`batchSize` と既定 `maxResults` を使用し、ライブラリはこれらを固定値で指定しない。
 
 カーソル形式のバージョンは2とする。カーソルは、バージョン、末尾URI、Limit、
 正規化済み全検索条件のSHA-256を含むJSONを

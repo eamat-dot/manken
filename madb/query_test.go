@@ -12,6 +12,8 @@ func TestBuildSearchQuery_Structure(t *testing.T) {
 	required := []string{
 		`neptune-fts:field schema:name`,
 		`neptune-fts:queryType "query_string"`,
+		`neptune-fts:sortBy 'Neptune#fts.entity_id'`,
+		`neptune-fts:sortOrder 'ASC'`,
 		`?resource rdf:type class:MangaBook`,
 		`FILTER (STR(?resource) > "` + resourceURI("M123") + `")`,
 		`ORDER BY ?resource`,
@@ -188,62 +190,32 @@ func TestBuildSearchQuery_PublisherCondition(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_PublisherFullTextBatchSize は、Publisher併用時だけ各FTSへbatchSizeを設定することを検証する
-func TestBuildSearchQuery_PublisherFullTextBatchSize(t *testing.T) {
-	batchSizePattern := `neptune-fts:config neptune-fts:batchSize 10000 .`
+// TestBuildSearchQuery_FullTextServicesUseEntityIDSort は、すべてのFTS SERVICEがentity ID昇順を指定することを検証する
+func TestBuildSearchQuery_FullTextServicesUseEntityIDSort(t *testing.T) {
 	tests := []struct {
-		name           string
-		conditions     searchConditions
-		wantServices   int
-		wantBatchSizes int
+		name         string
+		conditions   searchConditions
+		wantServices int
 	}{
 		{
-			name:           "publisher and title",
-			conditions:     searchConditions{Publisher: "小学館", Title: "動物のお医者さん"},
-			wantServices:   1,
-			wantBatchSizes: 1,
+			name:         "title",
+			conditions:   searchConditions{Title: "動物のお医者さん"},
+			wantServices: 1,
 		},
 		{
-			name:           "publisher and author",
-			conditions:     searchConditions{Publisher: "小学館", Author: "佐々木倫子"},
-			wantServices:   2,
-			wantBatchSizes: 2,
+			name:         "author creator and agent",
+			conditions:   searchConditions{Author: "佐々木倫子"},
+			wantServices: 2,
 		},
 		{
-			name:           "publisher and free text",
-			conditions:     searchConditions{Publisher: "小学館", FreeText: "動物のお医者さん"},
-			wantServices:   1,
-			wantBatchSizes: 1,
+			name:         "free text",
+			conditions:   searchConditions{FreeText: "動物のお医者さん"},
+			wantServices: 1,
 		},
 		{
-			name:           "publisher and excluded text",
-			conditions:     searchConditions{Publisher: "小学館", ExcludedText: "愛蔵版"},
-			wantServices:   1,
-			wantBatchSizes: 1,
-		},
-		{
-			name:           "publisher only",
-			conditions:     searchConditions{Publisher: "小学館"},
-			wantServices:   0,
-			wantBatchSizes: 0,
-		},
-		{
-			name:           "title without publisher",
-			conditions:     searchConditions{Title: "動物のお医者さん"},
-			wantServices:   1,
-			wantBatchSizes: 0,
-		},
-		{
-			name:           "author without publisher",
-			conditions:     searchConditions{Author: "佐々木倫子"},
-			wantServices:   2,
-			wantBatchSizes: 0,
-		},
-		{
-			name:           "free text without publisher",
-			conditions:     searchConditions{FreeText: "動物のお医者さん"},
-			wantServices:   1,
-			wantBatchSizes: 0,
+			name:         "excluded text without free text",
+			conditions:   searchConditions{ExcludedText: "愛蔵版"},
+			wantServices: 1,
 		},
 	}
 
@@ -253,51 +225,52 @@ func TestBuildSearchQuery_PublisherFullTextBatchSize(t *testing.T) {
 			if got := strings.Count(query, `SERVICE neptune-fts:search`); got != test.wantServices {
 				t.Fatalf("full-text service count = %d, want %d:\n%s", got, test.wantServices, query)
 			}
-			if got := strings.Count(query, batchSizePattern); got != test.wantBatchSizes {
-				t.Fatalf("batchSize count = %d, want %d:\n%s", got, test.wantBatchSizes, query)
+			if got := strings.Count(query, `neptune-fts:sortBy 'Neptune#fts.entity_id' .`); got != test.wantServices {
+				t.Fatalf("sortBy count = %d, want %d:\n%s", got, test.wantServices, query)
+			}
+			if got := strings.Count(query, `neptune-fts:sortOrder 'ASC' .`); got != test.wantServices {
+				t.Fatalf("sortOrder count = %d, want %d:\n%s", got, test.wantServices, query)
 			}
 		})
 	}
 }
 
-// TestBuildSearchQuery_WithoutPublisherPreservesFullTextServicePatterns は、Publisher未指定時にFTS設定行を増やさないことを検証する
-func TestBuildSearchQuery_WithoutPublisherPreservesFullTextServicePatterns(t *testing.T) {
+// TestBuildSearchQuery_DoesNotSetFullTextBatchSize は、Publisherの有無にかかわらずFTSのbatchSizeとmaxResultsを設定しないことを検証する
+func TestBuildSearchQuery_DoesNotSetFullTextBatchSize(t *testing.T) {
 	tests := []struct {
 		name       string
 		conditions searchConditions
-		want       []string
 	}{
 		{
-			name:       "title",
-			conditions: searchConditions{Title: "動物のお医者さん"},
-			want: []string{
-				`neptune-fts:config neptune-fts:endpoint "` + fullTextEndpoint + `" .` + "\n\t\tneptune-fts:config neptune-fts:field schema:name .",
-			},
+			name:       "publisher and title",
+			conditions: searchConditions{Publisher: "小学館", Title: "動物のお医者さん"},
 		},
 		{
-			name:       "author",
-			conditions: searchConditions{Author: "佐々木倫子"},
-			want: []string{
-				`neptune-fts:config neptune-fts:endpoint "` + fullTextEndpoint + `" .` + "\n          neptune-fts:config neptune-fts:field schema:creator .",
-				`neptune-fts:config neptune-fts:endpoint "` + fullTextEndpoint + `" .` + "\n          neptune-fts:config neptune-fts:field rdfs:label .",
-			},
+			name:       "publisher and author",
+			conditions: searchConditions{Publisher: "小学館", Author: "佐々木倫子"},
 		},
 		{
-			name:       "free text",
-			conditions: searchConditions{FreeText: "動物のお医者さん"},
-			want: []string{
-				`neptune-fts:config neptune-fts:endpoint "` + fullTextEndpoint + `" .` + "\n        neptune-fts:config neptune-fts:field schema:name .",
-			},
+			name:       "publisher and free text",
+			conditions: searchConditions{Publisher: "小学館", FreeText: "動物のお医者さん"},
+		},
+		{
+			name:       "publisher and excluded text",
+			conditions: searchConditions{Publisher: "小学館", ExcludedText: "愛蔵版"},
+		},
+		{
+			name:       "publisher only",
+			conditions: searchConditions{Publisher: "小学館"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			query := buildSearchQuery(test.conditions, 20, "")
-			for _, pattern := range test.want {
-				if !strings.Contains(query, pattern) {
-					t.Fatalf("query does not contain unchanged FTS pattern %q:\n%s", pattern, query)
-				}
+			if strings.Contains(query, `neptune-fts:config neptune-fts:batchSize`) {
+				t.Fatalf("query unexpectedly sets batchSize:\n%s", query)
+			}
+			if strings.Contains(query, `neptune-fts:config neptune-fts:maxResults`) {
+				t.Fatalf("query unexpectedly sets maxResults:\n%s", query)
 			}
 		})
 	}
