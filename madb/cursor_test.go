@@ -13,7 +13,7 @@ func TestCursor_RoundTrip(t *testing.T) {
 	after := resourceURI("M123")
 	conditions := searchConditions{
 		Title:  "作品",
-		Author: "著者", FreeText: "新装版", ExcludedText: "復刻版",
+		Author: "著者", Publisher: "出版社", FreeText: "新装版", ExcludedText: "復刻版",
 	}
 	encoded, err := encodeCursor(after, conditions, 20)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestCursor_RoundTrip(t *testing.T) {
 func TestCursor_RejectsInvalidValues(t *testing.T) {
 	conditions := searchConditions{
 		Title:  "作品",
-		Author: "著者", FreeText: "新装版", ExcludedText: "復刻版",
+		Author: "著者", Publisher: "出版社", FreeText: "新装版", ExcludedText: "復刻版",
 	}
 	valid, err := encodeCursor(resourceURI("M123"), conditions, 20)
 	if err != nil {
@@ -62,6 +62,7 @@ func TestCursor_RejectsInvalidValues(t *testing.T) {
 		{name: "trailing data", cursor: trailing, conditions: conditions, limit: 20},
 		{name: "different title", cursor: valid, conditions: searchConditions{Title: "別作品", Author: conditions.Author, FreeText: conditions.FreeText}, limit: 20},
 		{name: "different author", cursor: valid, conditions: searchConditions{Title: "作品", Author: "別著者", FreeText: conditions.FreeText}, limit: 20},
+		{name: "different publisher", cursor: valid, conditions: searchConditions{Title: "作品", Author: conditions.Author, Publisher: "別出版社", FreeText: conditions.FreeText, ExcludedText: conditions.ExcludedText}, limit: 20},
 		{name: "different free text", cursor: valid, conditions: searchConditions{Title: "作品", Author: conditions.Author, FreeText: "増補版"}, limit: 20},
 		{name: "different excluded text", cursor: valid, conditions: searchConditions{Title: "作品", Author: conditions.Author, FreeText: conditions.FreeText, ExcludedText: "愛蔵版"}, limit: 20},
 		{name: "different limit", cursor: valid, conditions: conditions, limit: 10},

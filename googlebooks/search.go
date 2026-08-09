@@ -66,9 +66,10 @@ func buildSearchQuery(request SearchBooksRequest) (string, error) {
 	parts := make([]string, 0)
 	parts = append(parts, queryTerms("intitle:", request.Title)...)
 	parts = append(parts, queryTerms("inauthor:", request.Author)...)
+	parts = append(parts, queryTerms("inpublisher:", request.Publisher)...)
 	parts = append(parts, queryTerms("", request.FreeText)...)
 	if len(parts) == 0 {
-		return "", errors.New("at least one of Title, Author, or FreeText must be specified")
+		return "", errors.New("at least one of Title, Author, Publisher, or FreeText must be specified")
 	}
 	parts = append(parts, queryTerms("-", request.ExcludedText)...)
 	return strings.Join(parts, " "), nil

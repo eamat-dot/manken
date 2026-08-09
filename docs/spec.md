@@ -88,6 +88,7 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 - タイトルによる検索
 - ISBN-10またはISBN-13による参照
 - 著者名による検索
+- 出版社名による検索
 - 主要な書誌項目を横断するフリーワード検索
 - 主要な書誌項目に指定語を含む結果の除外
 - 取得件数の指定
@@ -232,6 +233,7 @@ JSONではこの短い文字列を出力する。
 
 - `Title` はタイトルの検索条件を表す
 - `Author` は著者名の検索条件を表す
+- `Publisher` は出版社名の検索条件を表す
 - `FreeText` は複数の書誌項目を対象とする検索条件を表す
 - `ExcludedText` は検索結果から除外する条件を表す
 - `Limit` は1回に取得する最大件数を表す
@@ -242,7 +244,8 @@ JSONではこの短い文字列を出力する。
 [MADBパッケージ仕様](pkg/madb/spec.md#6-検索条件)と
 [Limitとページング](pkg/madb/spec.md#8-limitとページング)、Google Books検索では
 [Google Booksパッケージ仕様](pkg/googlebooks/spec.md#3-検索)で定義する。Google Booksでも
-`ExcludedText` を受け付けるが、取得元固有の除外構文へ安全に変換する。
+`ExcludedText` を受け付けるが、取得元固有の除外構文へ安全に変換する。楽天Books検索では
+[楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md#5-searchbooks)で定義する。
 
 ### 6.2 SearchBooksResult
 

@@ -32,15 +32,16 @@ result, err := client.SearchBooks(ctx, googlebooks.SearchBooksRequest{
 })
 ```
 
-`Title`、`Author`、`FreeText` の少なくとも1つを指定する。各値はUnicode空白で分割し、
+`Title`、`Author`、`Publisher`、`FreeText` の少なくとも1つを指定する。各値はUnicode空白で分割し、
 利用者入力を検索演算子として解釈しない引用済みの語へ変換する。
 
 - `Title` は各語を `intitle:` 条件にする
 - `Author` は各語を `inauthor:` 条件にする
+- `Publisher` は各語を `inpublisher:` 条件にする
 - `FreeText` は通常検索語にする
 - `ExcludedText` は各語をGoogle Booksの除外構文 `-term` 相当へ変換し、正条件の後ろへ追加する
 - Google Booksの除外はfull-text query全体に作用し、タイトルだけを対象にしない。説明文など検索対象の別情報に除外語が含まれる結果も除外される場合がある
-- `ExcludedText` だけの検索は許可せず、`Title`、`Author`、`FreeText` の少なくとも1つを必須とする
+- `ExcludedText` だけの検索は許可せず、`Title`、`Author`、`Publisher`、`FreeText` の少なくとも1つを必須とする
 
 リクエストには `printType=books`、`orderBy=relevance`、`projection=full` を設定する。
 `langRestrict` と電子書籍filterは設定しない。Google Booksの応答順を変更しない。

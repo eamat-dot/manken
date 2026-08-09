@@ -8,6 +8,7 @@
 
 ### Added
 
+- 共通 `SearchBooksRequest.Publisher` によるMADB、Google Books、楽天Booksの出版社名検索
 - MADBのマンガ単行本をタイトルで検索する公開API
 - 共通の書籍モデル、検索条件、検索結果、エラー分類を定義する `api` パッケージ
 - `madb` だけで通常利用を完結できる共通型と定数のエイリアス

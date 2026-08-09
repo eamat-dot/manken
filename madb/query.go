@@ -7,12 +7,16 @@ import (
 	"unicode/utf8"
 )
 
-const fullTextEndpoint = "https://vpc-mediaarts-db-qaymrmtqbprlhmqq33a2ncf4ke.ap-northeast-1.es.amazonaws.com"
+const (
+	fullTextEndpoint               = "https://vpc-mediaarts-db-qaymrmtqbprlhmqq33a2ncf4ke.ap-northeast-1.es.amazonaws.com"
+	publisherJoinFullTextBatchSize = 10000
+)
 
 // searchConditions は、検証と正規化を終えたMADB検索条件を保持する
 type searchConditions struct {
 	Title        string `json:"title"`
 	Author       string `json:"author"`
+	Publisher    string `json:"publisher"`
 	FreeText     string `json:"free_text"`
 	ExcludedText string `json:"excluded_text"`
 }
@@ -145,21 +149,25 @@ ORDER BY ?resource`,
 
 // buildSearchConditionPatterns は、指定された正条件をAND結合するSPARQLパターンを生成する
 func buildSearchConditionPatterns(conditions searchConditions) string {
-	patterns := make([]string, 0, 4)
+	patterns := make([]string, 0, 5)
 	if conditions.Title != "" {
 		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
-		neptune-fts:config neptune-fts:endpoint "%s" .
+		neptune-fts:config neptune-fts:endpoint "%s" .%s
 		neptune-fts:config neptune-fts:field schema:name .
 		neptune-fts:config neptune-fts:queryType "query_string" .
         neptune-fts:config neptune-fts:query "%s" .
         neptune-fts:config neptune-fts:return ?resource .
-      }`, fullTextEndpoint, escapeSPARQLString(buildFullTextQuery(conditions.Title))))
+      }`,
+			fullTextEndpoint,
+			buildPublisherFullTextBatchSizeSuffix(conditions.Publisher, "\t\t"),
+			escapeSPARQLString(buildFullTextQuery(conditions.Title)),
+		))
 	}
 	if conditions.Author != "" {
 		fullTextQuery := escapeSPARQLString(buildFullTextQuery(conditions.Author))
 		patterns = append(patterns, fmt.Sprintf(`      {
         SERVICE neptune-fts:search {
-          neptune-fts:config neptune-fts:endpoint "%s" .
+          neptune-fts:config neptune-fts:endpoint "%s" .%s
           neptune-fts:config neptune-fts:field schema:creator .
           neptune-fts:config neptune-fts:queryType "query_string" .
           neptune-fts:config neptune-fts:query "%s" .
@@ -169,24 +177,35 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
       UNION
       {
         SERVICE neptune-fts:search {
-          neptune-fts:config neptune-fts:endpoint "%s" .
+          neptune-fts:config neptune-fts:endpoint "%s" .%s
           neptune-fts:config neptune-fts:field rdfs:label .
           neptune-fts:config neptune-fts:queryType "query_string" .
           neptune-fts:config neptune-fts:query "%s" .
           neptune-fts:config neptune-fts:return ?searchAgent .
         }
         ?resource dcterms:creator ?searchAgent .
-      }`, fullTextEndpoint, fullTextQuery, fullTextEndpoint, fullTextQuery))
+	  }`,
+			fullTextEndpoint,
+			buildPublisherFullTextBatchSizeSuffix(conditions.Publisher, "          "),
+			fullTextQuery,
+			fullTextEndpoint,
+			buildPublisherFullTextBatchSizeSuffix(conditions.Publisher, "          "),
+			fullTextQuery,
+		))
+	}
+	if conditions.Publisher != "" {
+		patterns = append(patterns, buildPublisherFilterPatterns(conditions.Publisher))
 	}
 	if conditions.FreeText != "" {
 		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
-        neptune-fts:config neptune-fts:endpoint "%s" .
+        neptune-fts:config neptune-fts:endpoint "%s" .%s
 %s
         neptune-fts:config neptune-fts:queryType "query_string" .
         neptune-fts:config neptune-fts:query "%s" .
         neptune-fts:config neptune-fts:return ?resource .
       }`,
 			fullTextEndpoint,
+			buildPublisherFullTextBatchSizeSuffix(conditions.Publisher, "        "),
 			buildFreeTextFieldPatterns("        "),
 			escapeSPARQLString(buildFullTextQueryWithExclusions(
 				conditions.FreeText,
@@ -197,7 +216,7 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
 	if conditions.ExcludedText != "" && conditions.FreeText == "" {
 		patterns = append(patterns, fmt.Sprintf(`      MINUS {
         SERVICE neptune-fts:search {
-          neptune-fts:config neptune-fts:endpoint "%s" .
+          neptune-fts:config neptune-fts:endpoint "%s" .%s
 %s
           neptune-fts:config neptune-fts:queryType "query_string" .
           neptune-fts:config neptune-fts:query "%s" .
@@ -205,9 +224,35 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
         }
       }`,
 			fullTextEndpoint,
+			buildPublisherFullTextBatchSizeSuffix(conditions.Publisher, "          "),
 			buildFreeTextFieldPatterns("          "),
 			escapeSPARQLString(buildExcludedFullTextQuery(conditions.ExcludedText)),
 		))
+	}
+	return strings.Join(patterns, "\n")
+}
+
+// buildPublisherFullTextBatchSizeSuffix は、Publisher併用時だけFTSの取得バッチサイズ設定行を生成する
+func buildPublisherFullTextBatchSizeSuffix(publisher string, indent string) string {
+	if publisher == "" {
+		return ""
+	}
+	return fmt.Sprintf(
+		"\n%sneptune-fts:config neptune-fts:batchSize %d .",
+		indent,
+		publisherJoinFullTextBatchSize,
+	)
+}
+
+// buildPublisherFilterPatterns は、出版社の各検索語に一致するRDF値フィルタを生成する
+func buildPublisherFilterPatterns(publisher string) string {
+	terms := strings.Fields(publisher)
+	patterns := make([]string, 0, len(terms))
+	for index, term := range terms {
+		patterns = append(patterns, fmt.Sprintf(`      FILTER EXISTS {
+        ?resource schema:publisher ?publisherValue%d .
+        FILTER(CONTAINS(LCASE(STR(?publisherValue%d)), LCASE("%s")))
+      }`, index, index, escapeSPARQLString(term)))
 	}
 	return strings.Join(patterns, "\n")
 }

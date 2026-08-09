@@ -53,7 +53,7 @@ func TestSearchBooks_BuildsSafeRequestAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	request := SearchBooksRequest{Title: `a intitle:evil`, Author: `b"c`, FreeText: "d e", ExcludedText: `f -g`, Limit: 1}
+	request := SearchBooksRequest{Title: `a intitle:evil`, Author: `b"c`, Publisher: `c inpublisher:evil"d`, FreeText: "d e", ExcludedText: `f -g`, Limit: 1}
 	first, err := client.SearchBooks(context.Background(), request)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -61,7 +61,7 @@ func TestSearchBooks_BuildsSafeRequestAndCursor(t *testing.T) {
 	if len(first.Books) != 1 || first.NextCursor == "" {
 		t.Fatalf("first result = %#v", first)
 	}
-	if got, want := requests[0].Get("q"), `intitle:"a" intitle:"intitle:evil" inauthor:"b\"c" "d" "e" -"f" -"-g"`; got != want {
+	if got, want := requests[0].Get("q"), `intitle:"a" intitle:"intitle:evil" inauthor:"b\"c" inpublisher:"c" inpublisher:"inpublisher:evil\"d" "d" "e" -"f" -"-g"`; got != want {
 		t.Fatalf("q = %q, want %q", got, want)
 	}
 	for key, want := range map[string]string{"key": "top-secret", "printType": "books", "projection": "full", "orderBy": "relevance", "maxResults": "1"} {
@@ -81,6 +81,32 @@ func TestSearchBooks_BuildsSafeRequestAndCursor(t *testing.T) {
 	request.Limit = 2
 	_, err = client.SearchBooks(context.Background(), request)
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
+}
+
+// TestSearchBooks_PublisherOnlyAndCursorMismatch は、出版社だけの検索と出版社が異なるカーソルの拒否を検証する
+func TestSearchBooks_PublisherOnlyAndCursorMismatch(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requests++
+		if got, want := request.URL.Query().Get("q"), `inpublisher:"白泉社"`; got != want {
+			t.Errorf("q = %q, want %q", got, want)
+		}
+		_, _ = writer.Write([]byte(`{"totalItems":2,"items":[` + sampleVolume("first", "9784088466361") + `]}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(nil, WithAPIKey("secret"), WithEndpoint(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "白泉社", Limit: 1})
+	if err != nil || first.NextCursor == "" {
+		t.Fatalf("SearchBooks() = %#v, %v", first, err)
+	}
+	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
+	assertErrorKind(t, err, ErrorKindInvalidArgument)
+	if requests != 1 {
+		t.Fatalf("requests = %d, want 1", requests)
+	}
 }
 
 // TestSearchBooks_RejectsUnsupportedOrInvalidInput は、不正な検索入力を通信前に拒否することを確認する

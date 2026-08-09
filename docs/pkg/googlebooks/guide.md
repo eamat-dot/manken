@@ -1,6 +1,6 @@
 # Google Booksガイド
 
-`googlebooks` はGoogle Books Volumes APIから、タイトル、著者、フリーワード、除外条件、ISBNで書誌候補を
+`googlebooks` はGoogle Books Volumes APIから、タイトル、著者、出版社、フリーワード、除外条件、ISBNで書誌候補を
 取得するパッケージである。漫画専用のデータベースではないため、結果を漫画単行本とみなす判定は
 利用側で行う。
 
@@ -31,6 +31,7 @@ client, err := googlebooks.NewClient(nil,
 ```text
 go run ./examples/googlebooks -title "動物のお医者さん" -limit 5
 go run ./examples/googlebooks -author "佐々木倫子"
+go run ./examples/googlebooks -publisher "白泉社"
 go run ./examples/googlebooks 4088466365
 ```
 

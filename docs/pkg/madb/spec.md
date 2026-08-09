@@ -323,7 +323,7 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 
 ## 6. 検索条件
 
-`Title`、`Author`、`FreeText` の少なくとも1つを正条件として必須とする。
+`Title`、`Author`、`Publisher`、`FreeText` の少なくとも1つを正条件として必須とする。
 `ExcludedText` だけの検索は `invalid_argument` とする。
 複数を指定した場合は、それぞれの条件をAND結合する。検索結果は必ず
 `rdf:type class:MangaBook` で絞り込む。
@@ -376,7 +376,28 @@ HTTPクライアントのタイムアウトで制御する。
 Agent参照の逆引きはcreator文字列だけの検索より遅くなる可能性がある。
 既定のHTTPクライアントでは60秒を上限とする。
 
-### 6.3 フリーワード検索
+### 6.3 出版社名検索
+
+出版社名検索は、単行本リソースのRDF `schema:publisher` 値に対する大文字小文字を区別しない
+部分一致とする。Neptune全文検索は使用しない。
+
+`Publisher` はUnicode空白を区切りとして検索語へ分割し、各語がpublisher値のいずれかに
+含まれる書籍を検索する。複数の検索語はAND条件とし、各語は別々のpublisher値に一致してよい。
+例えば、`小学館` は `小学館` と `小学館　∥　ショウガクカン` の双方に一致し、`小学` と
+`ショウガクカン` も同じ値への部分一致として扱う。利用者入力はSPARQL文字列リテラルとして
+安全に扱い、SPARQL構文として解釈しない。
+
+`Title`、`Author`、`FreeText` と同時指定した場合は、すべての正条件をAND結合する。
+
+`Publisher` を `Title`、`Author`、`FreeText`、`ExcludedText` のいずれかと併用する場合は、
+該当する各Neptune全文検索SERVICEへ `batchSize: 10000` を設定する。これはNeptune FTSの取得
+バッチサイズであり、結果上限や `maxResults` を表すものではない。`Publisher` 単独ではこの設定を
+行わず、`Publisher` 未指定時の全文検索の設定も変更しない。
+
+`FreeText` の検索対象にも `schema:publisher` を含める。`Publisher` はその対象を限定する
+専用条件であり、`FreeText` の対象項目を変更しない。
+
+### 6.4 フリーワード検索
 
 フリーワード検索は、漫画単行本リソース上の次の文字列項目を対象にする。
 
@@ -399,7 +420,7 @@ Neptune全文検索の `query_string` に上記の `field` をすべて明示す
 必要はなく、複数の対象項目をまたいで一致してよい。
 
 Agentの `rdfs:label` は別リソースにあるため対象外とする。Agent参照だけに存在する
-著者名を漏れなく検索する場合は `Author` を使用する。`Title`、`Author` と
+著者名を漏れなく検索する場合は `Author` を使用する。`Title`、`Author`、`Publisher` と
 同時指定した場合は、フリーワードを含むすべての条件をAND結合する。
 
 検索語数にライブラリ独自の上限は設けず、呼び出し元がContextまたはHTTPクライアントの
@@ -407,9 +428,9 @@ Agentの `rdfs:label` は別リソースにあるため対象外とする。Agen
 利用できなくなる可能性がある。`schema:size` は寸法文字列であり、一般的な判型名が
 常に存在するとは限らない。
 
-### 6.4 除外検索
+### 6.5 除外検索
 
-`ExcludedText` は、6.3のフリーワード検索と同じ12項目を対象にする。
+`ExcludedText` は、6.4のフリーワード検索と同じ12項目を対象にする。
 Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著者名では除外しない。
 
 除外文字列はUnicode空白で検索語へ分割し、各語を安全な引用句へ変換する。

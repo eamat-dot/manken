@@ -110,6 +110,7 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{
 		Title:        " 作品 ",
 		Author:       " 著者 ",
+		Publisher:    " 白泉社　花とゆめ ",
 		FreeText:     " 新装版　B6判 ",
 		ExcludedText: " 復刻版　愛蔵版 ",
 		Limit:        2,
@@ -141,6 +142,7 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	cursor, err := decodeCursor(result.NextCursor, searchConditions{
 		Title:        "作品",
 		Author:       "著者",
+		Publisher:    "白泉社 花とゆめ",
 		FreeText:     "新装版 B6判",
 		ExcludedText: "復刻版 愛蔵版",
 	}, 2)
@@ -149,6 +151,20 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	}
 	if cursor.After != resourceURI("M2") {
 		t.Fatalf("cursor.After = %q", cursor.After)
+	}
+}
+
+// TestValidateSearchRequest_PublisherOnly は、出版社だけの条件をUnicode空白を正規化して受け付けることを検証する
+func TestValidateSearchRequest_PublisherOnly(t *testing.T) {
+	conditions, limit, _, err := validateSearchRequest(SearchBooksRequest{Publisher: "  白泉社　花とゆめ \n"})
+	if err != nil {
+		t.Fatalf("validateSearchRequest() error = %v", err)
+	}
+	if conditions.Publisher != "白泉社 花とゆめ" || conditions.Title != "" || conditions.Author != "" || conditions.FreeText != "" {
+		t.Fatalf("conditions = %#v", conditions)
+	}
+	if limit != defaultLimit {
+		t.Fatalf("limit = %d, want %d", limit, defaultLimit)
 	}
 }
 

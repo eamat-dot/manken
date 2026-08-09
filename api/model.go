@@ -199,6 +199,7 @@ type Image struct {
 type SearchBooksRequest struct {
 	Title        string `json:"title"`
 	Author       string `json:"author"`
+	Publisher    string `json:"publisher"`
 	FreeText     string `json:"free_text"`
 	ExcludedText string `json:"excluded_text"`
 	Limit        int    `json:"limit"`

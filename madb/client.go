@@ -212,10 +212,11 @@ func validateSearchRequest(
 	conditions := searchConditions{
 		Title:        strings.Join(strings.Fields(request.Title), " "),
 		Author:       strings.Join(strings.Fields(request.Author), " "),
+		Publisher:    strings.Join(strings.Fields(request.Publisher), " "),
 		FreeText:     strings.Join(strings.Fields(request.FreeText), " "),
 		ExcludedText: strings.Join(strings.Fields(request.ExcludedText), " "),
 	}
-	if conditions.Title == "" && conditions.Author == "" && conditions.FreeText == "" {
+	if conditions.Title == "" && conditions.Author == "" && conditions.Publisher == "" && conditions.FreeText == "" {
 		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,

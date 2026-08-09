@@ -27,6 +27,7 @@ type cursorSearchConditions struct {
 	Title        string   `json:"title"`
 	ISBNs        []string `json:"isbns"`
 	Author       string   `json:"author"`
+	Publisher    string   `json:"publisher,omitempty"`
 	FreeText     string   `json:"free_text"`
 	ExcludedText string   `json:"excluded_text"`
 }
@@ -107,6 +108,7 @@ func hashSearchConditions(conditions searchConditions) (string, error) {
 	data, err := json.Marshal(cursorSearchConditions{
 		Title:        conditions.Title,
 		Author:       conditions.Author,
+		Publisher:    conditions.Publisher,
 		FreeText:     conditions.FreeText,
 		ExcludedText: conditions.ExcludedText,
 	})

@@ -35,7 +35,7 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	if ctx == nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, errors.New("context must not be nil"))
 	}
-	title, author, err := validateSearchRequest(request)
+	title, author, publisher, err := validateSearchRequest(request)
 	if err != nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
 	}
@@ -47,12 +47,12 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	if err != nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
 	}
-	searchKey := buildSearchKey(title, author, client.comicGenre, client.bookSize)
+	searchKey := buildSearchKey(title, author, publisher, client.comicGenre, client.bookSize)
 	page, err := decodeCursor(request.Cursor, searchKey, limit)
 	if err != nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
 	}
-	body, err := client.execute(ctx, operationSearchBooks, searchValues(title, author, genreID, client.bookSize, limit, page))
+	body, err := client.execute(ctx, operationSearchBooks, searchValues(title, author, publisher, genreID, client.bookSize, limit, page))
 	if err != nil {
 		return SearchBooksResult{}, body, err
 	}
@@ -68,20 +68,21 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	return result, body, nil
 }
 
-// validateSearchRequest は、共通検索条件から楽天Booksが扱えるTitleとAuthorを取り出す
-func validateSearchRequest(request SearchBooksRequest) (string, string, error) {
+// validateSearchRequest は、共通検索条件から楽天Booksが扱える検索条件を取り出す
+func validateSearchRequest(request SearchBooksRequest) (string, string, string, error) {
 	title := strings.TrimSpace(request.Title)
 	author := strings.TrimSpace(request.Author)
-	if title == "" && author == "" {
-		return "", "", errors.New("at least one of Title or Author must be specified")
+	publisher := strings.TrimSpace(request.Publisher)
+	if title == "" && author == "" && publisher == "" {
+		return "", "", "", errors.New("at least one of Title, Author, or Publisher must be specified")
 	}
 	if strings.TrimSpace(request.FreeText) != "" {
-		return "", "", errors.New("FreeText is not supported by Rakuten Books")
+		return "", "", "", errors.New("FreeText is not supported by Rakuten Books")
 	}
 	if strings.TrimSpace(request.ExcludedText) != "" {
-		return "", "", errors.New("ExcludedText is not supported by Rakuten Books")
+		return "", "", "", errors.New("ExcludedText is not supported by Rakuten Books")
 	}
-	return title, author, nil
+	return title, author, publisher, nil
 }
 
 // effectiveLimit は、検索件数を既定値または有効範囲の値へ変換する
@@ -96,8 +97,11 @@ func effectiveLimit(limit int) (int, error) {
 }
 
 // buildSearchKey は、カーソルを検索条件と漫画区分へ関連付ける文字列を生成する
-func buildSearchKey(title string, author string, genre ComicGenre, size BookSize) string {
+func buildSearchKey(title string, author string, publisher string, genre ComicGenre, size BookSize) string {
 	fields := []string{title, author, string(genre), strconv.Itoa(int(size))}
+	if publisher != "" {
+		fields = append(fields, publisher)
+	}
 	var builder strings.Builder
 	for _, field := range fields {
 		builder.WriteString(strconv.Itoa(len(field)))
@@ -108,13 +112,16 @@ func buildSearchKey(title string, author string, genre ComicGenre, size BookSize
 }
 
 // searchValues は、楽天ブックス書籍検索APIの検索パラメーターを組み立てる
-func searchValues(title string, author string, genreID string, size BookSize, limit int, page int) url.Values {
+func searchValues(title string, author string, publisher string, genreID string, size BookSize, limit int, page int) url.Values {
 	values := baseValues()
 	if title != "" {
 		values.Set("title", title)
 	}
 	if author != "" {
 		values.Set("author", author)
+	}
+	if publisher != "" {
+		values.Set("publisherName", publisher)
 	}
 	values.Set("booksGenreId", genreID)
 	values.Set("hits", strconv.Itoa(limit))

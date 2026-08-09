@@ -113,13 +113,14 @@ func (client *Client) SearchBooksWithRawResponse(
 | --- | --- | --- |
 | `Title` | `title` | 対応 |
 | `Author` | `author` | 対応 |
+| `Publisher` | `publisherName` | 対応 |
 | `FreeText` | 直接対応なし | 非空なら `invalid_argument` |
 | `ExcludedText` | 直接対応なし | 非空なら `invalid_argument` |
 | `Limit` | `hits` | 対応 |
 | `Cursor` | `page` | 不透明Cursor経由で対応 |
 
-`Title` または `Author` の少なくとも一方が必要である。前後の空白は除いて送信する。
-両方を指定した場合は両方を楽天Booksへ渡す。
+`Title`、`Author`、`Publisher` の少なくとも1つが必要である。前後の空白は除いて送信する。
+複数を指定した場合はすべてを楽天Booksへ渡す。
 
 `FreeText` と `ExcludedText` は取得後フィルターで擬似対応しない。楽天Books上の件数と
 ページングの意味が変わるため、非空入力を通信前に拒否する。
@@ -150,6 +151,7 @@ size=<Clientの商品形態。ただしBookSizeAllでは省略>
 - 実効Limit
 - Title
 - Author
+- Publisher
 - Clientの漫画区分
 - Clientの商品形態
 

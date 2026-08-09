@@ -84,7 +84,7 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	request := SearchBooksRequest{Title: "  動物のお医者さん  ", Author: "佐々木倫子", Limit: 1}
+	request := SearchBooksRequest{Title: "  動物のお医者さん  ", Author: "佐々木倫子", Publisher: " 白泉社 ", Limit: 1}
 	first, err := client.SearchBooks(context.Background(), request)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -98,6 +98,7 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 		"affiliateId":   "affiliate-secret",
 		"title":         "動物のお医者さん",
 		"author":        "佐々木倫子",
+		"publisherName": "白泉社",
 		"booksGenreId":  "001021002",
 		"hits":          "1",
 		"page":          "1",
@@ -126,6 +127,70 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 	request.Limit = 2
 	_, err = client.SearchBooks(context.Background(), request)
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
+}
+
+// TestSearchBooks_PublisherOnlyAndCursorMismatch は、出版社だけの検索と出版社が異なるカーソルの通信前拒否を検証する
+func TestSearchBooks_PublisherOnlyAndCursorMismatch(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requests++
+		if got, want := request.URL.Query().Get("publisherName"), "白泉社"; got != want {
+			t.Errorf("publisherName = %q, want %q", got, want)
+		}
+		_, _ = writer.Write([]byte(sampleResponse(2, 1, 2, sampleItem("first", "9784088466361"))))
+	}))
+	defer server.Close()
+	client, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithEndpoint(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "白泉社", Limit: 1})
+	if err != nil || first.NextCursor == "" {
+		t.Fatalf("SearchBooks() = %#v, %v", first, err)
+	}
+	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
+	assertErrorKind(t, err, ErrorKindInvalidArgument)
+	if requests != 1 {
+		t.Fatalf("requests = %d, want 1", requests)
+	}
+}
+
+// TestBuildSearchKey_PreservesMainFormatWithoutPublisher は、Publisher未指定時にmainの検索キー形式を維持することを確認する
+func TestBuildSearchKey_PreservesMainFormatWithoutPublisher(t *testing.T) {
+	title := "title"
+	author := "author"
+	genre := ComicGenreBL
+	size := BookSizeComic
+	mainKey := "5:title6:author2:bl1:9"
+
+	if got := buildSearchKey(title, author, "", genre, size); got != mainKey {
+		t.Fatalf("buildSearchKey() = %q, want main format %q", got, mainKey)
+	}
+	if got := buildSearchKey(title, author, "publisher", genre, size); got != mainKey+"9:publisher" {
+		t.Fatalf("buildSearchKey() = %q, want length-prefixed publisher", got)
+	}
+}
+
+// TestBuildSearchKey_DistinguishesEmbeddedNull は、NULを含む異なる検索条件を別のカーソルへ関連付けることを確認する
+func TestBuildSearchKey_DistinguishesEmbeddedNull(t *testing.T) {
+	firstKey := buildSearchKey("a\x00b", "", "", ComicGenreGeneral, BookSizeAll)
+	secondKey := buildSearchKey("a", "b\x00", "", ComicGenreGeneral, BookSizeAll)
+	if firstKey == secondKey {
+		t.Fatal("buildSearchKey() produced the same key for different title and author")
+	}
+	cursor, err := encodeCursor(2, firstKey, defaultLimit)
+	if err != nil {
+		t.Fatalf("encodeCursor() error = %v", err)
+	}
+	if _, err := decodeCursor(cursor, secondKey, defaultLimit); err == nil {
+		t.Fatal("decodeCursor() error = nil, want search-condition mismatch")
+	}
+
+	publisherKey := buildSearchKey("title", "author", "publisher\x00suffix", ComicGenreGeneral, BookSizeAll)
+	shiftedKey := buildSearchKey("title", "author\x00publisher", "suffix", ComicGenreGeneral, BookSizeAll)
+	if publisherKey == shiftedKey {
+		t.Fatal("buildSearchKey() produced the same key for different publisher fields")
+	}
 }
 
 // TestSearchBooks_RejectsUnsupportedOrInvalidInput は、非対応条件と不正入力を通信前に拒否することを確認する
@@ -172,7 +237,7 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 		t.Fatalf("hits = %q, result = %#v", hits, result)
 	}
 
-	cursor, err := encodeCursor(2, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 20)
+	cursor, err := encodeCursor(2, buildSearchKey("title", "", "", ComicGenreGeneral, BookSizeAll), 20)
 	if err != nil {
 		t.Fatalf("encodeCursor() error = %v", err)
 	}
@@ -190,22 +255,6 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 	}
 	_, err = sizeClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "title", Cursor: cursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
-}
-
-// TestBuildSearchKey_DistinguishesEmbeddedNull は、NULを含む異なる検索条件を別のカーソルへ関連付けることを確認する
-func TestBuildSearchKey_DistinguishesEmbeddedNull(t *testing.T) {
-	firstKey := buildSearchKey("a\x00b", "", ComicGenreGeneral, BookSizeAll)
-	secondKey := buildSearchKey("a", "b\x00", ComicGenreGeneral, BookSizeAll)
-	if firstKey == secondKey {
-		t.Fatal("buildSearchKey() produced the same key for different search conditions")
-	}
-	cursor, err := encodeCursor(2, firstKey, defaultLimit)
-	if err != nil {
-		t.Fatalf("encodeCursor() error = %v", err)
-	}
-	if _, err := decodeCursor(cursor, secondKey, defaultLimit); err == nil {
-		t.Fatal("decodeCursor() error = nil, want search-condition mismatch")
-	}
 }
 
 // TestSearchBooks_BookSizeIsOptionalAndCursorBound は、商品形態の検索条件とカーソル拘束を確認する
@@ -246,7 +295,7 @@ func TestSearchBooks_BookSizeIsOptionalAndCursorBound(t *testing.T) {
 // TestSearchValues_BookSize は、商品形態の値に応じた検索queryを組み立てることを確認する
 func TestSearchValues_BookSize(t *testing.T) {
 	for size := BookSizeAll; size <= BookSizeMookOther; size++ {
-		values := searchValues("title", "author", "001001", size, 20, 1)
+		values := searchValues("title", "author", "", "001001", size, 20, 1)
 		if got := values.Get("sort"); got != "+releaseDate" {
 			t.Fatalf("sort = %q, want +releaseDate", got)
 		}
@@ -582,7 +631,7 @@ func TestHTTPStatusClassification(t *testing.T) {
 // TestBuildSearchResult_RejectsPageMismatch は、楽天Booksの応答ページが要求ページと異なる場合を拒否することを確認する
 func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 	response := booksResponse{Count: 2, Page: 1, PageCount: 2, Hits: 1, Items: []booksItem{{Title: "unexpected"}}}
-	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 1, "")
+	_, err := buildSearchResult(response, 2, buildSearchKey("title", "", "", ComicGenreGeneral, BookSizeAll), 1, "")
 	if err == nil {
 		t.Fatal("buildSearchResult() error = nil")
 	}
@@ -591,7 +640,7 @@ func TestBuildSearchResult_RejectsPageMismatch(t *testing.T) {
 // TestPaginationStopsAtPage100 は、楽天Booksの最大100ページで次カーソルを生成しないことを確認する
 func TestPaginationStopsAtPage100(t *testing.T) {
 	response := booksResponse{Count: 3000, Page: 100, PageCount: 100, Hits: 30, Items: []booksItem{{Title: "last"}}}
-	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", ComicGenreGeneral, BookSizeAll), 30, "")
+	result, err := buildSearchResult(response, 100, buildSearchKey("title", "", "", ComicGenreGeneral, BookSizeAll), 30, "")
 	if err != nil {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}

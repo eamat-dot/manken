@@ -61,7 +61,7 @@ if err != nil {
 Affiliate IDを設定しても検索条件は変わらない。楽天Booksが返す `affiliateUrl` は
 `BookSource.AffiliateURL` とRaw responseの両方から利用できる。
 
-## 3. タイトル検索
+## 3. タイトル・著者・出版社で検索する
 
 既定では一般コミックを検索する。
 
@@ -75,7 +75,8 @@ if err != nil {
 }
 ```
 
-`Title` と `Author` は同時に指定できる。
+`Title`、`Author`、`Publisher` のいずれか1つ以上を指定する。複数を同時に指定すると、
+すべての条件を満たす書籍に絞り込む。
 
 楽天BooksはBooks Book Search APIに汎用フリーワード検索と除外キーワード検索を持たないため、
 `FreeText` と `ExcludedText` は利用できない。
