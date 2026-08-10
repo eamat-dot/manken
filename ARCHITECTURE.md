@@ -11,10 +11,11 @@
 [openBDパッケージ仕様](docs/pkg/openbd/spec.md)と
 [Google Booksパッケージ仕様](docs/pkg/googlebooks/spec.md)と
 [楽天Booksパッケージ仕様](docs/pkg/rakutenbooks/spec.md)を一次文書とする。
+[楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md)も一次文書とする。
 
 現在のモジュールは共通モデルを定義する `api`、MADBを検索・参照する `madb`、
 openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する `googlebooks`、
-楽天Booksを検索・ISBN参照する `rakutenbooks` を提供する。
+楽天Booksを検索・ISBN参照する `rakutenbooks`、楽天Koboを検索する `rakutenkobo` を提供する。
 ルートパッケージ、複数の取得元をまとめるファサード、MCPサーバーは提供しない。
 
 ## 構成と依存方向
@@ -40,11 +41,15 @@ openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する
        |                |
        |                `------> Google Books Volumes API
        |
-       `------> rakutenbooks -> api
+       +------> rakutenbooks -> api
+       |                |
+       |                +------> internal/isbn
+       |                |
+       |                `------> 楽天ブックス書籍検索API
+       |
+       `------> rakutenkobo -> api
                         |
-                        +------> internal/isbn
-                        |
-                        `------> 楽天ブックス書籍検索API
+                        `------> 楽天Kobo電子書籍検索API
 ```
 
 - `api`
@@ -66,15 +71,19 @@ openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する
   - 楽天Booksのタイトル・著者検索、漫画区分、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
   - 取得時点価格とアフィリエイトURLは共通モデルへ変換し、楽天Books固有レスポンス型、認証情報、在庫等はパッケージ外へ公開しない
+- `rakutenkobo`
+  - 楽天Koboの検索、漫画区分、HTTP通信、ページング、共通モデルへの変換を担当する
+  - 電子書籍の商品番号、取得時点価格、アフィリエイトURLは共通モデルへ変換し、ISBN推測や楽天Kobo固有レスポンス型、認証情報は公開しない
 - `internal/isbn`
   - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
 - `examples`
-  - `madb`、`openbd`、`googlebooks`、`rakutenbooks` の公開APIを使う動作確認用CLIを置く
+  - `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo` の公開APIを使う動作確認用CLIを置く
   - ライブラリの一部として再利用する内部処理は置かない
 
 `api` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
-`madb`、`openbd`、`googlebooks`、`rakutenbooks` の必要なパッケージだけをimportでき、共通型を直接扱う用途では `api` をimportできる。
+`madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo` の必要なパッケージだけをimportでき、
+共通型を直接扱う用途では `api` をimportできる。
 
 ## MADBの検索処理の流れ
 

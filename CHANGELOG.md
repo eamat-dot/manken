@@ -19,6 +19,8 @@
 - openBDから最大1,000件のISBNを一括参照する `openbd` パッケージ
 - Google Booksを検索し、1件のISBN参照と検索・ISBN参照のrawレスポンス取得に対応する `googlebooks` パッケージ
 - 楽天Booksの一般・BL・TLコミックを検索し、1件のISBN参照とrawレスポンス取得に対応する `rakutenbooks` パッケージ
+- 楽天Koboの一般・BL・TLコミックをタイトル・著者・出版社・商品キーワード・除外語で検索する `rakutenkobo` パッケージ
+- 楽天Koboの商品番号、著者読み、取得時点価格、通常URL・アフィリエイトURL、画像、rawレスポンスの取得
 - 取得元の通常URLと分離してアフィリエイトURLを保持する `BookSource.AffiliateURL`
 - 楽天Booksの `itemPrice` を取得時点の税込JPY価格として共通価格情報へ変換
 - 主タイトルと別言語または別文字体系のタイトルを保持する `ParallelTitles`

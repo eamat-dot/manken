@@ -16,6 +16,7 @@
 - [openBDパッケージ仕様](pkg/openbd/spec.md)
 - [Google Booksパッケージ仕様](pkg/googlebooks/spec.md)
 - [楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md)
+- [楽天Koboパッケージ仕様](pkg/rakutenkobo/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -27,7 +28,7 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の5つである。
+提供するパッケージは次の6つである。
 
 ```text
 github.com/eamat-dot/manken/api
@@ -35,6 +36,7 @@ github.com/eamat-dot/manken/madb
 github.com/eamat-dot/manken/openbd
 github.com/eamat-dot/manken/googlebooks
 github.com/eamat-dot/manken/rakutenbooks
+github.com/eamat-dot/manken/rakutenkobo
 ```
 
 - `api`
@@ -50,6 +52,9 @@ github.com/eamat-dot/manken/rakutenbooks
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 - `rakutenbooks`
   - 楽天Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `rakutenkobo`
+  - 楽天Koboへの検索と、取得結果から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
@@ -112,8 +117,8 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 ### 5.1 Source
 
 `Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
-`rakutenbooks` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
-`SourceRakutenBooks` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+`rakutenbooks`、`rakutenkobo` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks`、`SourceRakutenKobo` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
 JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
@@ -250,7 +255,8 @@ JSONではこの短い文字列を出力する。
 [Limitとページング](pkg/madb/spec.md#8-limitとページング)、Google Books検索では
 [Google Booksパッケージ仕様](pkg/googlebooks/spec.md#3-検索)で定義する。Google Booksでも
 `ExcludedText` を受け付けるが、取得元固有の除外構文へ安全に変換する。楽天Books検索では
-[楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md#5-searchbooks)で定義する。
+[楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md#5-searchbooks)、楽天Kobo検索では
+[楽天Koboパッケージ仕様](pkg/rakutenkobo/spec.md#4-searchbooks)で定義する。
 
 ### 6.2 SearchBooksResult
 

@@ -13,6 +13,8 @@ const (
 	SourceGoogleBooks Source = "googlebooks"
 	// SourceRakutenBooks は、楽天ブックス書籍検索APIを表す
 	SourceRakutenBooks Source = "rakutenbooks"
+	// SourceRakutenKobo は、楽天Kobo電子書籍検索APIを表す
+	SourceRakutenKobo Source = "rakutenkobo"
 )
 
 // Book は、取得した1冊の漫画本を表す
