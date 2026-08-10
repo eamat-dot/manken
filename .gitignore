@@ -20,7 +20,8 @@ Thumbs.db
 *.tmp
 .idea/
 .tmp/
-.vscode/
+.vscode/*
+!.vscode/tasks.json.example
 *.code-workspace
 
 # Task

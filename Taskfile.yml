@@ -35,14 +35,24 @@ tasks:
     desc: 全パッケージをビルド
     cmd: go build -v ./...
 
+# ---- codexpro (https://github.com/rebel0789/codexpro) ----
+  codexpro:
+    desc: codexproを起動
+    cmd: codexpro start
+
+  codexpro:handoff:
+    desc: .ai-bridge/の指示をもとにcodexへ実行命令を出す
+    cmd: codexpro execute-handoff --agent codex --model gpt-5.6-terra --timeout-ms 1800000 --yes
+    # cmd: codexpro execute-handoff --agent codex --timeout-ms 1800000 --yes
+
+  codexpro:handoff:watch:
+    desc: .ai-bridge/の指示をもとにcodexへ実行命令を出す（監視モード）
+    cmd: codexpro watch-handoff --agent codex --timeout-ms 1800000 --yes
+# ------
+
   lint:
     desc: golangci-lint
     cmd: golangci-lint run -v
-
-  handoff:
-    desc: .ai-bridge/の指示をもとにcodexへ実行命令を出す
-    # cmd: codexpro execute-handoff --agent codex --model gpt-5.6-terra --timeout-ms 1800000 --yes
-    cmd: codexpro execute-handoff --agent codex --timeout-ms 1800000 --yes
 
   mod-deps:
     desc: Goモジュールの依存関係を整理
