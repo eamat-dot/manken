@@ -13,6 +13,10 @@ func requireLookupBooksByISBNWithRawResponseSignature(
 ) {
 }
 
+// requirePublicationMediumSignature は、PublicationMediumの公開型を検証する
+func requirePublicationMediumSignature(googlebooks.PublicationMedium) {
+}
+
 // TestPublicAPI は、外部パッケージからGoogle Booksの公開APIを利用できることを確認する
 func TestPublicAPI(t *testing.T) {
 	client, err := googlebooks.NewClient(&http.Client{}, googlebooks.WithAPIKey("test-key"))
@@ -29,5 +33,10 @@ func TestPublicAPI(t *testing.T) {
 		t.Fatalf("PriceTypeList = %q, PriceTypeCurrent = %q", googlebooks.PriceTypeList, googlebooks.PriceTypeCurrent)
 	}
 	_ = googlebooks.Price{Type: googlebooks.PriceTypeCurrent, Source: googlebooks.SourceGoogleBooks}
+	medium := googlebooks.PublicationMediumDigital
+	requirePublicationMediumSignature(medium)
+	if medium != "digital" || googlebooks.PublicationMediumUnknown != "" {
+		t.Fatalf("medium = %q, unknown = %q", medium, googlebooks.PublicationMediumUnknown)
+	}
 	requireLookupBooksByISBNWithRawResponseSignature(client.LookupBooksByISBNWithRawResponse)
 }

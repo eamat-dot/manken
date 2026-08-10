@@ -446,6 +446,34 @@ func TestConvertVolume_MapsSupportedFieldsOnly(t *testing.T) {
 	}
 }
 
+// TestConvertVolume_MapsEbookMedium は、saleInfo.isEbookだけで電子書籍区分を変換することを確認する
+func TestConvertVolume_MapsEbookMedium(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want PublicationMedium
+	}{
+		{name: "true", body: `{"totalItems":1,"items":[{"id":"ebook","saleInfo":{"isEbook":true}}]}`, want: PublicationMediumDigital},
+		{name: "false", body: `{"totalItems":1,"items":[{"id":"not-ebook","saleInfo":{"isEbook":false}}]}`, want: PublicationMediumUnknown},
+		{name: "omitted", body: `{"totalItems":1,"items":[{"id":"unknown"}]}`, want: PublicationMediumUnknown},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response, err := decodeVolumesResponse([]byte(test.body))
+			if err != nil {
+				t.Fatalf("decodeVolumesResponse() error = %v", err)
+			}
+			book, err := convertVolume(response.Items[0], "")
+			if err != nil {
+				t.Fatalf("convertVolume() error = %v", err)
+			}
+			if book.Normalized.Medium != test.want {
+				t.Fatalf("Medium = %q, want %q", book.Normalized.Medium, test.want)
+			}
+		})
+	}
+}
+
 // TestConvertVolume_MapsSalePrices は、条件を満たす日本円の販売価格だけを変換することを確認する
 func TestConvertVolume_MapsSalePrices(t *testing.T) {
 	listAmount := json.Number("900.0")

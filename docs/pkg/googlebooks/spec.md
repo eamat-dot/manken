@@ -92,6 +92,7 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 | `imageLinks` | `Images`。フィールド名をPurposeとして安定順に設定 |
 | `saleInfo.listPrice` | 条件を満たす場合だけ、`Type: list` の `Prices` |
 | `saleInfo.retailPrice` | 条件を満たす場合だけ、`Type: current` の `Prices` |
+| `saleInfo.isEbook` | `true` の場合だけ `Medium: digital`。`false` または欠落は未設定 |
 
 著者と編集者の役割は区別できないため推測しない。タイトルからシリーズ、巻数、版表示を推測しない。
 `saleInfo` の価格は、`country` がJP、`currencyCode` がJPYであり、`amount` が存在し、有限で負でなく、
@@ -104,9 +105,13 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 できないため、`TaxIncluded` は設定しない。
 
 国別の適用範囲を共通モデルへ誤って広げないため、JP以外の `saleInfo` は価格を設定しない。
-`saleInfo.country`、`saleability`、`buyLink`、`isEbook`、`onSaleDate`、`accessInfo`、紙・電子、
-物理サイズ、rating、`searchInfo`、`contentVersion`は共通モデルへ設定しない。Volume IDの欠落は
-`invalid_response`、その他の任意項目の欠落は正常である。
+`saleInfo.isEbook` は国や販売可否にかかわらず、`true` の場合だけ `PublicationMediumDigital` とする。
+`false` または項目欠落は紙書籍とみなさず、`PublicationMediumUnknown` のままとする。ISBN、
+`volumeInfo.printType`、`accessInfo` のEPUB/PDF availability、価格、購入URLなどから媒体を推測しない。
+
+`saleInfo.country`、`saleability`、`buyLink`、`onSaleDate`、`accessInfo`、物理サイズ、rating、
+`searchInfo`、`contentVersion`は共通モデルへ設定しない。Volume IDの欠落は `invalid_response`、
+その他の任意項目の欠落は正常である。
 
 ## 6. HTTPとエラー
 

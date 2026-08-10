@@ -28,6 +28,7 @@ type volume struct {
 // saleInfo は、Google Booksが返す国別の販売情報を保持する
 type saleInfo struct {
 	Country     string `json:"country"`
+	IsEbook     bool   `json:"isEbook"`
 	ListPrice   price  `json:"listPrice"`
 	RetailPrice price  `json:"retailPrice"`
 }
@@ -112,6 +113,9 @@ func convertVolume(value volume, observedAt string) (Book, error) {
 		book.Normalized.Dates = []BookDate{{Type: BookDateTypePublished, Value: info.PublishedDate}}
 	}
 	book.Normalized.Identifiers = identifiers(info.IndustryIdentifiers)
+	if value.SaleInfo.IsEbook {
+		book.Normalized.Medium = PublicationMediumDigital
+	}
 	book.Normalized.Prices = prices(value.SaleInfo, observedAt)
 	return book, nil
 }

@@ -30,6 +30,9 @@ type BookDateType = api.BookDateType
 // BookDate は、種類と精度を維持した日付文字列を表す
 type BookDate = api.BookDate
 
+// PublicationMedium は、出版物が紙、電子、または未判定のいずれかであることを表す
+type PublicationMedium = api.PublicationMedium
+
 // PriceType は、価格の種類を表す
 type PriceType = api.PriceType
 
@@ -69,6 +72,10 @@ const (
 	IdentifierTypeISBN13 = api.IdentifierTypeISBN13
 	// BookDateTypePublished は、出版日を表す
 	BookDateTypePublished = api.BookDateTypePublished
+	// PublicationMediumUnknown は、紙または電子を判定できない状態を表す
+	PublicationMediumUnknown = api.PublicationMediumUnknown
+	// PublicationMediumDigital は、電子書籍を表す
+	PublicationMediumDigital = api.PublicationMediumDigital
 	// PriceTypeList は、定価を表す
 	PriceTypeList = api.PriceTypeList
 	// PriceTypeCurrent は、API取得時点の販売価格を表す
