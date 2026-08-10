@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,6 +23,10 @@ const (
 	operationNewClient   = "rakutenbooks.NewClient"
 	operationSearchBooks = "rakutenbooks.SearchBooks"
 	operationISBNLookup  = "rakutenbooks.LookupBooksByISBN"
+
+	rakutenBooksGenreGeneralComic = "001001"
+	rakutenBooksGenreBLComic      = "001021002"
+	rakutenBooksGenreTLComic      = "001029002"
 )
 
 // Client は、楽天ブックス書籍検索APIへの接続設定を保持する
@@ -163,11 +168,11 @@ func WithEndpoint(endpoint string) Option {
 func comicGenreID(genre ComicGenre) (string, error) {
 	switch genre {
 	case ComicGenreGeneral:
-		return "001001", nil
+		return rakutenBooksGenreGeneralComic, nil
 	case ComicGenreBL:
-		return "001021002", nil
+		return rakutenBooksGenreBLComic, nil
 	case ComicGenreTL:
-		return "001029002", nil
+		return rakutenBooksGenreTLComic, nil
 	default:
 		return "", fmt.Errorf("unsupported comic genre %q", genre)
 	}
@@ -190,10 +195,21 @@ func validateEndpoint(endpoint string) error {
 	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return errors.New("endpoint must use http or https and include a host")
 	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return errors.New("endpoint must use https unless its host is loopback")
+	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
 		return errors.New("endpoint must not include user information, query, or fragment")
 	}
 	return nil
+}
+
+// isLoopbackHost は、名前解決をせずにhostがlocalhostまたはloopback IPか判定する
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	return net.ParseIP(host).IsLoopback()
 }
 
 // execute は、楽天Booksリクエストを送信して成功レスポンス本文を読み込む
@@ -210,7 +226,7 @@ func (client *Client) execute(ctx context.Context, operation string, query url.V
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return nil, newError(operation, ErrorKindInvalidArgument, err)
+		return nil, newError(operation, ErrorKindInvalidArgument, sanitizeTransportError(err))
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("accessKey", client.accessKey)

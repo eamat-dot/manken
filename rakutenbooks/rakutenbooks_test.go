@@ -59,6 +59,89 @@ func TestNewClient_ValidatesOptions(t *testing.T) {
 	}
 }
 
+// TestNewClient_ValidatesEndpointSecurity は、endpointのHTTPS要件と既存のURL制約を通信前に検証する
+func TestNewClient_ValidatesEndpointSecurity(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		wantErr  bool
+	}{
+		{name: "https", endpoint: "https://example.com/books"},
+		{name: "localhost HTTP", endpoint: "http://localhost:8080/books"},
+		{name: "IPv4 loopback HTTP", endpoint: "http://127.0.0.2:8080/books"},
+		{name: "IPv6 loopback HTTP", endpoint: "http://[::1]:8080/books"},
+		{name: "non-loopback HTTP", endpoint: "http://example.com/books", wantErr: true},
+		{name: "user information", endpoint: "https://user@example.com/books", wantErr: true},
+		{name: "query", endpoint: "https://example.com/books?applicationId=secret", wantErr: true},
+		{name: "fragment", endpoint: "https://example.com/books#part", wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := NewClient(
+				nil,
+				WithApplicationID("app"),
+				WithAccessKey("access"),
+				WithEndpoint(test.endpoint),
+			)
+			if test.wantErr {
+				assertErrorKind(t, err, ErrorKindInvalidArgument)
+				return
+			}
+			if err != nil {
+				t.Fatalf("NewClient() error = %v", err)
+			}
+			if client.endpoint != test.endpoint {
+				t.Fatalf("endpoint = %q, want %q", client.endpoint, test.endpoint)
+			}
+		})
+	}
+}
+
+// TestSearchBooks_UsesComicGenreID は、各漫画区分をBooksBook SearchのbooksGenreIdへ1回だけ設定する
+func TestSearchBooks_UsesComicGenreID(t *testing.T) {
+	var queries []url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		queries = append(queries, request.URL.Query())
+		if request.URL.Path != "/" {
+			t.Errorf("path = %q, want /", request.URL.Path)
+		}
+		_, _ = writer.Write([]byte(sampleResponse(0, 0, 0)))
+	}))
+	defer server.Close()
+
+	tests := []struct {
+		genre ComicGenre
+		want  string
+	}{
+		{genre: ComicGenreGeneral, want: rakutenBooksGenreGeneralComic},
+		{genre: ComicGenreBL, want: rakutenBooksGenreBLComic},
+		{genre: ComicGenreTL, want: rakutenBooksGenreTLComic},
+	}
+	for _, test := range tests {
+		client, err := NewClient(
+			nil,
+			WithApplicationID("app"),
+			WithAccessKey("access"),
+			WithComicGenre(test.genre),
+			WithEndpoint(server.URL),
+		)
+		if err != nil {
+			t.Fatalf("NewClient() error = %v", err)
+		}
+		if _, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"}); err != nil {
+			t.Fatalf("SearchBooks(%q) error = %v", test.genre, err)
+		}
+	}
+	if len(queries) != len(tests) {
+		t.Fatalf("requests = %d, want %d", len(queries), len(tests))
+	}
+	for index, test := range tests {
+		if got := queries[index].Get("booksGenreId"); got != test.want {
+			t.Errorf("request %d booksGenreId = %q, want %q", index, got, test.want)
+		}
+	}
+}
+
 // TestSearchBooks_BuildsRequestAndCursor は、認証、検索条件、漫画区分、固定パラメーター、カーソルを検証する
 func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 	var requests []*http.Request

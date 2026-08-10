@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
+	"strings"
 
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 )
@@ -20,6 +22,20 @@ type volumesResponse struct {
 type volume struct {
 	ID         string     `json:"id"`
 	VolumeInfo volumeInfo `json:"volumeInfo"`
+	SaleInfo   saleInfo   `json:"saleInfo"`
+}
+
+// saleInfo は、Google Booksが返す国別の販売情報を保持する
+type saleInfo struct {
+	Country     string `json:"country"`
+	ListPrice   price  `json:"listPrice"`
+	RetailPrice price  `json:"retailPrice"`
+}
+
+// price は、Google Booksが返す金額と通貨を保持する
+type price struct {
+	Amount       *json.Number `json:"amount"`
+	CurrencyCode string       `json:"currencyCode"`
 }
 
 // volumeInfo は、共通書籍モデルへ対応できるVolume情報を保持する
@@ -59,6 +75,7 @@ type imageLinks struct {
 func decodeVolumesResponse(body []byte) (volumesResponse, error) {
 	var response volumesResponse
 	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
 	if err := decoder.Decode(&response); err != nil {
 		return volumesResponse{}, fmt.Errorf("decode Google Books response: %w", err)
 	}
@@ -72,7 +89,7 @@ func decodeVolumesResponse(body []byte) (volumesResponse, error) {
 }
 
 // convertVolume は、Google Books Volumeを共通のBookへ変換する
-func convertVolume(value volume) (Book, error) {
+func convertVolume(value volume, observedAt string) (Book, error) {
 	if value.ID == "" {
 		return Book{}, errors.New("response volume is missing id")
 	}
@@ -95,7 +112,54 @@ func convertVolume(value volume) (Book, error) {
 		book.Normalized.Dates = []BookDate{{Type: BookDateTypePublished, Value: info.PublishedDate}}
 	}
 	book.Normalized.Identifiers = identifiers(info.IndustryIdentifiers)
+	book.Normalized.Prices = prices(value.SaleInfo, observedAt)
 	return book, nil
+}
+
+// prices は、条件を満たす日本向けの日本円販売価格だけを共通価格へ変換する
+func prices(value saleInfo, observedAt string) []Price {
+	if !strings.EqualFold(value.Country, "JP") {
+		return nil
+	}
+
+	prices := make([]Price, 0, 2)
+	if amount, ok := priceAmount(value.ListPrice); ok {
+		prices = append(prices, Price{
+			Type:     PriceTypeList,
+			Amount:   amount,
+			Currency: "JPY",
+			Source:   SourceGoogleBooks,
+		})
+	}
+	if amount, ok := priceAmount(value.RetailPrice); ok && observedAt != "" {
+		prices = append(prices, Price{
+			Type:       PriceTypeCurrent,
+			Amount:     amount,
+			Currency:   "JPY",
+			Source:     SourceGoogleBooks,
+			ObservedAt: observedAt,
+		})
+	}
+	if len(prices) == 0 {
+		return nil
+	}
+	return prices
+}
+
+// priceAmount は、Google Booksの価格を正確に表現できる日本円の整数へ変換する
+func priceAmount(value price) (int64, bool) {
+	if value.Amount == nil || !strings.EqualFold(value.CurrencyCode, "JPY") {
+		return 0, false
+	}
+	text := value.Amount.String()
+	if text != strings.TrimSpace(text) || !json.Valid([]byte(text)) {
+		return 0, false
+	}
+	amount, ok := new(big.Rat).SetString(text)
+	if !ok || amount.Sign() < 0 || !amount.IsInt() || !amount.Num().IsInt64() {
+		return 0, false
+	}
+	return amount.Num().Int64(), true
 }
 
 // positivePageCount は、Google Booksの0以下のpageCountを不明値として扱う

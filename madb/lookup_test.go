@@ -122,9 +122,34 @@ func TestClient_LookupBooksByISBN_ValidatesBeforeRequest(t *testing.T) {
 	var nilClient *Client
 	_, err := nilClient.LookupBooksByISBN(context.Background(), []string{"9784088466361"})
 	assertLookupError(t, err, ErrorKindInvalidArgument)
-	//nolint:staticcheck // nil Contextを通信前に拒否する公開契約を検証する
+	//lint:ignore SA1012 nil Contextを通信前に拒否する公開API仕様を検証する
 	_, err = client.LookupBooksByISBN(nil, []string{"9784088466361"})
 	assertLookupError(t, err, ErrorKindInvalidArgument)
+}
+
+// TestClient_LookupBooksByISBN_AcceptsMaximumCount は、500件の有効なISBN入力を1回の通信で受け付ける
+func TestClient_LookupBooksByISBN_AcceptsMaximumCount(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		writeSPARQLResponse(t, writer, newSPARQLResponse())
+	}))
+	defer server.Close()
+
+	isbns := make([]string, maxISBNLookupCount)
+	for index := range isbns {
+		isbns[index] = "9784088466361"
+	}
+	result, err := newTestClient(t, server.URL).LookupBooksByISBN(context.Background(), isbns)
+	if err != nil {
+		t.Fatalf("LookupBooksByISBN() error = %v", err)
+	}
+	if requestCount != 1 {
+		t.Fatalf("request count = %d, want 1", requestCount)
+	}
+	if len(result.Items) != maxISBNLookupCount {
+		t.Fatalf("len(Items) = %d, want %d", len(result.Items), maxISBNLookupCount)
+	}
 }
 
 // TestClient_LookupBooksByISBNWithRawResponse は、参照結果と受信本文を1回の通信から返す

@@ -57,7 +57,7 @@ func TestBuildFullTextQuery(t *testing.T) {
 		{name: "Unicode spaces", title: "\tうる星\u3000復刻box\n", want: `"うる星" AND "復刻box"`},
 		{
 			name:  "operators and escapes",
-			title: `a"b\c AND OR NOT + -`,
+			title: "a\"b\\c AND OR NOT + -",
 			want:  `"a\"b\\c" AND "AND" AND "OR" AND "NOT" AND "+" AND "-"`,
 		},
 	}
@@ -71,10 +71,18 @@ func TestBuildFullTextQuery(t *testing.T) {
 	}
 }
 
+// TestEscapeFullText_QuoteAndBackslash は、実際の二重引用符とバックスラッシュを引用句用にエスケープすることを検証する
+func TestEscapeFullText_QuoteAndBackslash(t *testing.T) {
+	input := "a\"b\\c"
+	if got, want := escapeFullText(input), `a\"b\\c`; got != want {
+		t.Fatalf("escapeFullText() = %q, want %q", got, want)
+	}
+}
+
 // TestBuildFullTextQueryWithExclusions は、複数の除外語を安全なAND NOT式へ変換する
 func TestBuildFullTextQueryWithExclusions(t *testing.T) {
-	value := `うる星 a"b\c`
-	excluded := `復刻box NOT a"b\c`
+	value := "うる星 a\"b\\c"
+	excluded := "復刻box NOT a\"b\\c"
 	want := `"うる星" AND "a\"b\\c" AND NOT "復刻box" AND NOT "NOT" AND NOT "a\"b\\c"`
 	if got := buildFullTextQueryWithExclusions(value, excluded); got != want {
 		t.Fatalf("buildFullTextQueryWithExclusions() = %q, want %q", got, want)
@@ -83,7 +91,7 @@ func TestBuildFullTextQueryWithExclusions(t *testing.T) {
 
 // TestBuildExcludedFullTextQuery は、複数の除外語を安全なOR式へ変換する
 func TestBuildExcludedFullTextQuery(t *testing.T) {
-	value := `復刻box NOT AND a"b\c`
+	value := "復刻box NOT AND a\"b\\c"
 	want := `"復刻box" OR "NOT" OR "AND" OR "a\"b\\c"`
 	if got := buildExcludedFullTextQuery(value); got != want {
 		t.Fatalf("buildExcludedFullTextQuery() = %q, want %q", got, want)
@@ -92,10 +100,13 @@ func TestBuildExcludedFullTextQuery(t *testing.T) {
 
 // TestBuildSearchQuery_EscapesTwoLayers は、全文検索とSPARQLの二段階エスケープを検証する
 func TestBuildSearchQuery_EscapesTwoLayers(t *testing.T) {
-	title := `a"b\c AND OR NOT + -`
+	title := "a\"b\\c AND OR NOT + -"
 	query := buildSearchQuery(searchConditions{Title: title}, 1, "")
-	fullText := buildFullTextQuery(title)
-	want := `neptune-fts:config neptune-fts:query "` + escapeSPARQLString(fullText) + `" .`
+	fullText := `"a\"b\\c" AND "AND" AND "OR" AND "NOT" AND "+" AND "-"`
+	if got := buildFullTextQuery(title); got != fullText {
+		t.Fatalf("buildFullTextQuery() = %q, want %q", got, fullText)
+	}
+	want := `neptune-fts:config neptune-fts:query "\"a\\\"b\\\\c\" AND \"AND\" AND \"OR\" AND \"NOT\" AND \"+\" AND \"-\"" .`
 	if !strings.Contains(query, want) {
 		t.Fatalf("query does not contain escaped value %q:\n%s", want, query)
 	}
@@ -103,7 +114,7 @@ func TestBuildSearchQuery_EscapesTwoLayers(t *testing.T) {
 
 // TestBuildSearchQuery_AuthorConditions は、creator文字列とAgent参照をUNIONして他条件とAND結合する
 func TestBuildSearchQuery_AuthorConditions(t *testing.T) {
-	author := `KotzDean AND a"b\c`
+	author := "KotzDean AND a\"b\\c"
 	query := buildSearchQuery(searchConditions{
 		Title:  "作品",
 		Author: author,
@@ -134,7 +145,7 @@ func TestBuildSearchQuery_AuthorConditions(t *testing.T) {
 
 // TestBuildSearchQuery_FreeTextConditions は、フリーワードの対象フィールドと他条件とのAND結合を検証する
 func TestBuildSearchQuery_FreeTextConditions(t *testing.T) {
-	freeText := `うる星 高橋留美子 新装版 a"b\c`
+	freeText := "うる星 高橋留美子 新装版 a\"b\\c"
 	query := buildSearchQuery(searchConditions{FreeText: freeText}, 20, "")
 
 	wantQuery := `neptune-fts:config neptune-fts:query "` +
@@ -289,7 +300,7 @@ func TestBuildSearchQuery_FreeTextDoesNotUseImplicitFields(t *testing.T) {
 // TestBuildSearchQuery_ExcludedTextWithFreeText は、フリーワード式へ除外語をAND NOTで追加する
 func TestBuildSearchQuery_ExcludedTextWithFreeText(t *testing.T) {
 	conditions := searchConditions{
-		FreeText:     `うる星 a"b\c`,
+		FreeText:     "うる星 a\"b\\c",
 		ExcludedText: `復刻box NOT`,
 	}
 	query := buildSearchQuery(conditions, 20, "")
@@ -344,8 +355,11 @@ func TestBuildSearchQuery_ExcludedTextWithoutFreeText(t *testing.T) {
 				}
 			}
 			minusStart := strings.Index(query, "MINUS {")
+			if minusStart < 0 {
+				t.Fatalf("MINUS exclusion unexpectedly targets Agent labels:\n%s", query)
+			}
 			conditionsEnd := strings.Index(query[minusStart:], "?resource rdf:type class:MangaBook")
-			if minusStart < 0 || conditionsEnd < 0 ||
+			if conditionsEnd < 0 ||
 				strings.Contains(query[minusStart:minusStart+conditionsEnd], "rdfs:label") {
 				t.Fatalf("MINUS exclusion unexpectedly targets Agent labels:\n%s", query)
 			}

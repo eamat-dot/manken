@@ -25,5 +25,9 @@ func TestPublicAPI(t *testing.T) {
 	if googlebooks.SourceGoogleBooks != "googlebooks" {
 		t.Fatalf("SourceGoogleBooks = %q", googlebooks.SourceGoogleBooks)
 	}
+	if googlebooks.PriceTypeList != "list" || googlebooks.PriceTypeCurrent != "current" {
+		t.Fatalf("PriceTypeList = %q, PriceTypeCurrent = %q", googlebooks.PriceTypeList, googlebooks.PriceTypeCurrent)
+	}
+	_ = googlebooks.Price{Type: googlebooks.PriceTypeCurrent, Source: googlebooks.SourceGoogleBooks}
 	requireLookupBooksByISBNWithRawResponseSignature(client.LookupBooksByISBNWithRawResponse)
 }

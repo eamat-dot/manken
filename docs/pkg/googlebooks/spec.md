@@ -17,7 +17,9 @@ client, err := googlebooks.NewClient(nil, googlebooks.WithAPIKey(apiKey))
 
 import pathは `github.com/eamat-dot/manken/googlebooks` である。`NewClient` はAPIキーを必須とし、
 空白だけのキー、nil Option、不正なendpointは通信前に `invalid_argument` を返す。
-`WithEndpoint` はテスト向けの絶対HTTP(S) URLを設定する。ユーザー情報、query、fragmentは使えない。
+通常の認証付きendpointはHTTPSを使用する。`WithEndpoint` は絶対URLを設定し、HTTPSを受け付ける。
+HTTPを受け付けるのはテスト用の`localhost`、`127.0.0.0/8`、`::1`だけであり、名前解決によって
+外部hostをloopbackとして扱わない。ユーザー情報、query、fragmentは使えない。
 
 `httpClient` がnilの場合は60秒タイムアウトのHTTPクライアントを使う。Clientはリクエスト状態を
 保持せず、複数goroutineから安全に使用できる。APIキーは `key` queryへだけ設定し、エラー、
@@ -88,10 +90,23 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 | `description`、`language`、`categories[]` | `Description`、`Languages`、`Subjects` |
 | 正の `pageCount` | `PageCount`。0以下は不明値として未設定にする |
 | `imageLinks` | `Images`。フィールド名をPurposeとして安定順に設定 |
+| `saleInfo.listPrice` | 条件を満たす場合だけ、`Type: list` の `Prices` |
+| `saleInfo.retailPrice` | 条件を満たす場合だけ、`Type: current` の `Prices` |
 
 著者と編集者の役割は区別できないため推測しない。タイトルからシリーズ、巻数、版表示を推測しない。
-`saleInfo`、`accessInfo`、価格、紙・電子、物理サイズ、rating、`searchInfo`、`contentVersion`は
-共通モデルへ設定しない。Volume IDの欠落は `invalid_response`、その他の任意項目の欠落は正常である。
+`saleInfo` の価格は、`country` がJP、`currencyCode` がJPYであり、`amount` が存在し、有限で負でなく、
+小数部のない `int64` 範囲内の値である場合だけ変換する。文字列の大文字小文字は区別しない。小数を
+丸めたり切り捨てたりせず、条件外の価格は設定しない。明示された0円は価格として設定する。
+
+`listPrice` は `Source: googlebooks`、`Currency: JPY` の定価として設定する。`retailPrice` は同じ情報に
+加え、1回の正常なAPI応答の変換で共通となるUTC RFC3339Nano形式の `ObservedAt` を持つ現在価格として
+設定する。両方を設定する場合は定価、現在価格の順とする。Google Booksの資料から消費税の扱いは確定
+できないため、`TaxIncluded` は設定しない。
+
+国別の適用範囲を共通モデルへ誤って広げないため、JP以外の `saleInfo` は価格を設定しない。
+`saleInfo.country`、`saleability`、`buyLink`、`isEbook`、`onSaleDate`、`accessInfo`、紙・電子、
+物理サイズ、rating、`searchInfo`、`contentVersion`は共通モデルへ設定しない。Volume IDの欠落は
+`invalid_response`、その他の任意項目の欠落は正常である。
 
 ## 6. HTTPとエラー
 

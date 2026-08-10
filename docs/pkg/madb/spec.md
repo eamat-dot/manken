@@ -464,6 +464,7 @@ Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著�
 `LookupBooksByISBN` と `LookupBooksByISBNWithRawResponse` は、1件以上500件以下の
 ISBNを受け付ける。空入力または501件以上は、外部通信せず `invalid_argument` とする。
 1件でも不正なISBNがある場合も、呼び出し全体を `invalid_argument` とする。
+500件はこのパッケージの公開上限であり、MADBサービスの問い合わせ上限を表すものではない。
 
 各入力は次の順序で整形して検証する。
 
@@ -505,9 +506,11 @@ VALUES ?matchedISBN { "4088466365" "9784088466361" }
 `OFFSET` は、検索中の追加データによって位置がずれるため使用しない。
 
 `?resource` を返す全文検索では、FTS候補を書籍リソースURIに対応するentity ID昇順で取得した後に、
-同じリソースURI順でページ境界を判定する。Agent `rdfs:label`検索では、Agent URIに対応するentity ID順で
-候補を取得してから書籍リソースへ結合し、書籍リソースURI順でページ境界を判定する。Neptuneの既定
-`batchSize` と既定 `maxResults` を使用し、ライブラリはこれらを固定値で指定しない。
+同じリソースURI順でページ境界を判定する。`schema:creator`の文字列経路はこの順序とCursorが一致する。
+Agent `rdfs:label`検索では、Agent URIに対応するentity ID順で候補を取得してから書籍リソースへ結合するため、
+候補順と書籍リソースURI Cursorは一致しない。FTSはRDFのJOIN前に`batchSize`、`maxResults`、OpenSearch
+result windowの範囲で候補を取得し得るため、このAgent経路はCursorを最後まで進めても書籍の完全列挙を
+保証しない。Neptuneの既定`batchSize` と既定`maxResults`を使用し、ライブラリはこれらを固定値で指定しない。
 
 カーソル形式のバージョンは2とする。カーソルは、バージョン、末尾URI、Limit、
 正規化済み全検索条件のSHA-256を含むJSONを

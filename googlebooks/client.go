@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -66,7 +67,11 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
-	return &Client{httpClient: httpClient, endpoint: config.endpoint, apiKey: config.apiKey}, nil
+	internalHTTPClient := *httpClient
+	internalHTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return &Client{httpClient: &internalHTTPClient, endpoint: config.endpoint, apiKey: config.apiKey}, nil
 }
 
 // WithAPIKey は、Google Books APIキーを設定する
@@ -100,10 +105,21 @@ func validateEndpoint(endpoint string) error {
 	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return errors.New("endpoint must use http or https and include a host")
 	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return errors.New("endpoint must use https unless its host is loopback")
+	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
 		return errors.New("endpoint must not include user information, query, or fragment")
 	}
 	return nil
+}
+
+// isLoopbackHost は、名前解決をせずにhostがlocalhostまたはloopback IPか判定する
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	return net.ParseIP(host).IsLoopback()
 }
 
 // execute は、Google Booksリクエストを送信して成功レスポンス本文を読み込む

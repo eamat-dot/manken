@@ -15,6 +15,7 @@
 - [MADBパッケージ仕様](pkg/madb/spec.md)
 - [openBDパッケージ仕様](pkg/openbd/spec.md)
 - [Google Booksパッケージ仕様](pkg/googlebooks/spec.md)
+- [楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -26,13 +27,14 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の4つである。
+提供するパッケージは次の5つである。
 
 ```text
 github.com/eamat-dot/manken/api
 github.com/eamat-dot/manken/madb
 github.com/eamat-dot/manken/openbd
 github.com/eamat-dot/manken/googlebooks
+github.com/eamat-dot/manken/rakutenbooks
 ```
 
 - `api`
@@ -45,6 +47,9 @@ github.com/eamat-dot/manken/googlebooks
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 - `googlebooks`
   - Google Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `rakutenbooks`
+  - 楽天Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。

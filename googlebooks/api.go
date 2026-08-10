@@ -30,6 +30,12 @@ type BookDateType = api.BookDateType
 // BookDate は、種類と精度を維持した日付文字列を表す
 type BookDate = api.BookDate
 
+// PriceType は、価格の種類を表す
+type PriceType = api.PriceType
+
+// Price は、種類と出典を明示した価格を表す
+type Price = api.Price
+
 // Subject は、取得元の分類体系に基づく主題またはジャンルを表す
 type Subject = api.Subject
 
@@ -63,6 +69,10 @@ const (
 	IdentifierTypeISBN13 = api.IdentifierTypeISBN13
 	// BookDateTypePublished は、出版日を表す
 	BookDateTypePublished = api.BookDateTypePublished
+	// PriceTypeList は、定価を表す
+	PriceTypeList = api.PriceTypeList
+	// PriceTypeCurrent は、API取得時点の販売価格を表す
+	PriceTypeCurrent = api.PriceTypeCurrent
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
 	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
 	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す

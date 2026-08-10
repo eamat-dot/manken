@@ -45,12 +45,14 @@ WithEndpoint(endpoint string)
 | `WithAffiliateID` | 任意 | アフィリエイトURL生成に使用するAffiliate ID |
 | `WithComicGenre` | 任意 | 検索対象の漫画区分。省略時は一般コミック |
 | `WithBookSize` | 任意 | 検索対象の商品形態。省略時は絞り込まない |
-| `WithEndpoint` | 任意 | 通常は使用しない。HTTP(S)の絶対URLだけを受け付ける |
+| `WithEndpoint` | 任意 | 通常は使用しない。HTTPSの絶対URLを受け付ける |
 
 空文字列または空白だけの認証値を明示設定した場合は `invalid_argument` となる。
 Affiliate IDを設定しなくても検索・ISBN参照を利用できる。
 
-`WithEndpoint` はuser information、query、fragmentを含むURLを受け付けない。
+認証付きの通常endpointはHTTPSを使用する。テスト用には`localhost`、`127.0.0.0/8`、`::1`への
+HTTP endpointも受け付けるが、名前解決によって外部hostをloopbackとして扱わない。`WithEndpoint` は
+user information、query、fragmentを含むURLを受け付けない。
 
 ## 3. 漫画区分
 

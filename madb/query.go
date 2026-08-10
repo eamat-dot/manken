@@ -320,8 +320,8 @@ func quoteFullTextTerms(value string) []string {
 
 // escapeFullText は、全文検索の引用句内で特別な文字をエスケープする
 func escapeFullText(value string) string {
-	value = strings.ReplaceAll(value, `\`, `\\`)
-	return strings.ReplaceAll(value, `"`, `\"`)
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	return strings.ReplaceAll(value, "\"", "\\\"")
 }
 
 // escapeSPARQLString は、値をSPARQLの二重引用符文字列へ安全に埋め込める形にする

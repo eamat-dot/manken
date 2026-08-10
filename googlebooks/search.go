@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -54,7 +55,8 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 	if err != nil {
 		return SearchBooksResult{}, body, newError(operationSearchBooks, ErrorKindInvalidResponse, err)
 	}
-	result, err := buildSearchResult(response, startIndex, queryText, limit)
+	observedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	result, err := buildSearchResult(response, startIndex, queryText, limit, observedAt)
 	if err != nil {
 		return SearchBooksResult{}, body, newError(operationSearchBooks, ErrorKindInvalidResponse, err)
 	}
@@ -80,7 +82,7 @@ func queryTerms(prefix string, value string) []string {
 	words := strings.FieldsFunc(value, unicode.IsSpace)
 	terms := make([]string, 0, len(words))
 	for _, word := range words {
-		escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(word)
+		escaped := strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(word)
 		terms = append(terms, prefix+`"`+escaped+`"`)
 	}
 	return terms
@@ -112,26 +114,29 @@ func searchValues(queryText string, limit int, startIndex int, includeOrder bool
 }
 
 // buildSearchResult は、検索応答を共通の検索結果と次カーソルへ変換する
-func buildSearchResult(response volumesResponse, startIndex int, queryText string, limit int) (SearchBooksResult, error) {
+func buildSearchResult(response volumesResponse, startIndex int, queryText string, limit int, observedAt string) (SearchBooksResult, error) {
 	if response.TotalItems < startIndex+len(response.Items) {
 		return SearchBooksResult{}, errors.New("response totalItems is smaller than returned items")
 	}
 	books := make([]Book, 0, len(response.Items))
 	for _, item := range response.Items {
-		book, err := convertVolume(item)
+		book, err := convertVolume(item, observedAt)
 		if err != nil {
 			return SearchBooksResult{}, err
 		}
 		books = append(books, book)
 	}
 	result := SearchBooksResult{Books: books}
-	if len(response.Items) == 0 || response.TotalItems == startIndex+len(response.Items) {
+	if len(response.Items) == 0 {
+		if response.TotalItems > startIndex {
+			return SearchBooksResult{}, errors.New("response pagination did not advance")
+		}
+		return result, nil
+	}
+	if response.TotalItems == startIndex+len(response.Items) {
 		return result, nil
 	}
 	if response.TotalItems > startIndex+len(response.Items) {
-		if len(response.Items) == 0 {
-			return SearchBooksResult{}, errors.New("response pagination did not advance")
-		}
 		cursor, err := encodeCursor(startIndex+len(response.Items), queryText, limit)
 		if err != nil {
 			return SearchBooksResult{}, err

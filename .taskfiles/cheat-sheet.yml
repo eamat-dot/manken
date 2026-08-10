@@ -49,9 +49,11 @@ tasks:
             git reset HEAD^
 
           - 全部取り消す
+            # 追跡対象の未コミット変更を破棄するため、実行前に確認する
             git reset --hard HEAD^
 
           - Push済みコミットを書き換えた後
+            # リモート履歴を上書きし得るため、共有ブランチでは実行しない
             git push --force-with-lease
 
           - 直前ではないコミットメッセージを書き換える

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 )
@@ -98,13 +99,14 @@ func (client *Client) lookupISBN(ctx context.Context, isbn string) ([]Book, []by
 	if response.TotalItems < len(response.Items) {
 		return nil, body, newError(operationISBNLookup, ErrorKindInvalidResponse, errors.New("response totalItems is smaller than returned items"))
 	}
+	observedAt := time.Now().UTC().Format(time.RFC3339Nano)
 
 	books := make([]Book, 0, len(response.Items))
 	for _, item := range response.Items {
 		if !volumeHasISBN(item, isbn) {
 			continue
 		}
-		book, err := convertVolume(item)
+		book, err := convertVolume(item, observedAt)
 		if err != nil {
 			return nil, body, newError(operationISBNLookup, ErrorKindInvalidResponse, err)
 		}
