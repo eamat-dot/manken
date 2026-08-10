@@ -25,7 +25,7 @@ reviews:
     - path: "**/*.go"
       instructions: "公開APIの互換性、エラー処理、コンテキストの維持、外部サービス固有型の漏出を確認してください。"
     - path: "docs/**"
-      instructions: "仕様、TODO、構想、backlogの役割が混在していないか確認してください。"
+      instructions: "仕様、TODO、構想、backlogの役割が混在していないか確認してください。日付・時刻は日本標準時（JST、UTC+09:00）として解釈し、現在日付との比較でもUTCとの日付境界による未来日判定をしないでください。"
     - path: "vendor/**"
       instructions: "このディレクトリはレビュー対象外です。"
 
