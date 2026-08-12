@@ -95,17 +95,17 @@ ISBN-10と対応するISBN-13、同じISBNの重複入力は問い合わせ時�
 openBD応答は非公開型へ変換してから `Book` を組み立てる。未知のJSON項目は無視し、
 欠落した任意項目は有効な応答として扱う。
 
-| openBDの取得元 | `openbd.Book` |
-| --- | --- |
-| 検証済みISBN-13 | `Sources[0].ID`、`Normalized.Identifiers` |
-| ONIXの商品階層 `TitleText.content`、`summary.title` | `Normalized.Title` |
-| `Normalized.Title` に採用した同一ONIX要素の `TitleText.collationkey` | `Normalized.TitleReading` |
-| ONIXのSubtitle | `Normalized.Subtitle` |
-| ONIXのContributor | `Normalized.Authors`、`Normalized.Contributors` |
-| ONIXのImprint、Publisher、`summary.publisher` | `Normalized.Publishers` |
-| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate` | `Normalized.Dates` |
-| `summary.cover` | `Normalized.Images` |
-| 固定値 | `Sources[0].Source` |
+| openBDの取得元                                                       | `openbd.Book`                                   |
+| -------------------------------------------------------------------- | ----------------------------------------------- |
+| 検証済みISBN-13                                                      | `Sources[0].ID`、`Normalized.Identifiers`       |
+| ONIXの商品階層 `TitleText.content`、`summary.title`                  | `Normalized.Title`                              |
+| `Normalized.Title` に採用した同一ONIX要素の `TitleText.collationkey` | `Normalized.TitleReading`                       |
+| ONIXのSubtitle                                                       | `Normalized.Subtitle`                           |
+| ONIXのContributor                                                    | `Normalized.Authors`、`Normalized.Contributors` |
+| ONIXのImprint、Publisher、`summary.publisher`                        | `Normalized.Publishers`                         |
+| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate`       | `Normalized.Dates`                              |
+| `summary.cover`                                                      | `Normalized.Images`                             |
+| 固定値                                                               | `Sources[0].Source`                             |
 
 `Sources[0].ID` は検証済みISBN-13とする。openBDは応答に書籍ごとの参照ページURLを
 返さないため、`Sources[0].URL` は空にする。
@@ -144,13 +144,13 @@ ONIXの `SequenceNumber` が数値として解釈できる寄与者を番号順�
 
 対応する役割は次のとおり。
 
-| ONIXコード | 共通役割 |
-| --- | --- |
-| `A01` | `author` |
-| `A03`、`A14`、`A45` | `writer` |
-| `A07`、`A12`、`A35` | `artist` |
-| `B01` | `editor` |
-| `B06` | `translator` |
+| ONIXコード          | 共通役割     |
+| ------------------- | ------------ |
+| `A01`               | `author`     |
+| `A03`、`A14`、`A45` | `writer`     |
+| `A07`、`A12`、`A35` | `artist`     |
+| `B01`               | `editor`     |
+| `B06`               | `translator` |
 
 `PersonName` と同じ要素の `collationkey` がある場合は、そのまま同じ
 `Contributor.Reading` に設定する。役割が空の場合は人物名を `Authors` に含め、
@@ -204,12 +204,12 @@ openbd.NewClient
 openbd.LookupBooksByISBN
 ```
 
-| 状態 | `ErrorKind` |
-| --- | --- |
-| ISBN、入力件数、Client設定の不正 | `invalid_argument` |
-| HTTP 408、429、500から599 | `unavailable` |
-| その他の成功以外のHTTPステータス | `upstream` |
-| 通信失敗、タイムアウト | `unavailable` |
+| 状態                                         | `ErrorKind`        |
+| -------------------------------------------- | ------------------ |
+| ISBN、入力件数、Client設定の不正             | `invalid_argument` |
+| HTTP 408、429、500から599                    | `unavailable`      |
+| その他の成功以外のHTTPステータス             | `upstream`         |
+| 通信失敗、タイムアウト                       | `unavailable`      |
 | 本文上限超過、JSON、配列件数、ISBN対応の不正 | `invalid_response` |
 
 `Retry-After` は秒数形式とHTTP-date形式を解析する。`context.Canceled` と

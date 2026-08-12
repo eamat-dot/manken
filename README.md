@@ -5,14 +5,14 @@
 
 ## 対応プロバイダ
 
-| パッケージ | データ取得元 | 利用できる機能 | 利用開始に必要なもの |
-| --- | --- | --- | --- |
-| `madb` | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名・出版社名などによる検索、ISBNによる取得 | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要 |
-| `openbd` | [openBD](https://openbd.jp/) | ISBNによる取得 | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要 |
-| `googlebooks` | [Google Books](https://books.google.com/) | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得 | Google Books APIキーとTerms / Brandingの確認が必要 |
-| `rakutenbooks` | [楽天ブックス](https://books.rakuten.co.jp/) | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得 | Application IDとAccess Keyが必要。Affiliate IDは任意 |
-| `rakutenkobo` | [楽天Kobo](https://books.rakuten.co.jp/e-book/) | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意 |
-| `ndl` | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/) | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照 | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
+| パッケージ     | データ取得元                                                                                                                  | 利用できる機能                                                               | 利用開始に必要なもの                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `madb`         | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名・出版社名などによる検索、ISBNによる取得                     | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要         |
+| `openbd`       | [openBD](https://openbd.jp/)                                                                                                  | ISBNによる取得                                                               | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要     |
+| `googlebooks`  | [Google Books](https://books.google.com/)                                                                                     | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得      | Google Books APIキーとTerms / Brandingの確認が必要                  |
+| `rakutenbooks` | [楽天ブックス](https://books.rakuten.co.jp/)                                                                                  | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得    | Application IDとAccess Keyが必要。Affiliate IDは任意                |
+| `rakutenkobo`  | [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                                                               | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意                |
+| `ndl`          | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                                                          | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照    | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
 
 ### 利用前の確認
 

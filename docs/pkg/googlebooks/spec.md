@@ -79,20 +79,20 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 
 ## 5. 結果変換
 
-| Google Books | 変換先 |
-| --- | --- |
-| `id` | `Sources[0].ID` |
-| `canonicalVolumeLink`、`infoLink` | 有効なHTTP(S) URLを優先して `Sources[0].URL` |
-| `title`、`subtitle` | `Normalized.Title`、`Subtitle` |
-| `authors[]` | `Authors` と役割なしの `Contributors` |
-| `publisher`、`publishedDate` | `Publishers`、出版日の `Dates` |
-| 検証済み `ISBN_10`、`ISBN_13` | `Identifiers` |
-| `description`、`language`、`categories[]` | `Description`、`Languages`、`Subjects` |
-| 正の `pageCount` | `PageCount`。0以下は不明値として未設定にする |
-| `imageLinks` | `Images`。フィールド名をPurposeとして安定順に設定 |
-| `saleInfo.listPrice` | 条件を満たす場合だけ、`Type: list` の `Prices` |
-| `saleInfo.retailPrice` | 条件を満たす場合だけ、`Type: current` の `Prices` |
-| `saleInfo.isEbook` | `true` の場合だけ `Medium: digital`。`false` または欠落は未設定 |
+| Google Books                              | 変換先                                                          |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `id`                                      | `Sources[0].ID`                                                 |
+| `canonicalVolumeLink`、`infoLink`         | 有効なHTTP(S) URLを優先して `Sources[0].URL`                    |
+| `title`、`subtitle`                       | `Normalized.Title`、`Subtitle`                                  |
+| `authors[]`                               | `Authors` と役割なしの `Contributors`                           |
+| `publisher`、`publishedDate`              | `Publishers`、出版日の `Dates`                                  |
+| 検証済み `ISBN_10`、`ISBN_13`             | `Identifiers`                                                   |
+| `description`、`language`、`categories[]` | `Description`、`Languages`、`Subjects`                          |
+| 正の `pageCount`                          | `PageCount`。0以下は不明値として未設定にする                    |
+| `imageLinks`                              | `Images`。フィールド名をPurposeとして安定順に設定               |
+| `saleInfo.listPrice`                      | 条件を満たす場合だけ、`Type: list` の `Prices`                  |
+| `saleInfo.retailPrice`                    | 条件を満たす場合だけ、`Type: current` の `Prices`               |
+| `saleInfo.isEbook`                        | `true` の場合だけ `Medium: digital`。`false` または欠落は未設定 |
 
 著者と編集者の役割は区別できないため推測しない。タイトルからシリーズ、巻数、版表示を推測しない。
 `saleInfo` の価格は、`country` がJP、`currencyCode` がJPYであり、`amount` が存在し、有限で負でなく、
@@ -119,11 +119,11 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 `Accept: application/json` を使う。成功本文は16 MiB、エラー本文は64 KiBまで読み込む。
 エラー本文と完全なリクエストURLは公開エラーへ含めない。
 
-| 状態 | `ErrorKind` |
-| --- | --- |
-| 入力、APIキー、Client設定、カーソルの不正 | `invalid_argument` |
-| HTTP 408、429、500〜599、通信失敗、タイムアウト | `unavailable` |
-| その他の非2xx | `upstream` |
+| 状態                                               | `ErrorKind`        |
+| -------------------------------------------------- | ------------------ |
+| 入力、APIキー、Client設定、カーソルの不正          | `invalid_argument` |
+| HTTP 408、429、500〜599、通信失敗、タイムアウト    | `unavailable`      |
+| その他の非2xx                                      | `upstream`         |
 | 成功本文の上限超過、JSON、必須ID、ページングの不正 | `invalid_response` |
 
 `Retry-After` は秒数形式とHTTP-date形式を解釈する。`context.Canceled` と

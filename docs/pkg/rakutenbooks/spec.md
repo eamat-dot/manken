@@ -38,14 +38,14 @@ WithBookSize(size BookSize)
 WithEndpoint(endpoint string)
 ```
 
-| Option | 必須 | 内容 |
-| --- | --- | --- |
-| `WithApplicationID` | 必須 | 楽天ウェブサービスのApplication ID |
-| `WithAccessKey` | 必須 | 楽天ウェブサービスのAccess Key |
-| `WithAffiliateID` | 任意 | アフィリエイトURL生成に使用するAffiliate ID |
-| `WithComicGenre` | 任意 | 検索対象の漫画区分。省略時は一般コミック |
-| `WithBookSize` | 任意 | 検索対象の商品形態。省略時は絞り込まない |
-| `WithEndpoint` | 任意 | 通常は使用しない。HTTPSの絶対URLを受け付ける |
+| Option              | 必須 | 内容                                         |
+| ------------------- | ---- | -------------------------------------------- |
+| `WithApplicationID` | 必須 | 楽天ウェブサービスのApplication ID           |
+| `WithAccessKey`     | 必須 | 楽天ウェブサービスのAccess Key               |
+| `WithAffiliateID`   | 任意 | アフィリエイトURL生成に使用するAffiliate ID  |
+| `WithComicGenre`    | 任意 | 検索対象の漫画区分。省略時は一般コミック     |
+| `WithBookSize`      | 任意 | 検索対象の商品形態。省略時は絞り込まない     |
+| `WithEndpoint`      | 任意 | 通常は使用しない。HTTPSの絶対URLを受け付ける |
 
 空文字列または空白だけの認証値を明示設定した場合は `invalid_argument` となる。
 Affiliate IDを設定しなくても検索・ISBN参照を利用できる。
@@ -58,11 +58,11 @@ user information、query、fragmentを含むURLを受け付けない。
 
 `ComicGenre` は検索1回で楽天Booksへ指定する漫画区分を表す。
 
-| 定数 | 値 | `booksGenreId` |
-| --- | --- | --- |
-| `ComicGenreGeneral` | `general` | `001001` |
-| `ComicGenreBL` | `bl` | `001021002` |
-| `ComicGenreTL` | `tl` | `001029002` |
+| 定数                | 値        | `booksGenreId` |
+| ------------------- | --------- | -------------- |
+| `ComicGenreGeneral` | `general` | `001001`       |
+| `ComicGenreBL`      | `bl`      | `001021002`    |
+| `ComicGenreTL`      | `tl`      | `001029002`    |
 
 Clientの既定値は `ComicGenreGeneral` である。
 1回の `SearchBooks` で複数区分を横断しない。BLまたはTLを検索する場合は、対応する
@@ -74,19 +74,19 @@ ISBN参照ではClientの漫画区分を使用しない。
 
 `BookSize` は、楽天Booksの検索専用の商品形態分類を表す。`WithBookSize` に指定できる値は次のとおりである。
 
-| 定数 | 値 | 楽天Booksの意味 |
-| --- | ---: | --- |
-| `BookSizeAll` | 0 | 全て。既定値で、検索queryに`size`を送らない |
-| `BookSizeTankobon` | 1 | 単行本 |
-| `BookSizeBunko` | 2 | 文庫 |
-| `BookSizeShinsho` | 3 | 新書 |
-| `BookSizeZenshuSosho` | 4 | 全集・双書 |
-| `BookSizeJiten` | 5 | 事・辞典 |
-| `BookSizeZukan` | 6 | 図鑑 |
-| `BookSizeEhon` | 7 | 絵本 |
-| `BookSizeCassetteCD` | 8 | カセット、CDなど |
-| `BookSizeComic` | 9 | コミック |
-| `BookSizeMookOther` | 10 | ムックその他 |
+| 定数                  |  値 | 楽天Booksの意味                             |
+| --------------------- | --: | ------------------------------------------- |
+| `BookSizeAll`         |   0 | 全て。既定値で、検索queryに`size`を送らない |
+| `BookSizeTankobon`    |   1 | 単行本                                      |
+| `BookSizeBunko`       |   2 | 文庫                                        |
+| `BookSizeShinsho`     |   3 | 新書                                        |
+| `BookSizeZenshuSosho` |   4 | 全集・双書                                  |
+| `BookSizeJiten`       |   5 | 事・辞典                                    |
+| `BookSizeZukan`       |   6 | 図鑑                                        |
+| `BookSizeEhon`        |   7 | 絵本                                        |
+| `BookSizeCassetteCD`  |   8 | カセット、CDなど                            |
+| `BookSizeComic`       |   9 | コミック                                    |
+| `BookSizeMookOther`   |  10 | ムックその他                                |
 
 範囲外の値を`WithBookSize`へ指定した場合は、Client作成時に`invalid_argument`となる。ISBN参照では
 `WithBookSize`の設定を使用せず、`size`を送らない。
@@ -111,15 +111,15 @@ func (client *Client) SearchBooksWithRawResponse(
 
 ### 5.1 対応する共通検索条件
 
-| `SearchBooksRequest` | 楽天Books | 動作 |
-| --- | --- | --- |
-| `Title` | `title` | 対応 |
-| `Author` | `author` | 対応 |
-| `Publisher` | `publisherName` | 対応 |
-| `FreeText` | 直接対応なし | 非空なら `invalid_argument` |
-| `ExcludedText` | 直接対応なし | 非空なら `invalid_argument` |
-| `Limit` | `hits` | 対応 |
-| `Cursor` | `page` | 不透明Cursor経由で対応 |
+| `SearchBooksRequest` | 楽天Books       | 動作                        |
+| -------------------- | --------------- | --------------------------- |
+| `Title`              | `title`         | 対応                        |
+| `Author`             | `author`        | 対応                        |
+| `Publisher`          | `publisherName` | 対応                        |
+| `FreeText`           | 直接対応なし    | 非空なら `invalid_argument` |
+| `ExcludedText`       | 直接対応なし    | 非空なら `invalid_argument` |
+| `Limit`              | `hits`          | 対応                        |
+| `Cursor`             | `page`          | 不透明Cursor経由で対応      |
 
 `Title`、`Author`、`Publisher` の少なくとも1つが必要である。前後の空白は除いて送信する。
 複数を指定した場合はすべてを楽天Booksへ渡す。
@@ -208,25 +208,25 @@ formatVersion=2
 
 ### 8.1 変換する項目
 
-| 楽天Books | 共通モデル | 規則 |
-| --- | --- | --- |
-| `itemUrl` | `BookSource.URL` | 有効なHTTP(S) URLだけを通常商品URLとして使用 |
-| `affiliateUrl` | `BookSource.AffiliateURL` | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない |
-| `title` | `Normalized.Title` | そのまま保持 |
-| `titleKana` | `Normalized.TitleReading` | そのまま保持 |
-| `subTitle` | `Normalized.Subtitle` | そのまま保持 |
-| `seriesName` | `Normalized.Series[].Name` | 1要素として保持 |
-| `author` | `Normalized.Authors` | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外 |
-| `author` / `authorKana` | `Normalized.Contributors` | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
-| `publisherName` | `Normalized.Publishers` | 1要素として保持 |
-| `isbn` | `Normalized.Identifiers` | 検証できるISBN-10 / ISBN-13だけを保持 |
-| `salesDate` | `Normalized.Dates` | `released` として原文の精度を維持 |
-| `itemCaption` | `Normalized.Description` | そのまま保持 |
-| `booksGenreId` | `Normalized.Subjects` | `/` で分割し、Scheme=`rakuten_books` とする |
-| `size` | `Normalized.PhysicalSize.Name` | 判型名として保持 |
-| `itemPrice` | `Normalized.Prices` | `current` / JPY / 税込。取得時刻を `ObservedAt` に保持 |
-| API種別 | `Normalized.Medium` | `print` |
-| 3種の画像URL | `Normalized.Images` | small / medium / largeの順に保持 |
+| 楽天Books               | 共通モデル                     | 規則                                                                                            |
+| ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `itemUrl`               | `BookSource.URL`               | 有効なHTTP(S) URLだけを通常商品URLとして使用                                                    |
+| `affiliateUrl`          | `BookSource.AffiliateURL`      | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない                                           |
+| `title`                 | `Normalized.Title`             | そのまま保持                                                                                    |
+| `titleKana`             | `Normalized.TitleReading`      | そのまま保持                                                                                    |
+| `subTitle`              | `Normalized.Subtitle`          | そのまま保持                                                                                    |
+| `seriesName`            | `Normalized.Series[].Name`     | 1要素として保持                                                                                 |
+| `author`                | `Normalized.Authors`           | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外                       |
+| `author` / `authorKana` | `Normalized.Contributors`      | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
+| `publisherName`         | `Normalized.Publishers`        | 1要素として保持                                                                                 |
+| `isbn`                  | `Normalized.Identifiers`       | 検証できるISBN-10 / ISBN-13だけを保持                                                           |
+| `salesDate`             | `Normalized.Dates`             | `released` として原文の精度を維持                                                               |
+| `itemCaption`           | `Normalized.Description`       | そのまま保持                                                                                    |
+| `booksGenreId`          | `Normalized.Subjects`          | `/` で分割し、Scheme=`rakuten_books` とする                                                     |
+| `size`                  | `Normalized.PhysicalSize.Name` | 判型名として保持                                                                                |
+| `itemPrice`             | `Normalized.Prices`            | `current` / JPY / 税込。取得時刻を `ObservedAt` に保持                                          |
+| API種別                 | `Normalized.Medium`            | `print`                                                                                         |
+| 3種の画像URL            | `Normalized.Images`            | small / medium / largeの順に保持                                                                |
 
 `authorKana`の分割要素数が`author`と一致しない場合は、Readingを推測せず全ContributorのReadingを空にする。
 氏名内部の半角・全角空白、カンマなどは変更しない。Contributorの役割も推測しない。
@@ -275,11 +275,11 @@ Affiliate IDを設定した場合、楽天Booksが返す `affiliateUrl` はRaw r
 
 リクエストでは認証情報を次のように送る。
 
-| 情報 | 送信方法 |
-| --- | --- |
-| Application ID | query `applicationId` |
-| Access Key | HTTP header `accessKey` |
-| Affiliate ID | 設定時だけquery `affiliateId` |
+| 情報           | 送信方法                      |
+| -------------- | ----------------------------- |
+| Application ID | query `applicationId`         |
+| Access Key     | HTTP header `accessKey`       |
+| Affiliate ID   | 設定時だけquery `affiliateId` |
 
 公開エラーには完全なリクエストURLを含めない。通信エラーが `url.Error` を含む場合は、
 認証情報を含み得るURLを除き、原因エラーだけを公開エラーへ保持する。
@@ -293,12 +293,12 @@ Access Keyをredirect先へ送らないため、Clientは自動redirectを追跡
 
 楽天Booksパッケージは共通の `api.Error` / `ErrorKind` を使用する。
 
-| 状態 | ErrorKind |
-| --- | --- |
+| 状態                                                          | ErrorKind          |
+| ------------------------------------------------------------- | ------------------ |
 | Client設定不正、検索条件不正、Limit不正、Cursor不正、ISBN不正 | `invalid_argument` |
-| HTTP 408 / 429 / 500〜599、通信失敗 | `unavailable` |
-| その他の2xx以外 | `upstream` |
-| 成功本文のJSON不正、本文上限超過、ページング矛盾 | `invalid_response` |
+| HTTP 408 / 429 / 500〜599、通信失敗                           | `unavailable`      |
+| その他の2xx以外                                               | `upstream`         |
+| 成功本文のJSON不正、本文上限超過、ページング矛盾              | `invalid_response` |
 
 HTTPエラーでは `StatusCode` を保持する。`Retry-After` が秒数または有効なHTTP日時なら
 `RetryAfter` へ変換する。

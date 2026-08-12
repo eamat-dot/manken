@@ -107,27 +107,27 @@ https://mediaarts-db.artmuseums.go.jp/data/class#MangaBook
 クラス識別子は `cm101` である。マンガ単行本シリーズを示す
 `class:MangaBookSeries` は検索結果に含めない。
 
-| MADBの取得元 | `madb` の非公開型 | `madb.Book` |
-| --- | --- | --- |
-| `schema:identifier` | `ID` | `Sources[0].ID` |
-| 言語タグなしの `schema:name` | `Titles` | `Normalized.Title` |
-| `ja-hrkt` の `schema:name` | `TitleKana` | `Normalized.TitleReading` |
-| 言語タグなしの `schema:alternativeHeadline` | `Subtitles` | `Normalized.Subtitle` |
-| 言語タグなしの `ma:seriesName` | `SeriesNames` | `Normalized.Series` |
-| 参照先シリーズの言語タグなし `schema:name` | `RelatedSeriesNames` | `Normalized.Series` |
-| 参照先シリーズの `schema:identifier` | `SeriesID` | `Normalized.Series[].ID` |
-| 参照先シリーズURI | `SeriesResourceURI` | `Normalized.Series[].URL` |
-| `schema:volumeNumber` | `VolumeNumber` | `Normalized.Volume` |
-| 言語タグなしの `schema:version` | `Versions` | `Normalized.EditionStatements` |
-| `schema:creator` とcreator Agent | `Creators`、`AgentNames` | `Normalized.Authors`、`Normalized.Contributors` |
-| `schema:publisher` | `Publishers` | `Normalized.Publishers` |
-| 言語タグなしの `schema:brand` | `Brands` | `Normalized.Imprints` |
-| `schema:isbn` | `ISBNs` | `Normalized.Identifiers` |
-| `schema:datePublished` | `PublishedDate` | `Normalized.Dates` |
-| `schema:numberOfPages` | `PageCount` | `Normalized.PageCount` |
-| `schema:size` | `Size` | `Normalized.PhysicalSize` |
-| 固定値 | 対応なし | `Sources[0].Source`、シリーズの `Source` |
-| マンガ単行本URI | `ResourceURI` | `Sources[0].URL` |
+| MADBの取得元                                | `madb` の非公開型        | `madb.Book`                                     |
+| ------------------------------------------- | ------------------------ | ----------------------------------------------- |
+| `schema:identifier`                         | `ID`                     | `Sources[0].ID`                                 |
+| 言語タグなしの `schema:name`                | `Titles`                 | `Normalized.Title`                              |
+| `ja-hrkt` の `schema:name`                  | `TitleKana`              | `Normalized.TitleReading`                       |
+| 言語タグなしの `schema:alternativeHeadline` | `Subtitles`              | `Normalized.Subtitle`                           |
+| 言語タグなしの `ma:seriesName`              | `SeriesNames`            | `Normalized.Series`                             |
+| 参照先シリーズの言語タグなし `schema:name`  | `RelatedSeriesNames`     | `Normalized.Series`                             |
+| 参照先シリーズの `schema:identifier`        | `SeriesID`               | `Normalized.Series[].ID`                        |
+| 参照先シリーズURI                           | `SeriesResourceURI`      | `Normalized.Series[].URL`                       |
+| `schema:volumeNumber`                       | `VolumeNumber`           | `Normalized.Volume`                             |
+| 言語タグなしの `schema:version`             | `Versions`               | `Normalized.EditionStatements`                  |
+| `schema:creator` とcreator Agent            | `Creators`、`AgentNames` | `Normalized.Authors`、`Normalized.Contributors` |
+| `schema:publisher`                          | `Publishers`             | `Normalized.Publishers`                         |
+| 言語タグなしの `schema:brand`               | `Brands`                 | `Normalized.Imprints`                           |
+| `schema:isbn`                               | `ISBNs`                  | `Normalized.Identifiers`                        |
+| `schema:datePublished`                      | `PublishedDate`          | `Normalized.Dates`                              |
+| `schema:numberOfPages`                      | `PageCount`              | `Normalized.PageCount`                          |
+| `schema:size`                               | `Size`                   | `Normalized.PhysicalSize`                       |
+| 固定値                                      | 対応なし                 | `Sources[0].Source`、シリーズの `Source`        |
+| マンガ単行本URI                             | `ResourceURI`            | `Sources[0].URL`                                |
 
 中央列はMADB応答を集約するための非公開実装型を示し、公開APIではない。
 
@@ -195,19 +195,19 @@ creator文字列がない場合だけ、全Agent名を著者と役割なしの�
 
 先頭の角括弧内が次の表記と完全一致する場合だけ、共通役割へ変換する。
 
-| MADB役割 | 共通役割 |
-| --- | --- |
-| `著`、`著者`、`作`、`共著`、`ほか著`、`他著` | `author` |
-| `原作`、`原案`、`共原作` | `original_creator` |
-| `脚本`、`シナリオ`、`構成`、`脚色`、`文`、`ストーリー`、`ライター` | `writer` |
-| `漫画`、`作画`、`画`、`劇画`、`まんが`、`絵`、`comic`、`Comic`、`COMIC`、`comics`、`コミック`、`マンガ`、`アーティスト` | `artist` |
-| `キャラクター原案` | `character_creator` |
-| `キャラクターデザイン` | `character_designer` |
-| `編`、`編集` | `editor` |
-| `訳` | `translator` |
-| `監修` | `supervisor` |
-| `解説` | `commentator` |
-| `カバーデザイン`、`装丁`、`装幀`、`デザイン` | `designer` |
+| MADB役割                                                                                                                | 共通役割             |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `著`、`著者`、`作`、`共著`、`ほか著`、`他著`                                                                            | `author`             |
+| `原作`、`原案`、`共原作`                                                                                                | `original_creator`   |
+| `脚本`、`シナリオ`、`構成`、`脚色`、`文`、`ストーリー`、`ライター`                                                      | `writer`             |
+| `漫画`、`作画`、`画`、`劇画`、`まんが`、`絵`、`comic`、`Comic`、`COMIC`、`comics`、`コミック`、`マンガ`、`アーティスト` | `artist`             |
+| `キャラクター原案`                                                                                                      | `character_creator`  |
+| `キャラクターデザイン`                                                                                                  | `character_designer` |
+| `編`、`編集`                                                                                                            | `editor`             |
+| `訳`                                                                                                                    | `translator`         |
+| `監修`                                                                                                                  | `supervisor`         |
+| `解説`                                                                                                                  | `commentator`        |
+| `カバーデザイン`、`装丁`、`装幀`、`デザイン`                                                                            | `designer`           |
 
 `・` で結ばれた複合役割は、すべての構成要素が上表へ対応する場合だけ、
 複数の共通役割へ変換する。1つでも未知の構成要素があれば、複合役割全体を
@@ -590,13 +590,13 @@ madb.SearchBooks
 madb.LookupBooksByISBN
 ```
 
-| 状態 | `ErrorKind` |
-| --- | --- |
+| 状態                                                            | `ErrorKind`        |
+| --------------------------------------------------------------- | ------------------ |
 | 入力ISBN、入力件数、検索条件、Limit、カーソル、Client設定の不正 | `invalid_argument` |
-| HTTP 408、429、500から599 | `unavailable` |
-| その他の成功以外のHTTPステータス | `upstream` |
-| 一時的な通信失敗、タイムアウト | `unavailable` |
-| 成功本文の上限超過、JSONまたはbindingの不正 | `invalid_response` |
+| HTTP 408、429、500から599                                       | `unavailable`      |
+| その他の成功以外のHTTPステータス                                | `upstream`         |
+| 一時的な通信失敗、タイムアウト                                  | `unavailable`      |
+| 成功本文の上限超過、JSONまたはbindingの不正                     | `invalid_response` |
 
 無効なSPARQLでは、HTTP 400と `application/json` のエラー本文が返ることを
 確認した。ライブラリが生成したSPARQLの不正は利用者入力の誤りではないため、
