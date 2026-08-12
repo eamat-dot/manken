@@ -12,6 +12,7 @@
 | `googlebooks` | [Google Books](https://books.google.com/) | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得 | Google Books APIキーとTerms / Brandingの確認が必要 |
 | `rakutenbooks` | [楽天ブックス](https://books.rakuten.co.jp/) | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得 | Application IDとAccess Keyが必要。Affiliate IDは任意 |
 | `rakutenkobo` | [楽天Kobo](https://books.rakuten.co.jp/e-book/) | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意 |
+| `ndl` | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/) | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照 | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
 
 ### 利用前の確認
 
@@ -28,6 +29,8 @@
   データの保存・更新条件は [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md) を確認する。
 - 楽天Koboも楽天ウェブサービスの利用条件に従う。Application ID / Access Key、クレジット表示、
   電子書籍の商品情報の扱いは [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md) を確認する。
+- NDLサーチAPIを利用するサイトやアプリケーションでは、その利用を表示する。全国書誌情報を二次利用する場合は
+  [NDLサーチガイド](docs/pkg/ndl/guide.md)の表示・利用条件と大量アクセス時の注意を確認する。
 
 ## 主な機能
 
@@ -71,6 +74,15 @@
 - Affiliate IDを任意設定し、通常商品URLとは別のアフィリエイトURLを取得
 - 変換済み結果と受信したrawレスポンスの取得
 
+### NDLサーチ
+
+- 完成済み全国書誌を対象にするタイトル・著者名・出版社名・フリーワード検索
+- 出版時期、件名、内容記述によるNDL固有の絞り込み
+- NDC 726.1 / NDLC Y84による漫画候補の既定絞り込みと個別解除
+- ISBN-10またはISBN-13を1件指定した書誌情報の取得
+- 取得件数の指定とカーソルによるページング
+- DC-NDL v3から変換した巻、版、シリーズ、読み、分類などと受信したraw XMLの取得
+
 ## 必要な環境
 
 Go 1.26.0以降を使用する。
@@ -83,6 +95,7 @@ go get github.com/eamat-dot/manken/openbd
 go get github.com/eamat-dot/manken/googlebooks
 go get github.com/eamat-dot/manken/rakutenbooks
 go get github.com/eamat-dot/manken/rakutenkobo
+go get github.com/eamat-dot/manken/ndl
 ```
 
 使用するデータ取得元のパッケージを利用側のGoモジュールへ追加する。
@@ -220,6 +233,22 @@ ISBN参照は提供しない。検索条件と除外語の組み合わせ、商�
 [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md)と
 [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md)を参照する。
 
+NDLサーチは認証情報なしで利用できる。タイトル検索とISBN参照は次のように呼び出す。
+
+```go
+client, err := ndl.NewClient(nil)
+if err != nil {
+    log.Fatal(err)
+}
+result, err := client.SearchBooks(
+    context.Background(),
+    ndl.SearchBooksRequest{Title: "動物のお医者さん"},
+)
+```
+
+NDLサーチは漫画専用の取得元ではなく、タイトル検索は関連タイトルも対象にする。検索条件、変換項目、利用条件は
+[NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md)と[NDLサーチガイド](docs/pkg/ndl/guide.md)を参照する。
+
 ## CLIデモ
 
 `examples/madb` で、MADBの実サービスを検索・参照してJSON結果を確認できる。
@@ -249,6 +278,12 @@ go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
 go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -limit 5
 ```
 
+認証情報なしでNDLサーチのデモを実行できる。
+
+```text
+go run ./examples/ndl -title "動物のお医者さん" -limit 5
+```
+
 ## ドキュメント
 
 - [MADBパッケージ仕様](docs/pkg/madb/spec.md): MADB固有の検索、変換、通信、エラー
@@ -259,6 +294,8 @@ go run ./examples/rakutenkobo -title "ふつつかな悪女ではございます
 - [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md): 認証情報、Affiliate ID、デモ、利用条件
 - [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md): 楽天Kobo固有の検索、変換、通信、エラー
 - [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md): 認証情報、Affiliate ID、利用条件
+- [NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md): NDLサーチ固有の検索、ISBN参照、変換、通信、エラー
+- [NDLサーチガイド](docs/pkg/ndl/guide.md): 利用表示、書誌データの二次利用条件、大量アクセス時の注意
 - [共通API仕様](docs/spec.md): 共通書籍モデルとAPI仕様
 - [アーキテクチャ](ARCHITECTURE.md): パッケージ構成と依存関係
 - [Changelog](CHANGELOG.md): 利用者に影響する変更
@@ -284,6 +321,7 @@ go test -v -tags=integration ./openbd
 go test -v -tags=integration ./googlebooks
 go test -v -tags=integration ./rakutenbooks
 go test -v -tags=integration ./rakutenkobo
+go test -v -tags=integration ./ndl
 ```
 
 ## ライセンス

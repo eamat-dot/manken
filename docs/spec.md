@@ -17,6 +17,7 @@
 - [Google Booksパッケージ仕様](pkg/googlebooks/spec.md)
 - [楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md)
 - [楽天Koboパッケージ仕様](pkg/rakutenkobo/spec.md)
+- [NDLサーチパッケージ仕様](pkg/ndl/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -28,7 +29,7 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の6つである。
+提供するパッケージは次の7つである。
 
 ```text
 github.com/eamat-dot/manken/api
@@ -37,6 +38,7 @@ github.com/eamat-dot/manken/openbd
 github.com/eamat-dot/manken/googlebooks
 github.com/eamat-dot/manken/rakutenbooks
 github.com/eamat-dot/manken/rakutenkobo
+github.com/eamat-dot/manken/ndl
 ```
 
 - `api`
@@ -55,6 +57,9 @@ github.com/eamat-dot/manken/rakutenkobo
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 - `rakutenkobo`
   - 楽天Koboへの検索と、取得結果から共通モデルへの変換を担当する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `ndl`
+  - 国立国会図書館サーチへの検索・ISBN参照と、DC-NDL v3から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
@@ -86,8 +91,9 @@ api.Book
 MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する。
 `api` パッケージは `Creators` を受け取って変換する関数を持たない。
 
-取得元固有の型は公開APIへ含めない。複数の取得元に共通することが確認できた
-変換後の概念だけを、`api` の共通モデルへ追加する。
+取得元固有の型は `api` パッケージの共通公開型へ含めない。取得元パッケージは、
+共通型へ一般化しない固有の検索条件や設定を、そのパッケージ固有の公開型として提供できる。
+複数の取得元に共通することが確認できた変換後の概念だけを、`api` の共通モデルへ追加する。
 
 ## 4. APIの対象
 
@@ -117,8 +123,8 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 ### 5.1 Source
 
 `Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
-`rakutenbooks`、`rakutenkobo` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
-`SourceRakutenBooks`、`SourceRakutenKobo` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+`rakutenbooks`、`rakutenkobo`、`ndl` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks`、`SourceRakutenKobo`、`SourceNDL` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
 JSONではこの短い文字列を出力する。
 
 ### 5.2 Book

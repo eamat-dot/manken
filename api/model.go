@@ -15,6 +15,8 @@ const (
 	SourceRakutenBooks Source = "rakutenbooks"
 	// SourceRakutenKobo は、楽天Kobo電子書籍検索APIを表す
 	SourceRakutenKobo Source = "rakutenkobo"
+	// SourceNDL は、国立国会図書館サーチを表す
+	SourceNDL Source = "ndl"
 )
 
 // Book は、取得した1冊の漫画本を表す
