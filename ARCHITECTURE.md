@@ -13,10 +13,12 @@
 [楽天Booksパッケージ仕様](docs/pkg/rakutenbooks/spec.md)を一次文書とする。
 [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md)も一次文書とする。
 [NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md)も一次文書とする。
+[Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md)も一次文書とする。
 
 現在のモジュールは共通モデルを定義する `api`、MADBを検索・参照する `madb`、
 openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する `googlebooks`、
 楽天Booksを検索・ISBN参照する `rakutenbooks`、楽天Koboを検索する `rakutenkobo`、国立国会図書館サーチを検索・ISBN参照する `ndl` を提供する。
+Yahoo!ショッピングのTower紙書籍を検索・ISBN参照する `yahooshopping` も提供する。
 ルートパッケージ、複数の取得元をまとめるファサード、MCPサーバーは提供しない。
 
 ## 構成と依存方向
@@ -51,6 +53,12 @@ openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する
        `------> rakutenkobo -> api
                         |
                         `------> 楽天Kobo電子書籍検索API
+
+       `------> yahooshopping -> api
+                         |
+                         +------> internal/isbn
+                         |
+                         `------> Yahoo!ショッピング商品検索API
        |
        `------> ndl -> api
                          |
@@ -86,15 +94,18 @@ openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する
   - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
   - `from`、`until`、`subject`、`description` はNDL固有の `SearchOptions` として公開し、共通 `api.SearchBooksRequest` には追加しない
   - 所蔵・個体情報、JPNO、価格、NDL固有の著者役割表記は共通モデルへ公開しない
+- `yahooshopping`
+  - Tower固定の紙書籍商品検索、ISBN参照、HTTP通信、Cursor、共通モデルへの変換を担当する
+  - Client ID、ストア固有レスポンス型、在庫・送料・レビューは公開しない
 - `internal/isbn`
   - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
 - `examples`
-  - `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl` の公開APIを使う動作確認用CLIを置く
+  - `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping` の公開APIを使う動作確認用CLIを置く
   - ライブラリの一部として再利用する内部処理は置かない
 
 `api` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
-`madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl` の必要なパッケージだけをimportでき、
+`madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping` の必要なパッケージだけをimportでき、
 共通型を直接扱う用途では `api` をimportできる。
 
 ## MADBの検索処理の流れ

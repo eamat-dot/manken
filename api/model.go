@@ -17,6 +17,8 @@ const (
 	SourceRakutenKobo Source = "rakutenkobo"
 	// SourceNDL は、国立国会図書館サーチを表す
 	SourceNDL Source = "ndl"
+	// SourceYahooShopping は、Yahoo!ショッピング商品検索APIを表す
+	SourceYahooShopping Source = "yahooshopping"
 )
 
 // Book は、取得した1冊の漫画本を表す

@@ -18,6 +18,7 @@
 - [楽天Booksパッケージ仕様](pkg/rakutenbooks/spec.md)
 - [楽天Koboパッケージ仕様](pkg/rakutenkobo/spec.md)
 - [NDLサーチパッケージ仕様](pkg/ndl/spec.md)
+- [Yahoo!ショッピングパッケージ仕様](pkg/yahooshopping/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -29,7 +30,7 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の7つである。
+提供するパッケージは次の8つである。
 
 ```text
 github.com/eamat-dot/manken/api
@@ -39,6 +40,7 @@ github.com/eamat-dot/manken/googlebooks
 github.com/eamat-dot/manken/rakutenbooks
 github.com/eamat-dot/manken/rakutenkobo
 github.com/eamat-dot/manken/ndl
+github.com/eamat-dot/manken/yahooshopping
 ```
 
 - `api`
@@ -61,6 +63,8 @@ github.com/eamat-dot/manken/ndl
 - `ndl`
   - 国立国会図書館サーチへの検索・ISBN参照と、DC-NDL v3から共通モデルへの変換を担当する
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
+- `yahooshopping`
+  - Tower固定のYahoo!ショッピング紙書籍商品検索とISBN参照、共通モデルへの変換を担当する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
 
@@ -123,8 +127,8 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 ### 5.1 Source
 
 `Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
-`rakutenbooks`、`rakutenkobo`、`ndl` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
-`SourceRakutenBooks`、`SourceRakutenKobo`、`SourceNDL` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks`、`SourceRakutenKobo`、`SourceNDL`、`SourceYahooShopping` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
 JSONではこの短い文字列を出力する。
 
 ### 5.2 Book

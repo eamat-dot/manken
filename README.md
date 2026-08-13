@@ -5,14 +5,15 @@
 
 ## 対応プロバイダ
 
-| パッケージ     | データ取得元                                                                                                                  | 利用できる機能                                                               | 利用開始に必要なもの                                                |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `madb`         | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名・出版社名などによる検索、ISBNによる取得                     | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要         |
-| `openbd`       | [openBD](https://openbd.jp/)                                                                                                  | ISBNによる取得                                                               | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要     |
-| `googlebooks`  | [Google Books](https://books.google.com/)                                                                                     | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得      | Google Books APIキーとTerms / Brandingの確認が必要                  |
-| `rakutenbooks` | [楽天ブックス](https://books.rakuten.co.jp/)                                                                                  | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得    | Application IDとAccess Keyが必要。Affiliate IDは任意                |
-| `rakutenkobo`  | [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                                                               | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意                |
-| `ndl`          | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                                                          | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照    | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
+| パッケージ      | データ取得元                                                                                                                  | 利用できる機能                                                               | 利用開始に必要なもの                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `madb`          | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名・出版社名などによる検索、ISBNによる取得                     | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要         |
+| `openbd`        | [openBD](https://openbd.jp/)                                                                                                  | ISBNによる取得                                                               | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要     |
+| `googlebooks`   | [Google Books](https://books.google.com/)                                                                                     | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得      | Google Books APIキーとTerms / Brandingの確認が必要                  |
+| `rakutenbooks`  | [楽天ブックス](https://books.rakuten.co.jp/)                                                                                  | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得    | Application IDとAccess Keyが必要。Affiliate IDは任意                |
+| `rakutenkobo`   | [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                                                               | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意                |
+| `yahooshopping` | [Yahoo!ショッピング](https://shopping.yahoo.co.jp/)                                                                           | Tower固定の紙コミック商品キーワード検索、1件のISBNによる取得                 | Yahoo!ショッピングClient IDとクレジット表示要件の確認が必要         |
+| `ndl`           | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                                                          | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照    | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
 
 ### 利用前の確認
 
@@ -29,6 +30,9 @@
   データの保存・更新条件は [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md) を確認する。
 - 楽天Koboも楽天ウェブサービスの利用条件に従う。Application ID / Access Key、クレジット表示、
   電子書籍の商品情報の扱いは [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md) を確認する。
+- Yahoo!ショッピングはTower固定の商品検索であり、タイトル・著者・出版社は専用書誌検索ではない。
+  公式の1クエリ/秒とクレジット表示要件、Raw responseの保存条件の未確定性は
+  [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md)を確認する。
 - NDLサーチAPIを利用するサイトやアプリケーションでは、その利用を表示する。全国書誌情報を二次利用する場合は
   [NDLサーチガイド](docs/pkg/ndl/guide.md)の表示・利用条件と大量アクセス時の注意を確認する。
 
