@@ -175,7 +175,7 @@ func parseVolume(value string) (api.Volume, bool) {
 	if number, err := strconv.Atoi(numberText); err == nil {
 		return api.Volume{Number: &number, Label: strconv.Itoa(number)}, true
 	}
-	return api.Volume{Label: value}, true
+	return api.Volume{Label: strings.TrimSuffix(value, "巻")}, true
 }
 
 // itemIdentifier は、JANまたはISBN-13を種類付き識別子へ変換する

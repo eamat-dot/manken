@@ -99,6 +99,7 @@ go get github.com/eamat-dot/manken/openbd
 go get github.com/eamat-dot/manken/googlebooks
 go get github.com/eamat-dot/manken/rakutenbooks
 go get github.com/eamat-dot/manken/rakutenkobo
+go get github.com/eamat-dot/manken/yahooshopping
 go get github.com/eamat-dot/manken/ndl
 ```
 
@@ -237,7 +238,7 @@ ISBN参照は提供しない。検索条件と除外語の組み合わせ、商�
 [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md)と
 [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md)を参照する。
 
-NDLサーチは認証情報なしで利用できる。タイトル検索とISBN参照は次のように呼び出す。
+NDLサーチは認証情報なしで利用できる。タイトル検索は次のように呼び出す。
 
 ```go
 client, err := ndl.NewClient(nil)
@@ -282,6 +283,12 @@ go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
 go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -limit 5
 ```
 
+Yahoo!ショッピングのClient IDを環境変数へ設定済みの場合は、Tower固定の紙コミック商品検索を実行できる。
+
+```text
+go run ./examples/yahooshopping -title "動物のお医者さん" -limit 5
+```
+
 認証情報なしでNDLサーチのデモを実行できる。
 
 ```text
@@ -298,6 +305,7 @@ go run ./examples/ndl -title "動物のお医者さん" -limit 5
 - [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md): 認証情報、Affiliate ID、デモ、利用条件
 - [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md): 楽天Kobo固有の検索、変換、通信、エラー
 - [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md): 認証情報、Affiliate ID、利用条件
+- [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md): Tower固定の商品検索、変換、通信、エラー
 - [NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md): NDLサーチ固有の検索、ISBN参照、変換、通信、エラー
 - [NDLサーチガイド](docs/pkg/ndl/guide.md): 利用表示、書誌データの二次利用条件、大量アクセス時の注意
 - [共通API仕様](docs/spec.md): 共通書籍モデルとAPI仕様
@@ -325,6 +333,7 @@ go test -v -tags=integration ./openbd
 go test -v -tags=integration ./googlebooks
 go test -v -tags=integration ./rakutenbooks
 go test -v -tags=integration ./rakutenkobo
+go test -v -tags=integration ./yahooshopping
 go test -v -tags=integration ./ndl
 ```
 

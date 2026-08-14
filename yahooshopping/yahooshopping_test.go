@@ -150,6 +150,28 @@ func TestConvertItem_PriceTaxIncludedIsOptional(t *testing.T) {
 	}
 }
 
+// TestParseVolume_NormalizesLabels は、数値と非数値の巻表示を正規化する
+func TestParseVolume_NormalizesLabels(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		input     string
+		wantLabel string
+		wantNum   *int
+	}{
+		{name: "number", input: "12巻", wantLabel: "12", wantNum: intPointer(12)},
+		{name: "upper", input: "上巻", wantLabel: "上"},
+		{name: "lower", input: "下巻", wantLabel: "下"},
+		{name: "already normalized", input: "上", wantLabel: "上"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := parseVolume(test.input)
+			if !ok || got.Label != test.wantLabel || (got.Number == nil) != (test.wantNum == nil) || got.Number != nil && *got.Number != *test.wantNum {
+				t.Fatalf("parseVolume(%q) = %+v, %t", test.input, got, ok)
+			}
+		})
+	}
+}
+
 // TestCursor_RejectsRequestsPastThousandResults は、APIページング上限を超えるカーソルを拒否することを確認する
 func TestCursor_RejectsRequestsPastThousandResults(t *testing.T) {
 	for _, test := range []struct {
@@ -419,8 +441,13 @@ func TestSearchBooks_RawResponseAndInvalidJSON(t *testing.T) {
 	if err != nil || len(result.Books) != 0 || !bytes.Equal(raw, body) || bytes.Contains(raw, []byte("secret")) {
 		t.Fatalf("result=%+v raw=%q err=%v", result, raw, err)
 	}
-	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{`)) })
-	_, _, err = client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "x"})
+	invalidServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{`)) }))
+	defer invalidServer.Close()
+	invalidClient, err := NewClient(nil, WithClientID("secret"), WithEndpoint(invalidServer.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = invalidClient.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "x"})
 	var typed *api.Error
 	if !errors.As(err, &typed) || typed.Kind != api.ErrorKindInvalidResponse || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("err=%v", err)
