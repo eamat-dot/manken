@@ -4,23 +4,26 @@
 タスクを実行する前に、同ディレクトリ内の指示書を確認してください。各ファイルの front matter にある `applyTo` と変更対象を照合し、該当する指示書をワークスペースから読み込んで、その指示に従ってください。
 特に、以下の指示書を使用します。
 
-* `.github/instructions/commit-message.instructions.md`
-  * すべてのコミットメッセージに適用
+- `.github/instructions/commit-message.instructions.md`
+  - すべてのコミットメッセージに適用
 
-* `.github/instructions/writing.instructions.md`
-  * すべてのドキュメント類に適用
+- `.github/instructions/writing.instructions.md`
+  - すべてのドキュメント類に適用
 
-* `.github/instructions/go.instructions.md`
-  * Goコード、`go.mod`、`go.sum` の変更に適用
+- `.github/instructions/go.instructions.md`
+  - Goコード、`go.mod`、`go.sum` の変更に適用
 
-* `.github/instructions/go-comments.instructions.md`
-  * すべてのGoコードの関数コメントに適用
-  * `go.instructions.md` の一般的なコメント方針より優先
+- `.github/instructions/go-comments.instructions.md`
+  - すべてのGoコードの関数コメントに適用
+  - `go.instructions.md` の一般的なコメント方針より優先
 
 `docs/todo/` 配下の実装TODOを作成、再開、実行する場合は、`implement-todo` スキルを使用してください。
 
 この `AGENTS.md` と各指示書の内容が重複する場合は、より具体的な指示を優先してください。
 
+## 既存設計の踏襲
+
+新規provider/package追加時は、実装開始前に既存の類似providerを確認し、公開API・ファイル構成・テスト・Godoc・仕様文書・統合方法を踏襲する
 
 ## 構想・アイデア文書の扱い
 
@@ -30,11 +33,11 @@
 
 次の観点から内容を再評価すること。
 
-* 矛盾、重複、過剰な機能がないか
-* 機能や責務を統合できないか
-* 処理順序やデータ構造を単純化できないか
-* 一般的または確立された手法で代替できないか
-* 実装コスト、保守性、拡張性に対して妥当か
+- 矛盾、重複、過剰な機能がないか
+- 機能や責務を統合できないか
+- 処理順序やデータ構造を単純化できないか
+- 一般的または確立された手法で代替できないか
+- 実装コスト、保守性、拡張性に対して妥当か
 
 独自性の高い案が構造を複雑化する場合は、その案を前提とせず、目的を満たすより単純な代替案を提示すること。
 
