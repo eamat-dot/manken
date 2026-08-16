@@ -13,6 +13,7 @@
 | `rakutenbooks`  | [楽天ブックス](https://books.rakuten.co.jp/)                                                                                  | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得    | Application IDとAccess Keyが必要。Affiliate IDは任意                |
 | `rakutenkobo`   | [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                                                               | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意                |
 | `yahooshopping` | [Yahoo!ショッピング](https://shopping.yahoo.co.jp/)                                                                           | Tower固定の紙コミック商品キーワード検索、1件のISBNによる取得                 | Yahoo!ショッピングClient IDとクレジット表示要件の確認が必要         |
+| `dmm`           | [DMMブックス](https://book.dmm.com/)                                                                                          | 一般向け電子コミックのシリーズ探索とシリーズ内個別商品取得                   | API IDとAffiliate IDが必要                                          |
 | `ndl`           | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                                                          | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照    | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
 
 ### 利用前の確認
@@ -33,6 +34,7 @@
 - Yahoo!ショッピングはTower固定の商品検索であり、タイトル・著者・出版社は専用書誌検索ではない。
   公式の1クエリ/秒とクレジット表示要件、Raw responseの保存条件の未確定性は
   [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md)を確認する。
+- DMMブックスは一般向け電子コミックのシリーズ探索と個別商品取得に使う。シリーズ探索はDMMのフリーワード検索結果へ明示されたシリーズと、代表商品由来の候補判別情報を返す。認証情報と画像・アフィリエイト利用条件は[DMMブックス利用ガイド](docs/pkg/dmm/guide.md)を確認する。
 - NDLサーチAPIを利用するサイトやアプリケーションでは、その利用を表示する。全国書誌情報を二次利用する場合は
   [NDLサーチガイド](docs/pkg/ndl/guide.md)の表示・利用条件と大量アクセス時の注意を確認する。
 
@@ -99,6 +101,7 @@ go get github.com/eamat-dot/manken/openbd
 go get github.com/eamat-dot/manken/googlebooks
 go get github.com/eamat-dot/manken/rakutenbooks
 go get github.com/eamat-dot/manken/rakutenkobo
+go get github.com/eamat-dot/manken/dmm
 go get github.com/eamat-dot/manken/yahooshopping
 go get github.com/eamat-dot/manken/ndl
 ```
@@ -283,6 +286,12 @@ go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
 go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -limit 5
 ```
 
+DMM API IDとAffiliate IDを設定済みの場合は、一般向けDMMブックスのシリーズ探索を実行できる。
+
+```text
+go run ./examples/dmm -free-text "黄泉のツガイ" -exclude "特装版" -limit 5
+```
+
 Yahoo!ショッピングのClient IDを環境変数へ設定済みの場合は、Tower固定の紙コミック商品検索を実行できる。
 
 ```text
@@ -306,6 +315,8 @@ go run ./examples/ndl -title "動物のお医者さん" -limit 5
 - [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md): 楽天Kobo固有の検索、変換、通信、エラー
 - [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md): 認証情報、Affiliate ID、利用条件
 - [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md): Tower固定の商品検索、変換、通信、エラー
+- [DMMパッケージ仕様](docs/pkg/dmm/spec.md): DMMブックスのシリーズ探索、個別商品取得、変換、通信、エラー
+- [DMMブックス利用ガイド](docs/pkg/dmm/guide.md): 認証情報と利用条件
 - [NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md): NDLサーチ固有の検索、ISBN参照、変換、通信、エラー
 - [NDLサーチガイド](docs/pkg/ndl/guide.md): 利用表示、書誌データの二次利用条件、大量アクセス時の注意
 - [共通API仕様](docs/spec.md): 共通書籍モデルとAPI仕様
@@ -333,6 +344,7 @@ go test -v -tags=integration ./openbd
 go test -v -tags=integration ./googlebooks
 go test -v -tags=integration ./rakutenbooks
 go test -v -tags=integration ./rakutenkobo
+go test -v -tags=integration ./dmm
 go test -v -tags=integration ./yahooshopping
 go test -v -tags=integration ./ndl
 ```

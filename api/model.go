@@ -19,6 +19,8 @@ const (
 	SourceNDL Source = "ndl"
 	// SourceYahooShopping は、Yahoo!ショッピング商品検索APIを表す
 	SourceYahooShopping Source = "yahooshopping"
+	// SourceDMM は、DMM.com Webサービスの商品検索APIを表す
+	SourceDMM Source = "dmm"
 )
 
 // Book は、取得した1冊の漫画本を表す
@@ -34,6 +36,7 @@ type NormalizedBook struct {
 	TitleReading      string            `json:"title_reading,omitempty"`
 	Subtitle          string            `json:"subtitle,omitempty"`
 	Series            []Series          `json:"series,omitempty"`
+	BookSeries        []BookSeries      `json:"book_series,omitempty"`
 	Volume            Volume            `json:"volume,omitzero"`
 	EditionStatements []string          `json:"edition_statements,omitempty"`
 	IsFinalVolume     bool              `json:"is_final_volume,omitempty"`
@@ -122,6 +125,14 @@ type Contributor struct {
 
 // Series は、シリーズ名と取得元内の参照情報を表す
 type Series struct {
+	Name   string `json:"name"`
+	ID     string `json:"id,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Source Source `json:"source,omitempty"`
+}
+
+// BookSeries は、書籍が属する作品または刊行物のシリーズと取得元内の参照情報を表す。Seriesとは独立した項目であり、片方からもう片方を推測して設定しない
+type BookSeries struct {
 	Name   string `json:"name"`
 	ID     string `json:"id,omitempty"`
 	URL    string `json:"url,omitempty"`

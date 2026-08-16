@@ -21,6 +21,9 @@
 - 楽天Booksの一般・BL・TLコミックを検索し、1件のISBN参照とrawレスポンス取得に対応する `rakutenbooks` パッケージ
 - 楽天Koboの一般・BL・TLコミックをタイトル・著者・出版社・商品キーワード・除外語で検索する `rakutenkobo` パッケージ
 - 楽天Koboの商品番号、著者読み、取得時点価格、通常URL・アフィリエイトURL、画像、rawレスポンスの取得
+- DMMブックスの一般向け電子コミックをシリーズ探索し、シリーズIDで個別商品を取得して秘匿済みrawレスポンスを取得する `dmm` パッケージ
+- DMMシリーズ候補を代表商品由来のタイトル、著者、出版社、genre、画像、商品参照先で判別する `SeriesSearchItem`
+- DMMが明示する作品または刊行物のシリーズを保持する `BookSeries`
 - 取得元の通常URLと分離してアフィリエイトURLを保持する `BookSource.AffiliateURL`
 - 楽天Booksの `itemPrice` を取得時点の税込JPY価格として共通価格情報へ変換
 - 主タイトルと別言語または別文字体系のタイトルを保持する `ParallelTitles`
@@ -28,6 +31,7 @@
 
 ### Changed
 
+- DMM電子コミックのmanufacturer名をシリーズ内個別Bookの出版社として保持
 - 楽天Books検索を発売日の古い順へ変更し、商品形態による任意の絞り込みと複数著者の人物単位変換に対応
 - ISBN条件を `SearchBooks` から削除し、ISBN専用の `LookupBooksByISBN` へ分離
 - `Book`を、利用者向けの`Normalized`と取得元別の`Sources`を持つ構造へ

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -82,6 +83,18 @@ func TestNormalizedBookJSON_OmitsEmptyTitleReading(t *testing.T) {
 	}
 	if got := string(encoded); got != `{"title":"銀河鉄道の夜"}` {
 		t.Fatalf("Marshal() = %s", got)
+	}
+}
+
+// TestNormalizedBookJSON_UsesBookSeries は、BookSeriesのJSON名と省略規則を検証する
+func TestNormalizedBookJSON_UsesBookSeries(t *testing.T) {
+	book := Book{Normalized: NormalizedBook{BookSeries: []BookSeries{{Name: "Series", ID: "1", Source: SourceDMM}}}}
+	body, err := json.Marshal(book)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(body, []byte(`"book_series":[{"name":"Series","id":"1","source":"dmm"}]`)) {
+		t.Fatalf("book series JSON = %s", body)
 	}
 }
 

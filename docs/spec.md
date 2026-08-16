@@ -19,6 +19,7 @@
 - [楽天Koboパッケージ仕様](pkg/rakutenkobo/spec.md)
 - [NDLサーチパッケージ仕様](pkg/ndl/spec.md)
 - [Yahoo!ショッピングパッケージ仕様](pkg/yahooshopping/spec.md)
+- [DMMパッケージ仕様](pkg/dmm/spec.md)
 
 ## 3. モジュールとパッケージ
 
@@ -30,7 +31,7 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の8つである。
+提供するパッケージは次の9つである。
 
 ```text
 github.com/eamat-dot/manken/api
@@ -41,6 +42,7 @@ github.com/eamat-dot/manken/rakutenbooks
 github.com/eamat-dot/manken/rakutenkobo
 github.com/eamat-dot/manken/ndl
 github.com/eamat-dot/manken/yahooshopping
+github.com/eamat-dot/manken/dmm
 ```
 
 - `api`
@@ -65,6 +67,9 @@ github.com/eamat-dot/manken/yahooshopping
   - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 - `yahooshopping`
   - Tower固定のYahoo!ショッピング紙書籍商品検索とISBN参照、共通モデルへの変換を担当する
+- `dmm`
+  - DMMブックス電子コミックのシリーズ探索と、指定シリーズ内の個別商品を共通モデルへ限定的に変換する
+  - 通常利用に必要な `api` の型と定数をエイリアスとして公開する
 
 ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
 
@@ -127,8 +132,8 @@ MADB固有の役割表記を処理した後、`api.Book.Authors` へ設定する
 ### 5.1 Source
 
 `Source` は書誌情報の取得元を識別する文字列型である。`madb`、`openbd`、`googlebooks`、
-`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
-`SourceRakutenBooks`、`SourceRakutenKobo`、`SourceNDL`、`SourceYahooShopping` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
+`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` をそれぞれ `SourceMADB`、`SourceOpenBD`、`SourceGoogleBooks`、
+`SourceRakutenBooks`、`SourceRakutenKobo`、`SourceNDL`、`SourceYahooShopping`、`SourceDMM` として定義する。取得元パッケージは自身の定数をエイリアスとして公開し、
 JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
@@ -145,7 +150,7 @@ JSONではこの短い文字列を出力する。
   扱える値だけを設定する
 - `Normalized` は取得元応答との差分、変換履歴、項目ごとの出典を表さない
 - `Sources` は取得元と標準化した参照先情報だけを保持し、取得元固有の未共通化項目を含めない
-- 取得元固有の全レスポンスは `Book` に含めず、専用のRaw response用メソッドで返す
+- 取得元固有の全レスポンスは `Book` に含めず、専用のRaw response用メソッドで返す。認証情報を成功本文へ含める取得元は、Raw responseを返す前にその値を除去または秘匿する
 - 欠落項目や項目間の対応を推測で補完しない。取得元ごとの安全な変換規則は、
   各パッケージ仕様で定める
 - 取得元が順序を提供する場合は維持する。順序を提供しない場合は結果を安定化し、
@@ -160,6 +165,7 @@ JSONではこの短い文字列を出力する。
 | `TitleReading`      | `title_reading`      | `string`            | 空文字列                       | 主タイトルの読み。取得元が主タイトルとの対応を示し、安全に採用できる場合だけ設定する。           |
 | `Subtitle`          | `subtitle`           | `string`            | 空文字列                       | 副題。複数候補から1件を選ぶ規則は取得元仕様に従う。                                              |
 | `Series`            | `series`             | `[]Series`          | 空スライス                     | シリーズ名と、取得元が提供できるID、URL、取得元。順序と重複除去は取得元仕様に従う。              |
+| `BookSeries`        | `book_series`        | `[]BookSeries`      | 空スライス                     | Bookが属する作品または刊行物のシリーズ。名称、取得元内ID、URL、取得元を同じ要素へ保持する。      |
 | `Volume`            | `volume`             | `Volume`            | `Number` と `Label` がともに空 | 巻数。整数化できる場合は `Number`、正規化済み表示は `Label` に設定する。                         |
 | `EditionStatements` | `edition_statements` | `[]string`          | 空スライス                     | 版表示。通常版、新装版などの独自分類へ変換しない。                                               |
 | `IsFinalVolume`     | `is_final_volume`    | `bool`              | `false`                        | 完結巻であることを取得元が肯定している場合だけ `true` にする。                                   |
@@ -223,7 +229,7 @@ JSONではこの短い文字列を出力する。
 
 ### 5.6 シリーズ、日付、紙・電子
 
-`Series` は名前と、それに対応する取得元内ID、URL、取得元を同じ要素へ保持する。
+`Series` と `BookSeries` は、いずれも名前と、それに対応する取得元内ID、URL、取得元を同じ要素へ保持する。両者は独立した項目であり、片方からもう片方を推測して設定しない。現在はDMMの個別Bookが、DMMの `iteminfo.series` を `BookSeries` として設定する。`BookSeries` の各要素は名称が必須であり、ID、URL、取得元は取得元が明示した場合だけ設定する。
 `BookDate` は出版日、発売日、電子版配信開始日を区別し、日付文字列の精度を保つ。
 `PublicationMedium` は `print`、`digital`、不明の空文字列を取る。紙書籍だけが
 `PhysicalSize` に判型名とミリメートル単位の寸法を設定する。
