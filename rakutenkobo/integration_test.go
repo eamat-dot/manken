@@ -23,11 +23,11 @@ func TestIntegrationRakutenKobo(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	result, raw, err := client.SearchBooksWithRawResponse(ctx, rakutenkobo.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", ExcludedText: "分冊", Limit: 1})
+	result, raw, err := client.SearchBooksWithRawResponse(ctx, rakutenkobo.SearchRequest{Title: "ふつつかな悪女ではございますが", Exclude: "分冊", Limit: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Books) == 0 || len(raw) == 0 || result.Books[0].Normalized.Medium != rakutenkobo.PublicationMediumDigital {
+	if len(result.Books) == 0 || len(raw) == 0 || result.Books[0].Medium != rakutenkobo.PublicationMediumDigital {
 		t.Fatalf("result = %#v, raw bytes = %d", result, len(raw))
 	}
 }

@@ -29,10 +29,7 @@ func TestPublicAPI(t *testing.T) {
 	if googlebooks.SourceGoogleBooks != "googlebooks" {
 		t.Fatalf("SourceGoogleBooks = %q", googlebooks.SourceGoogleBooks)
 	}
-	if googlebooks.PriceTypeList != "list" || googlebooks.PriceTypeCurrent != "current" {
-		t.Fatalf("PriceTypeList = %q, PriceTypeCurrent = %q", googlebooks.PriceTypeList, googlebooks.PriceTypeCurrent)
-	}
-	_ = googlebooks.Price{Type: googlebooks.PriceTypeCurrent, Source: googlebooks.SourceGoogleBooks}
+	_ = googlebooks.Book{Title: "Title", ListPrice: &googlebooks.Price{Amount: 0, Source: googlebooks.SourceGoogleBooks}}
 	medium := googlebooks.PublicationMediumDigital
 	requirePublicationMediumSignature(medium)
 	if medium != "digital" || googlebooks.PublicationMediumUnknown != "" {

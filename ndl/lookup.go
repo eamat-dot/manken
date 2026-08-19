@@ -61,11 +61,28 @@ func (client *Client) lookupBooksByISBN(ctx context.Context, isbns []string) (IS
 
 // hasISBN は、取得元ISBNを正規化候補と比較して同じISBNか判定する
 func hasISBN(book Book, candidates []string) bool {
-	for _, identifier := range book.Normalized.Identifiers {
-		for _, candidate := range candidates {
-			if normalized, err := internalisbn.Normalize(identifier.Value); err == nil && containsISBN(normalized, candidate) {
-				return true
-			}
+	for _, identifier := range book.ISBN10 {
+		if hasNormalizedISBN(identifier, candidates) {
+			return true
+		}
+	}
+	for _, identifier := range book.ISBN13 {
+		if hasNormalizedISBN(identifier, candidates) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasNormalizedISBN は、取得元ISBNを一度正規化して候補群と比較する
+func hasNormalizedISBN(identifier string, candidates []string) bool {
+	normalized, err := internalisbn.Normalize(identifier)
+	if err != nil {
+		return false
+	}
+	for _, candidate := range candidates {
+		if containsISBN(normalized, candidate) {
+			return true
 		}
 	}
 	return false

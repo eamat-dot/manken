@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eamat-dot/manken/api"
+	"github.com/eamat-dot/manken/model"
 )
 
 // TestSearchBooks_FixedParametersAndConversion は、固定検索パラメータと商品変換を確認する
@@ -31,7 +31,7 @@ func TestSearchBooks_FixedParametersAndConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "作品", Author: "作者", Publisher: "出版社", FreeText: "語"})
+	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "作品", Author: "作者", Publisher: "出版社", Query: "語"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,51 +39,51 @@ func TestSearchBooks_FixedParametersAndConversion(t *testing.T) {
 		t.Fatalf("result=%+v", result)
 	}
 	book := result.Books[0]
-	if book.Normalized.Title != "作品" || book.Normalized.TitleReading != "" || len(book.Normalized.Authors) != 1 || book.Normalized.Contributors[0].Reading != "チョシャ" || book.Normalized.Volume.Number == nil || *book.Normalized.Volume.Number != 2 || book.Normalized.Medium != api.PublicationMediumPrint {
-		t.Fatalf("book=%+v", book.Normalized)
+	if book.Title != "作品 2" || book.TitleReading != "サクヒン2" || len(book.Authors) != 1 || book.Contributors[0].Reading != "チョシャ" || book.Volume.Number == nil || *book.Volume.Number != 2 || book.Medium != model.PublicationMediumPrint {
+		t.Fatalf("book=%+v", book)
 	}
-	if book.Normalized.Identifiers[0].Type != api.IdentifierTypeISBN13 || book.Normalized.Prices[0].Amount != 1000 {
-		t.Fatalf("book=%+v", book.Normalized)
+	if len(book.ISBN13) != 1 || book.ISBN13[0] != "9784088466361" || book.ReleaseDate != "2026年01月02日" || book.CurrentPrice == nil || book.CurrentPrice.Amount != 1000 || book.CurrentPrice.TaxIncluded == nil || !*book.CurrentPrice.TaxIncluded {
+		t.Fatalf("book=%+v", book)
 	}
 }
 
-// TestConvertItem_TowerMeasuredTitlePatterns は、Towerで実測したタイトルの巻表示と版表示を確認する
+// TestConvertItem_TowerMeasuredTitlePatterns は、Towerで実測した付加情報の抽出と元タイトルの保持を確認する
 func TestConvertItem_TowerMeasuredTitlePatterns(t *testing.T) {
 	for _, test := range []struct {
-		title, wantTitle string
-		volume           int
-		editions         []string
-		label            string
+		title    string
+		volume   int
+		editions []string
+		label    string
 	}{
-		{"メダリスト(15)", "メダリスト", 15, nil, "15"},
-		{"SPY×FAMILY 17", "SPY×FAMILY", 17, nil, "17"},
-		{"新装版 動物のお医者さん (11)", "動物のお医者さん", 11, []string{"新装版"}, "11"},
-		{"悲劇の元凶となる最強外道ラスボス女王は民の為に尽くします。 The Savior's Pride 1巻 (1)", "悲劇の元凶となる最強外道ラスボス女王は民の為に尽くします。 The Savior's Pride", 1, nil, "1"},
-		{"作品 #1", "作品", 1, nil, "1"},
+		{"メダリスト(15)", 15, nil, "15"},
+		{"SPY×FAMILY 17", 17, nil, "17"},
+		{"新装版 動物のお医者さん (11)", 11, []string{"新装版"}, "11"},
+		{"悲劇の元凶となる最強外道ラスボス女王は民の為に尽くします。 The Savior's Pride 1巻 (1)", 1, nil, "1"},
+		{"作品 #1", 1, nil, "1"},
 	} {
 		t.Run(test.title, func(t *testing.T) {
 			book := convertItem(item{Description: "タイトル:" + test.title}, "")
-			if book.Normalized.Title != test.wantTitle || book.Normalized.Volume.Number == nil || *book.Normalized.Volume.Number != test.volume || book.Normalized.Volume.Label != test.label || strings.Join(book.Normalized.EditionStatements, ",") != strings.Join(test.editions, ",") {
-				t.Fatalf("book=%+v", book.Normalized)
+			if book.Title != test.title || book.Volume.Number == nil || *book.Volume.Number != test.volume || book.Volume.Label != test.label || strings.Join(book.Editions, ",") != strings.Join(test.editions, ",") {
+				t.Fatalf("book=%+v", book)
 			}
 		})
 	}
 }
 
-// TestConvertItem_TowerTitleReadingRequiresUnchangedLabeledTitle は、主タイトルと対応する場合だけタイトル読みを設定することを確認する
-func TestConvertItem_TowerTitleReadingRequiresUnchangedLabeledTitle(t *testing.T) {
+// TestConvertItem_TowerTitleReadingUsesIndependentLabeledValue は、明示タイトルに対応する読みだけを保持することを確認する
+func TestConvertItem_TowerTitleReadingUsesIndependentLabeledValue(t *testing.T) {
 	for _, test := range []struct {
-		name, description, fallback, wantTitleReading string
+		name, description, fallback, wantTitle, wantTitleReading string
 	}{
-		{"unchanged labeled title", "タイトル:作品 / タイトルカナ:サクヒン", "", "サクヒン"},
-		{"separated volume", "タイトル:異世界の沙汰は社畜次第 7 / タイトルカナ:イセカイノサタハシャチクシダイ ナナ", "", ""},
-		{"separated edition", "タイトル:愛蔵版 動物のお医者さん 4 / タイトルカナ:アイゾウバン・ドウブツノオイシャサン", "", ""},
-		{"fallback title", "タイトルカナ:サクヒン", "作品", ""},
+		{"unchanged labeled title", "タイトル:作品 / タイトルカナ:サクヒン", "", "作品", "サクヒン"},
+		{"volume metadata", "タイトル:異世界の沙汰は社畜次第 7 / タイトルカナ:イセカイノサタハシャチクシダイ ナナ", "", "異世界の沙汰は社畜次第 7", "イセカイノサタハシャチクシダイ ナナ"},
+		{"edition metadata", "タイトル:愛蔵版 動物のお医者さん 4 / タイトルカナ:アイゾウバン・ドウブツノオイシャサン", "", "愛蔵版 動物のお医者さん 4", "アイゾウバン・ドウブツノオイシャサン"},
+		{"fallback title", "タイトルカナ:サクヒン", "作品", "作品", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			book := convertItem(item{Description: test.description, Name: test.fallback}, "")
-			if book.Normalized.TitleReading != test.wantTitleReading {
-				t.Fatalf("TitleReading=%q, want %q", book.Normalized.TitleReading, test.wantTitleReading)
+			if book.Title != test.wantTitle || book.TitleReading != test.wantTitleReading {
+				t.Fatalf("book=%+v, want title=%q TitleReading=%q", book, test.wantTitle, test.wantTitleReading)
 			}
 		})
 	}
@@ -92,10 +92,10 @@ func TestConvertItem_TowerTitleReadingRequiresUnchangedLabeledTitle(t *testing.T
 // TestConvertItem_TowerPreservesAmbiguousTitleAndContributorSafety は、安全に分離できない情報を推測しないことを確認する
 func TestConvertItem_TowerPreservesAmbiguousTitleAndContributorSafety(t *testing.T) {
 	book := convertItem(item{Description: "アーティスト:日向夏、他 / アーティストカナ:ヒュウガ・ナツ / タイトル:ふつつかな悪女ではございますが 1 〜雛宮蝶鼠とりかえ伝〜 IDコミックス / タイトルカナ:フツツカナアクジョ"}, "")
-	if book.Normalized.Title != "ふつつかな悪女ではございますが 1 〜雛宮蝶鼠とりかえ伝〜 IDコミックス" || book.Normalized.Volume.Number != nil || len(book.Normalized.Authors) != 1 || book.Normalized.Authors[0] != "日向夏" {
-		t.Fatalf("book=%+v", book.Normalized)
+	if book.Title != "ふつつかな悪女ではございますが 1 〜雛宮蝶鼠とりかえ伝〜 IDコミックス" || book.Volume.Number != nil || len(book.Authors) != 1 || book.Authors[0] != "日向夏" {
+		t.Fatalf("book=%+v", book)
 	}
-	if contributor := book.Normalized.Contributors[0]; contributor.Reading != "ヒュウガ・ナツ" || len(contributor.Roles) != 0 {
+	if contributor := book.Contributors[0]; contributor.Reading != "ヒュウガ・ナツ" || len(contributor.Roles) != 0 {
 		t.Fatalf("contributor=%+v", contributor)
 	}
 }
@@ -103,11 +103,11 @@ func TestConvertItem_TowerPreservesAmbiguousTitleAndContributorSafety(t *testing
 // TestConvertItem_TowerMapsLabelsWithoutGuessing は、Towerの明示ラベルと読みの対応条件を確認する
 func TestConvertItem_TowerMapsLabelsWithoutGuessing(t *testing.T) {
 	book := convertItem(item{Description: "発売日:2026年01月02日 / レーベル:講談社 / アーティスト:甲、乙 / アーティストカナ:コウ / タイトル:作品 / タイトルカナ:サクヒン"}, "")
-	if book.Normalized.TitleReading != "サクヒン" || len(book.Normalized.Publishers) != 1 || book.Normalized.Publishers[0] != "講談社" || len(book.Normalized.Dates) != 1 || book.Normalized.Dates[0].Type != BookDateTypeReleased || book.Normalized.Dates[0].Value != "2026年01月02日" {
-		t.Fatalf("book=%+v", book.Normalized)
+	if book.TitleReading != "サクヒン" || len(book.Publishers) != 1 || book.Publishers[0] != "講談社" || book.ReleaseDate != "2026年01月02日" {
+		t.Fatalf("book=%+v", book)
 	}
-	if len(book.Normalized.Contributors) != 2 || book.Normalized.Contributors[0].Reading != "" || book.Normalized.Contributors[1].Reading != "" {
-		t.Fatalf("contributors=%+v", book.Normalized.Contributors)
+	if len(book.Contributors) != 2 || book.Contributors[0].Reading != "" || book.Contributors[1].Reading != "" {
+		t.Fatalf("contributors=%+v", book.Contributors)
 	}
 }
 
@@ -118,8 +118,8 @@ func TestDecodeResponse_ActualYahooFieldShapes(t *testing.T) {
 		t.Fatal(err)
 	}
 	book := convertItem(response.Hits[0], "")
-	if len(book.Normalized.Images) != 1 || *book.Normalized.Images[0].Width != 320 || *book.Normalized.Images[0].Height != 480 {
-		t.Fatalf("images=%+v", book.Normalized.Images)
+	if book.CoverURL != "https://example.test/image" {
+		t.Fatalf("CoverURL=%q", book.CoverURL)
 	}
 	if response.Hits[0].PriceLabel == nil || response.Hits[0].PriceLabel.Taxable == nil || *response.Hits[0].PriceLabel.Taxable {
 		t.Fatalf("priceLabel=%+v", response.Hits[0].PriceLabel)
@@ -129,44 +129,60 @@ func TestDecodeResponse_ActualYahooFieldShapes(t *testing.T) {
 	}
 }
 
-// TestConvertItem_PreservesSmallMediumAnd600pxExImage は、small、medium、600pxのexImageを保持することを確認する
-func TestConvertItem_PreservesSmallMediumAnd600pxExImage(t *testing.T) {
-	book := convertItem(item{Image: itemImage{Small: "https://example.test/small", Medium: "https://example.test/medium"}, ExImage: exImage{URL: "https://example.test/ex", Width: intPointer(600), Height: intPointer(600)}}, "")
-	if len(book.Normalized.Images) != 3 || book.Normalized.Images[0].Purpose != "small" || book.Normalized.Images[1].Purpose != "medium" || book.Normalized.Images[2].Purpose != "exImage" || *book.Normalized.Images[2].Width != 600 || *book.Normalized.Images[2].Height != 600 {
-		t.Fatalf("images=%+v", book.Normalized.Images)
-	}
-	if got := convertItem(item{}, "").Normalized.Images; len(got) != 0 {
-		t.Fatalf("missing images=%+v", got)
+// TestConvertItem_SelectsLargestAvailableCover は、600px指定のexImageとその欠落時の候補順を確認する
+func TestConvertItem_SelectsLargestAvailableCover(t *testing.T) {
+	for _, test := range []struct {
+		name, want string
+		item       item
+	}{
+		{"exImage", "https://example.test/ex", item{Image: itemImage{Small: "https://example.test/small", Medium: "https://example.test/medium"}, ExImage: exImage{URL: "https://example.test/ex", Width: intPointer(600), Height: intPointer(600)}}},
+		{"medium fallback", "https://example.test/medium", item{Image: itemImage{Small: "https://example.test/small", Medium: "https://example.test/medium"}}},
+		{"small fallback", "https://example.test/small", item{Image: itemImage{Small: "https://example.test/small"}}},
+		{"no image", "", item{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := convertItem(test.item, "").CoverURL; got != test.want {
+				t.Fatalf("CoverURL=%q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
 // TestConvertItem_PriceTaxIncludedIsOptional は、税込情報の欠落を未設定として保持することを確認する
 func TestConvertItem_PriceTaxIncludedIsOptional(t *testing.T) {
 	for _, taxable := range []*bool{nil, boolPointer(true), boolPointer(false)} {
-		book := convertItem(item{Price: int64Pointer(100), PriceLabel: &priceLabel{Taxable: taxable}}, "")
-		if book.Normalized.Prices[0].TaxIncluded != taxable {
-			t.Fatalf("TaxIncluded=%p, want %p", book.Normalized.Prices[0].TaxIncluded, taxable)
+		book := convertItem(item{Price: int64Pointer(100), PriceLabel: &priceLabel{Taxable: taxable}}, "2026-08-18T00:00:00Z")
+		if book.CurrentPrice == nil || book.CurrentPrice.Currency != "JPY" || book.CurrentPrice.Source != SourceYahooShopping || book.CurrentPrice.ObservedAt != "2026-08-18T00:00:00Z" {
+			t.Fatalf("CurrentPrice=%+v", book.CurrentPrice)
 		}
+		if book.CurrentPrice.TaxIncluded == nil || taxable == nil {
+			if book.CurrentPrice.TaxIncluded != taxable {
+				t.Fatalf("TaxIncluded=%v, want %v", book.CurrentPrice.TaxIncluded, taxable)
+			}
+		} else if *book.CurrentPrice.TaxIncluded != *taxable {
+			t.Fatalf("TaxIncluded=%t, want %t", *book.CurrentPrice.TaxIncluded, *taxable)
+		}
+	}
+	if book := convertItem(item{Price: int64Pointer(0)}, ""); book.CurrentPrice == nil || book.CurrentPrice.Amount != 0 {
+		t.Fatalf("CurrentPrice=%+v", book.CurrentPrice)
 	}
 }
 
-// TestParseVolume_NormalizesLabels は、数値と非数値の巻表示を正規化する
-func TestParseVolume_NormalizesLabels(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		input     string
-		wantLabel string
-		wantNum   *int
+// TestCanonicalJAN は、有効なJANだけをそのまま返すことを確認する
+func TestCanonicalJAN(t *testing.T) {
+	tests := []struct {
+		value string
+		want  string
 	}{
-		{name: "number", input: "12巻", wantLabel: "12", wantNum: intPointer(12)},
-		{name: "upper", input: "上巻", wantLabel: "上"},
-		{name: "lower", input: "下巻", wantLabel: "下"},
-		{name: "already normalized", input: "上", wantLabel: "上"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			got, ok := parseVolume(test.input)
-			if !ok || got.Label != test.wantLabel || (got.Number == nil) != (test.wantNum == nil) || got.Number != nil && *got.Number != *test.wantNum {
-				t.Fatalf("parseVolume(%q) = %+v, %t", test.input, got, ok)
+		{value: "4901234567894", want: "4901234567894"},
+		{value: "96385074", want: "96385074"},
+		{value: "4901234567895"},
+		{value: "96385075"},
+	}
+	for _, test := range tests {
+		t.Run(test.value, func(t *testing.T) {
+			if got := canonicalJAN(test.value); got != test.want {
+				t.Fatalf("canonicalJAN(%q) = %q, want %q", test.value, got, test.want)
 			}
 		})
 	}
@@ -221,10 +237,10 @@ func int64Pointer(value int64) *int64 { return &value }
 // TestSearchBooks_ValidationAndCursor は、検索入力とカーソルの検証を確認する
 func TestSearchBooks_ValidationAndCursor(t *testing.T) {
 	client, _ := NewClient(nil, WithClientID("secret"))
-	for _, request := range []SearchBooksRequest{{Title: "x", Limit: 101}, {Title: "x", ExcludedText: "x"}, {}} {
+	for _, request := range []SearchRequest{{Title: "x", Limit: 101}, {Title: "x", Exclude: "x"}, {}} {
 		_, err := client.SearchBooks(context.Background(), request)
-		var typed *api.Error
-		if !errors.As(err, &typed) || typed.Kind != api.ErrorKindInvalidArgument {
+		var typed *model.Error
+		if !errors.As(err, &typed) || typed.Kind != model.ErrorKindInvalidArgument {
 			t.Fatalf("err=%v", err)
 		}
 	}
@@ -259,13 +275,14 @@ func TestLookupISBN_NormalizesAndDoesNotForceGenre(t *testing.T) {
 	}
 }
 
-// TestSearchBooks_ExcludesWholeSetsAndJAN は、全巻セットの除外とJAN識別子の変換を確認する
+// TestSearchBooks_ExcludesWholeSetsAndJAN は、全巻セットの除外とJANフィールドへの変換を確認する
 func TestSearchBooks_ExcludesWholeSetsAndJAN(t *testing.T) {
 	if isTowerComic(item{Name: "作品 1-10巻セット", Seller: seller{SellerID: "tower"}, GenreCategory: genre{ID: comicGenreCategoryID}}) {
 		t.Fatal("set accepted")
 	}
-	if got, _ := itemIdentifier("4901234567894"); got.Type != IdentifierTypeJAN {
-		t.Fatalf("identifier=%+v", got)
+	book := convertItem(item{JanCode: "4901234567894"}, "")
+	if len(book.JAN) != 1 || book.JAN[0] != "4901234567894" {
+		t.Fatalf("JAN=%+v", book.JAN)
 	}
 }
 
@@ -274,13 +291,13 @@ func TestHTTPErrorKinds(t *testing.T) {
 	for _, status := range []int{429, 503, 400} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
 		client, _ := NewClient(nil, WithClientID("secret"), WithEndpoint(server.URL))
-		_, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "x"})
+		_, err := client.SearchBooks(context.Background(), SearchRequest{Title: "x"})
 		server.Close()
-		var typed *api.Error
+		var typed *model.Error
 		if !errors.As(err, &typed) {
 			t.Fatal(err)
 		}
-		if (status == 429 || status == 503) && typed.Kind != api.ErrorKindUnavailable {
+		if (status == 429 || status == 503) && typed.Kind != model.ErrorKindUnavailable {
 			t.Fatalf("status=%d kind=%s", status, typed.Kind)
 		}
 	}
@@ -309,7 +326,7 @@ func TestClient_RejectsInvalidCredentialsAndDoesNotExposeThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "x"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "x"})
 	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("error exposed client ID: %v", err)
 	}
@@ -413,17 +430,20 @@ func TestTowerFilteringAndOptionalFields(t *testing.T) {
 		})
 	}
 	book := convertItem(item{Seller: base.Seller, GenreCategory: base.GenreCategory}, "")
-	if !isTowerComic(base) || len(book.Normalized.Identifiers) != 0 || len(book.Normalized.Images) != 0 || len(book.Normalized.Publishers) != 0 {
-		t.Fatalf("book=%+v", book.Normalized)
+	if !isTowerComic(base) || len(book.ISBN13) != 0 || len(book.JAN) != 0 || book.CoverURL != "" || len(book.Publishers) != 0 {
+		t.Fatalf("book=%+v", book)
 	}
 	for _, test := range []struct {
-		jan  string
-		want api.IdentifierType
-		ok   bool
-	}{{" 9784088466361 ", IdentifierTypeISBN13, true}, {"49012345", IdentifierTypeJAN, true}, {"4901234567894", IdentifierTypeJAN, true}, {"123456789012", "", false}, {"12345678901234", "", false}, {"4901234A", "", false}, {"   ", "", false}} {
-		identifier, ok := itemIdentifier(test.jan)
-		if ok != test.ok || (ok && identifier.Type != test.want) {
-			t.Fatalf("itemIdentifier(%q) = %+v, %t", test.jan, identifier, ok)
+		jan        string
+		wantISBN13 string
+		wantJAN    string
+	}{{" 9784088466361 ", "9784088466361", ""}, {"49012345", "", ""}, {"4901234567894", "", "4901234567894"}, {"123456789012", "", ""}, {"12345678901234", "", ""}, {"4901234A", "", ""}, {"   ", "", ""}} {
+		book := convertItem(item{JanCode: test.jan}, "")
+		if got := strings.Join(book.ISBN13, ","); got != test.wantISBN13 {
+			t.Fatalf("ISBN13 for %q = %q, want %q", test.jan, got, test.wantISBN13)
+		}
+		if got := strings.Join(book.JAN, ","); got != test.wantJAN {
+			t.Fatalf("JAN for %q = %q, want %q", test.jan, got, test.wantJAN)
 		}
 	}
 }
@@ -437,7 +457,7 @@ func TestSearchBooks_RawResponseAndInvalidJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "x"})
+	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "x"})
 	if err != nil || len(result.Books) != 0 || !bytes.Equal(raw, body) || bytes.Contains(raw, []byte("secret")) {
 		t.Fatalf("result=%+v raw=%q err=%v", result, raw, err)
 	}
@@ -447,9 +467,9 @@ func TestSearchBooks_RawResponseAndInvalidJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = invalidClient.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "x"})
-	var typed *api.Error
-	if !errors.As(err, &typed) || typed.Kind != api.ErrorKindInvalidResponse || strings.Contains(err.Error(), "secret") {
+	_, _, err = invalidClient.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "x"})
+	var typed *model.Error
+	if !errors.As(err, &typed) || typed.Kind != model.ErrorKindInvalidResponse || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -465,7 +485,7 @@ func TestClient_DoesNotFollowRedirects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "x"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "x"})
 	if err == nil || redirectTargetCalled || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("err=%v redirectTargetCalled=%t", err, redirectTargetCalled)
 	}

@@ -50,6 +50,7 @@ func convertISBN10To13(value string) string {
 
 // convertISBN13To10 は、978で始まる妥当なISBN-13をISBN-10へ変換する
 func convertISBN13To10(value string) (string, bool) {
+	// ISBN-10へ対応付けられるISBN-13は978 Booklandだけで、979にはISBN-10表現がない
 	if !strings.HasPrefix(value, "978") {
 		return "", false
 	}

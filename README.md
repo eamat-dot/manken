@@ -47,6 +47,7 @@
 - 出版社名による検索
 - 複数の書誌項目を対象とするフリーワード検索
 - 指定語を含む結果の除外
+- 出版時期による範囲検索
 - 取得件数の指定とカーソルによるページング
 - ISBN-10またはISBN-13による書誌情報の取得
 
@@ -83,7 +84,7 @@
 ### NDLサーチ
 
 - 完成済み全国書誌を対象にするタイトル・著者名・出版社名・フリーワード検索
-- 出版時期、件名、内容記述によるNDL固有の絞り込み
+- 出版時期による範囲検索と、件名・内容記述によるNDL固有の絞り込み
 - NDC 726.1 / NDLC Y84による漫画候補の既定絞り込みと個別解除
 - ISBN-10またはISBN-13を1件指定した書誌情報の取得
 - 取得件数の指定とカーソルによるページング
@@ -129,14 +130,14 @@ func main() {
 
 	result, err := client.SearchBooks(
 		context.Background(),
-		madb.SearchBooksRequest{Title: "動物のおしゃべり"},
+		madb.SearchRequest{Title: "動物のおしゃべり"},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, book := range result.Books {
-		fmt.Println(book.Normalized.Title, book.Normalized.Authors)
+		fmt.Println(book.Title, book.Authors)
 	}
 }
 ```
@@ -190,7 +191,7 @@ if err != nil {
 }
 result, err := client.SearchBooks(
     context.Background(),
-    googlebooks.SearchBooksRequest{Title: "動物のお医者さん"},
+    googlebooks.SearchRequest{Title: "動物のお医者さん"},
 )
 ```
 
@@ -221,13 +222,13 @@ func main() {
     }
     result, err := client.SearchBooks(
         context.Background(),
-        rakutenbooks.SearchBooksRequest{Title: "動物のお医者さん"},
+        rakutenbooks.SearchRequest{Title: "動物のお医者さん"},
     )
     if err != nil {
         log.Fatal(err)
     }
     for _, book := range result.Books {
-        log.Println(book.Normalized.Title)
+        log.Println(book.Title)
     }
 }
 ```
@@ -250,7 +251,7 @@ if err != nil {
 }
 result, err := client.SearchBooks(
     context.Background(),
-    ndl.SearchBooksRequest{Title: "動物のお医者さん"},
+    ndl.SearchRequest{Title: "動物のお医者さん"},
 )
 ```
 
@@ -289,7 +290,7 @@ go run ./examples/rakutenkobo -title "ふつつかな悪女ではございます
 DMM API IDとAffiliate IDを設定済みの場合は、一般向けDMMブックスのシリーズ探索を実行できる。
 
 ```text
-go run ./examples/dmm -free-text "黄泉のツガイ" -exclude "特装版" -limit 5
+go run ./examples/dmm -query "黄泉のツガイ" -exclude "特装版" -limit 5
 ```
 
 Yahoo!ショッピングのClient IDを環境変数へ設定済みの場合は、Tower固定の紙コミック商品検索を実行できる。

@@ -68,7 +68,7 @@ Affiliate IDを設定しても検索条件は変わらない。楽天Booksが返
 ```go
 result, err := client.SearchBooks(
     context.Background(),
-    rakutenbooks.SearchBooksRequest{Title: "動物のお医者さん"},
+    rakutenbooks.SearchRequest{Title: "動物のお医者さん"},
 )
 if err != nil {
     log.Fatal(err)
@@ -79,7 +79,7 @@ if err != nil {
 すべての条件を満たす書籍に絞り込む。
 
 楽天BooksはBooks Book Search APIに汎用フリーワード検索と除外キーワード検索を持たないため、
-`FreeText` と `ExcludedText` は利用できない。
+`Query` と `Exclude` は利用できない。
 
 ## 4. 一般・BL・TLコミック
 
@@ -142,7 +142,7 @@ client, err := rakutenbooks.NewClient(nil,
 `Limit` は1〜30件を指定できる。0は既定値の20件である。
 
 ```go
-request := rakutenbooks.SearchBooksRequest{
+request := rakutenbooks.SearchRequest{
     Title: "動物のお医者さん",
     Limit: 5,
 }
@@ -171,7 +171,7 @@ ISBN参照にも `LookupBooksByISBNWithRawResponse` がある。
 
 変換済み結果では、楽天Booksの販売情報のうち次を共通モデルから利用できる。
 
-- `itemPrice`: `Normalized.Prices` の `current` 価格。JPY、税込、取得時刻付き
+- `itemPrice`: `CurrentPrice`。JPY、税込、取得時刻付き
 - `itemUrl`: `BookSource.URL` の通常商品URL
 - `affiliateUrl`: Affiliate ID指定時の `BookSource.AffiliateURL`
 

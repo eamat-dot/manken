@@ -23,10 +23,10 @@ func TestIntegrationGoogleBooks(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	for _, request := range []googlebooks.SearchBooksRequest{
+	for _, request := range []googlebooks.SearchRequest{
 		{Title: "動物のお医者さん", Limit: 40},
 		{Author: "佐々木倫子"},
-		{FreeText: "日本 漫画"},
+		{Query: "日本 漫画"},
 	} {
 		result, err := client.SearchBooks(ctx, request)
 		if err != nil {
@@ -40,12 +40,12 @@ func TestIntegrationGoogleBooks(t *testing.T) {
 		}
 	}
 
-	excluded, err := client.SearchBooks(ctx, googlebooks.SearchBooksRequest{Title: "動物のお医者さん", ExcludedText: "動物", Limit: 40})
+	excluded, err := client.SearchBooks(ctx, googlebooks.SearchRequest{Title: "動物のお医者さん", Exclude: "動物", Limit: 40})
 	if err != nil {
-		t.Fatalf("SearchBooks(ExcludedText) error = %v", err)
+		t.Fatalf("SearchBooks(Exclude) error = %v", err)
 	}
 	if len(excluded.Books) != 0 {
-		t.Fatalf("SearchBooks(ExcludedText) returned %d books, want 0", len(excluded.Books))
+		t.Fatalf("SearchBooks(Exclude) returned %d books, want 0", len(excluded.Books))
 	}
 
 	result, raw, err := client.LookupBooksByISBNWithRawResponse(ctx, []string{"4088466365"})

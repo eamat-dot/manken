@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/eamat-dot/manken/internal/titlemeta"
+
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 )
 
@@ -26,6 +28,7 @@ type booksItem struct {
 	TitleKana      string `json:"titleKana"`
 	SubTitle       string `json:"subTitle"`
 	SeriesName     string `json:"seriesName"`
+	SeriesNameKana string `json:"seriesNameKana"`
 	Author         string `json:"author"`
 	AuthorKana     string `json:"authorKana"`
 	PublisherName  string `json:"publisherName"`
@@ -61,15 +64,14 @@ func decodeBooksResponse(body []byte) (booksResponse, error) {
 // convertItem は、楽天Books商品を共通のBookへ変換する
 func convertItem(value booksItem, observedAt string) Book {
 	book := Book{
-		Normalized: NormalizedBook{
-			Title:        value.Title,
-			TitleReading: value.TitleKana,
-			Subtitle:     value.SubTitle,
-			Description:  value.ItemCaption,
-			Medium:       PublicationMediumPrint,
-			Subjects:     subjects(value.BooksGenreID),
-			Images:       images(value),
-		},
+		Title:        value.Title,
+		TitleReading: value.TitleKana,
+		Subtitle:     value.SubTitle,
+		Description:  value.ItemCaption,
+		Medium:       PublicationMediumPrint,
+		Subjects:     subjects(value.BooksGenreID),
+		Size:         value.Size,
+		CoverURL:     coverURL(value),
 		Sources: []BookSource{{
 			Source:       SourceRakutenBooks,
 			URL:          sourceURL(value.ItemURL),
@@ -77,33 +79,33 @@ func convertItem(value booksItem, observedAt string) Book {
 		}},
 	}
 	if value.SeriesName != "" {
-		book.Normalized.Series = []Series{{Name: value.SeriesName}}
+		book.PublicationSeries = []string{value.SeriesName}
 	}
-	book.Normalized.Authors, book.Normalized.Contributors = contributors(value.Author, value.AuthorKana)
+	book.Authors, book.Contributors = contributors(value.Author, value.AuthorKana)
 	if value.PublisherName != "" {
-		book.Normalized.Publishers = []string{value.PublisherName}
+		book.Publishers = []string{value.PublisherName}
 	}
-	if identifier, ok := identifier(value.ISBN); ok {
-		book.Normalized.Identifiers = []Identifier{identifier}
-	}
+	book.ISBN10, book.ISBN13 = isbn(value.ISBN)
 	if value.SalesDate != "" {
-		book.Normalized.Dates = []BookDate{{Type: BookDateTypeReleased, Value: value.SalesDate}}
-	}
-	if value.Size != "" {
-		book.Normalized.PhysicalSize = &PhysicalSize{Name: value.Size}
+		book.ReleaseDate = value.SalesDate
 	}
 	if value.ItemPrice != nil {
 		taxIncluded := true
-		book.Normalized.Prices = []Price{{
-			Type:        PriceTypeCurrent,
+		book.CurrentPrice = &Price{
 			Amount:      *value.ItemPrice,
 			Currency:    "JPY",
 			TaxIncluded: &taxIncluded,
 			Source:      SourceRakutenBooks,
 			ObservedAt:  observedAt,
-		}}
+		}
 	}
+	applyTitleMetadata(&book)
 	return book
+}
+
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
 }
 
 // contributors は、楽天Booksのスラッシュ区切り著者と読みを人物単位へ変換する
@@ -140,15 +142,15 @@ func sourceURL(value string) string {
 	return value
 }
 
-// identifier は、検証済みISBNを共通識別子へ変換する
-func identifier(value string) (Identifier, bool) {
+// isbn は、検証済みISBNを種類ごとのスライスへ変換する
+func isbn(value string) ([]string, []string) {
 	switch {
 	case internalisbn.IsValidISBN10(value):
-		return Identifier{Type: IdentifierTypeISBN10, Value: value}, true
+		return []string{value}, nil
 	case internalisbn.IsValidISBN13(value):
-		return Identifier{Type: IdentifierTypeISBN13, Value: value}, true
+		return nil, []string{value}
 	default:
-		return Identifier{}, false
+		return nil, nil
 	}
 }
 
@@ -165,18 +167,12 @@ func subjects(value string) []Subject {
 	return result
 }
 
-// images は、楽天Booksの3サイズ画像URLを安定したフィールド順で変換する
-func images(value booksItem) []Image {
-	values := []struct{ purpose, url string }{
-		{"smallImageUrl", value.SmallImageURL},
-		{"mediumImageUrl", value.MediumImageURL},
-		{"largeImageUrl", value.LargeImageURL},
-	}
-	result := make([]Image, 0, len(values))
-	for _, image := range values {
-		if image.url != "" {
-			result = append(result, Image{URL: image.url, Purpose: image.purpose})
+// coverURL は、楽天Booksの利用可能な最大サイズ画像URLを返す
+func coverURL(value booksItem) string {
+	for _, candidate := range []string{value.LargeImageURL, value.MediumImageURL, value.SmallImageURL} {
+		if candidate != "" {
+			return candidate
 		}
 	}
-	return result
+	return ""
 }

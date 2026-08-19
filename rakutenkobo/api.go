@@ -1,76 +1,54 @@
 // Package rakutenkobo は、楽天Kobo電子書籍検索APIから電子書籍の商品情報を検索する機能を提供する
 package rakutenkobo
 
-import "github.com/eamat-dot/manken/api"
+import "github.com/eamat-dot/manken/model"
 
 // Source は、書誌情報の取得元を表す
-type Source = api.Source
+type Source = model.Source
 
 // Book は、取得した1冊の電子書籍を表す
-type Book = api.Book
-
-// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
-type NormalizedBook = api.NormalizedBook
+type Book = model.Book
 
 // BookSource は、Bookの情報を取得した取得元と参照先を表す
-type BookSource = api.BookSource
+type BookSource = model.BookSource
 
 // Contributor は、制作への寄与者と複数の役割を表す
-type Contributor = api.Contributor
-
-// Series は、シリーズ名と取得元内の参照情報を表す
-type Series = api.Series
-
-// BookDate は、種類と精度を維持した日付文字列を表す
-type BookDate = api.BookDate
-
-// BookDateType は、書誌に関係する日付の種類を表す
-type BookDateType = api.BookDateType
+type Contributor = model.Contributor
 
 // PublicationMedium は、出版物の媒体を表し、未設定または不明な値も取り得る
-type PublicationMedium = api.PublicationMedium
+type PublicationMedium = model.PublicationMedium
 
-// Price は、種類と出典を明示した価格を表す
-type Price = api.Price
-
-// PriceType は、価格の種類を表す
-type PriceType = api.PriceType
+// Price は、金額と出典を表す
+type Price = model.Price
 
 // Subject は、取得元の分類体系に基づく主題またはジャンルを表す
-type Subject = api.Subject
+type Subject = model.Subject
 
-// Image は、表紙など書籍に関係する画像を表す
-type Image = api.Image
-
-// SearchBooksRequest は、漫画本の検索条件を表す
-type SearchBooksRequest = api.SearchBooksRequest
+// SearchRequest は、漫画本の検索条件を表す
+type SearchRequest = model.SearchRequest
 
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
-type SearchBooksResult = api.SearchBooksResult
+type SearchBooksResult = model.SearchBooksResult
 
 // ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
-type ErrorKind = api.ErrorKind
+type ErrorKind = model.ErrorKind
 
 // Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
-type Error = api.Error
+type Error = model.Error
 
 const (
 	// SourceRakutenKobo は、楽天Kobo電子書籍検索APIを表す
-	SourceRakutenKobo = api.SourceRakutenKobo
-	// BookDateTypeReleased は、発売日を表す
-	BookDateTypeReleased = api.BookDateTypeReleased
+	SourceRakutenKobo = model.SourceRakutenKobo
 	// PublicationMediumDigital は、電子書籍を表す
-	PublicationMediumDigital = api.PublicationMediumDigital
-	// PriceTypeCurrent は、API取得時点の販売価格を表す
-	PriceTypeCurrent = api.PriceTypeCurrent
+	PublicationMediumDigital = model.PublicationMediumDigital
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
-	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
+	ErrorKindInvalidArgument = model.ErrorKindInvalidArgument
 	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す
-	ErrorKindUpstream = api.ErrorKindUpstream
+	ErrorKindUpstream = model.ErrorKindUpstream
 	// ErrorKindUnavailable は、取得元または通信が一時的に利用できない状態を表す
-	ErrorKindUnavailable = api.ErrorKindUnavailable
+	ErrorKindUnavailable = model.ErrorKindUnavailable
 	// ErrorKindInvalidResponse は、取得元の成功応答を解釈できない状態を表す
-	ErrorKindInvalidResponse = api.ErrorKindInvalidResponse
+	ErrorKindInvalidResponse = model.ErrorKindInvalidResponse
 )
 
 // ComicGenre は、楽天Kobo検索で対象にする漫画区分を表す

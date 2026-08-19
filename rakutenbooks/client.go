@@ -84,6 +84,7 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
 	internalHTTPClient := *httpClient
+	// 認証情報を含むqueryをredirect先へ転送しないため、呼び出し側のredirect設定は引き継がない
 	internalHTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}

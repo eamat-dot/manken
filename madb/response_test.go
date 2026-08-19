@@ -66,33 +66,35 @@ func TestBuildSearchResult_AggregatesAndConverts(t *testing.T) {
 	}
 
 	book := result.Books[0]
-	if book.Normalized.Title != "A" || book.Normalized.Subtitle != "副題A" {
-		t.Fatalf("normalized titles = %#v", book.Normalized)
+	if book.Title != "A" || book.Subtitle != "副題A" {
+		t.Fatalf("titles = %#v", book)
 	}
-	assertStrings(t, book.Normalized.EditionStatements, []string{"[通常版]", "新装版"})
-	assertStrings(t, book.Normalized.Authors, []string{"使わない著者"})
-	assertContributors(t, book.Normalized.Contributors, []Contributor{{
+	assertStrings(t, book.Editions, []string{"[通常版]", "新装版"})
+	assertStrings(t, book.Authors, []string{"使わない著者"})
+	assertContributors(t, book.Contributors, []Contributor{{
 		Name:  "使わない著者",
-		Roles: []ContributorRole{ContributorRoleAuthor},
+		Roles: []string{"著者"},
 	}})
-	assertStrings(t, book.Normalized.Publishers, []string{"出版社A", "出版社B"})
-	assertStrings(t, book.Normalized.Imprints, []string{"レーベルA", "レーベルB"})
-	assertIdentifiers(t, book.Normalized.Identifiers, []Identifier{
-		{Type: IdentifierTypeISBN10, Value: "0306406152"},
-		{Type: IdentifierTypeISBN10, Value: "080442957X"},
-		{Type: IdentifierTypeISBN13, Value: "9780306406157"},
-		{Type: IdentifierTypeISBN13, Value: "9783161484100"},
-	})
-	if book.Normalized.Volume.Number == nil || *book.Normalized.Volume.Number != 1 ||
-		book.Normalized.Volume.Label != "1" {
-		t.Fatalf("Volume = %#v, want number 1", book.Normalized.Volume)
+	assertStrings(t, book.Publishers, []string{"出版社A", "出版社B"})
+	assertStrings(t, book.PublicationSeries, []string{"レーベルA", "レーベルB"})
+	assertStrings(t, book.ISBN10, []string{"0306406152", "080442957X"})
+	assertStrings(t, book.ISBN13, []string{"9780306406157", "9783161484100"})
+	if book.PublishedDate != "2026-07" {
+		t.Fatalf("PublishedDate = %q, want 2026-07", book.PublishedDate)
 	}
-	if len(book.Normalized.Series) != 2 ||
-		book.Normalized.Series[0].Name != "シリーズ" ||
-		book.Normalized.Series[0].ID != "C1" ||
-		book.Normalized.Series[0].URL != seriesResourceURI("C1") ||
-		book.Normalized.Series[1].Name != "参照シリーズ" {
-		t.Fatalf("Series = %#v", book.Normalized.Series)
+	if book.Volume.Number == nil || *book.Volume.Number != 1 || book.Volume.Label != "1" {
+		t.Fatalf("Volume = %#v, want number 1", book.Volume)
+	}
+	if len(book.BookSeries) != 2 ||
+		book.BookSeries[0].Name != "シリーズ" ||
+		book.BookSeries[0].ID != "C1" ||
+		book.BookSeries[0].URL != seriesResourceURI("C1") ||
+		book.BookSeries[0].Source != SourceMADB ||
+		book.BookSeries[1].Name != "参照シリーズ" ||
+		book.BookSeries[1].ID != "C1" ||
+		book.BookSeries[1].URL != seriesResourceURI("C1") ||
+		book.BookSeries[1].Source != SourceMADB {
+		t.Fatalf("BookSeries = %#v", book.BookSeries)
 	}
 	if len(book.Sources) != 1 ||
 		book.Sources[0].Source != SourceMADB ||
@@ -100,6 +102,32 @@ func TestBuildSearchResult_AggregatesAndConverts(t *testing.T) {
 		book.Sources[0].URL != resourceURI("M1") {
 		t.Fatalf("Sources = %#v", book.Sources)
 	}
+}
+
+// TestConvertBook_PreservesTitleWithVolumeAndEdition は、巻数と版表示を抽出しても取得元タイトルを変更しないことを検証する
+func TestConvertBook_PreservesTitleWithVolumeAndEdition(t *testing.T) {
+	book := convertBook(sourceBook{
+		Titles:       []string{"作品 第1巻 新装版"},
+		VolumeNumber: "1",
+		Versions:     []string{"新装版"},
+	})
+
+	if book.Title != "作品 第1巻 新装版" {
+		t.Fatalf("Title = %q, want source title unchanged", book.Title)
+	}
+	if book.Volume.Number == nil || *book.Volume.Number != 1 {
+		t.Fatalf("Volume = %#v, want 1", book.Volume)
+	}
+	assertStrings(t, book.Editions, []string{"新装版"})
+}
+
+// TestConvertBook_PrefersExplicitMetadata は、MADBの明示巻数と版表示をタイトル候補より優先することを検証する
+func TestConvertBook_PrefersExplicitMetadata(t *testing.T) {
+	book := convertBook(sourceBook{Titles: []string{"作品 第2巻 完全版"}, VolumeNumber: "7", Versions: []string{"特装版"}})
+	if book.Volume.Number == nil || *book.Volume.Number != 7 || book.Volume.Label != "7" {
+		t.Fatalf("Volume = %#v", book.Volume)
+	}
+	assertStrings(t, book.Editions, []string{"特装版"})
 }
 
 // TestBuildSearchResult_MADBAdditionalFields は、タイトル読み、ページ数、大きさ、出版社の変換を検証する
@@ -126,22 +154,37 @@ func TestBuildSearchResult_MADBAdditionalFields(t *testing.T) {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
 	book := result.Books[0]
-	if book.Normalized.TitleReading != "ドウブツノオイシャサン" {
-		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
+	if book.TitleReading != "ドウブツノオイシャサン" {
+		t.Fatalf("TitleReading = %q", book.TitleReading)
 	}
-	assertStrings(t, book.Normalized.Publishers, []string{"白泉社"})
-	if book.Normalized.PageCount == nil || *book.Normalized.PageCount != 197 {
-		t.Fatalf("PageCount = %#v", book.Normalized.PageCount)
+	assertStrings(t, book.Publishers, []string{"白泉社"})
+	if book.PageCount == nil || *book.PageCount != 197 {
+		t.Fatalf("PageCount = %#v", book.PageCount)
 	}
-	if book.Normalized.Medium != PublicationMediumPrint ||
-		book.Normalized.PhysicalSize == nil ||
-		book.Normalized.PhysicalSize.HeightMM == nil ||
-		*book.Normalized.PhysicalSize.HeightMM != 173 ||
-		book.Normalized.PhysicalSize.WidthMM == nil ||
-		*book.Normalized.PhysicalSize.WidthMM != 106 {
-		t.Fatalf("physical fields = medium %q, size %#v", book.Normalized.Medium, book.Normalized.PhysicalSize)
+	if book.Medium != PublicationMediumPrint || book.Size != "17.3cm　×　10.6cm" {
+		t.Fatalf("physical fields = medium %q, size %q", book.Medium, book.Size)
 	}
 
+}
+
+// TestHasStructuredPhysicalSize_AcceptsMultipleDecimalPlaces は、cm寸法の小数部を1桁以上受け付けることを検証する
+func TestHasStructuredPhysicalSize_AcceptsMultipleDecimalPlaces(t *testing.T) {
+	for _, value := range []string{"17.3cm", "17.35cm", "17.35cm×10.625cm", "１７．３５cm＊１０．６２５cm"} {
+		if !hasStructuredPhysicalSize(value) {
+			t.Fatalf("hasStructuredPhysicalSize(%q) = false", value)
+		}
+	}
+}
+
+// TestConvertBook_PreservesUnstructuredSize は、判型名をSizeへ保持して紙書籍媒体を推測しないことを検証する
+func TestConvertBook_PreservesUnstructuredSize(t *testing.T) {
+	book := convertBook(sourceBook{Size: "四六判"})
+	if book.Size != "四六判" {
+		t.Fatalf("Size = %q, want raw MADB size", book.Size)
+	}
+	if book.Medium != PublicationMediumUnknown {
+		t.Fatalf("Medium = %q, want unknown", book.Medium)
+	}
 }
 
 // TestNormalizePublishers は、カナ読みだけを除去し任意の併記は維持することを検証する
@@ -178,18 +221,6 @@ func TestNormalizePageCount(t *testing.T) {
 	}
 }
 
-// TestNormalizePhysicalSize は、MADBのセンチメートル表記をミリメートルへ変換する
-func TestNormalizePhysicalSize(t *testing.T) {
-	got := normalizePhysicalSize("17.3cm　×　10.6cm")
-	if got == nil || got.HeightMM == nil || *got.HeightMM != 173 ||
-		got.WidthMM == nil || *got.WidthMM != 106 {
-		t.Fatalf("normalizePhysicalSize() = %#v", got)
-	}
-	if got := normalizePhysicalSize("四六判"); got != nil {
-		t.Fatalf("normalizePhysicalSize(unknown) = %#v, want nil", got)
-	}
-}
-
 // TestBuildSearchResult_CreatorRolesAndMissingValues は、creator役割変換と欠落値を検証する
 func TestBuildSearchResult_CreatorRolesAndMissingValues(t *testing.T) {
 	response := newSPARQLResponse(
@@ -208,33 +239,31 @@ func TestBuildSearchResult_CreatorRolesAndMissingValues(t *testing.T) {
 		t.Fatalf("buildSearchResult() error = %v", err)
 	}
 	book := result.Books[0]
-	assertStrings(t, book.Normalized.Authors, []string{"佐々木倫子"})
-	assertContributors(t, book.Normalized.Contributors, []Contributor{
-		{Name: "佐々木倫子", Roles: []ContributorRole{ContributorRoleAuthor}},
-		{Name: "藤原新也", Roles: []ContributorRole{ContributorRoleCommentator}},
+	assertStrings(t, book.Authors, []string{"佐々木倫子"})
+	assertContributors(t, book.Contributors, []Contributor{
+		{Name: "佐々木倫子", Roles: []string{"著者"}},
+		{Name: "藤原新也", Roles: []string{"解説"}},
 	})
-	for _, contributor := range book.Normalized.Contributors {
+	for _, contributor := range book.Contributors {
 		if contributor.Reading != "" {
 			t.Fatalf("Contributor.Reading = %q, want empty", contributor.Reading)
 		}
 	}
-	if book.Normalized.Title != "" || book.Normalized.Subtitle != "" ||
-		len(book.Normalized.Series) != 0 || len(book.Normalized.Identifiers) != 0 {
-		t.Fatalf("Normalized = %#v, want omitted optional values", book.Normalized)
+	if book.Title != "" || book.Subtitle != "" || len(book.BookSeries) != 0 || len(book.ISBN10) != 0 || len(book.ISBN13) != 0 {
+		t.Fatalf("Book = %#v, want omitted optional values", book)
 	}
 
 	encoded, err := json.Marshal(book)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	for _, field := range []string{"title", "subtitle", "series", "edition_statements", "imprints"} {
+	for _, field := range []string{"title", "subtitle", "series", "editions"} {
 		if strings.Contains(string(encoded), `"`+field+`"`) {
 			t.Fatalf("JSON contains missing field %s: %s", field, encoded)
 		}
 	}
-	if !strings.Contains(string(encoded), `"normalized":{`) ||
-		!strings.Contains(string(encoded), `"sources":[`) {
-		t.Fatalf("JSON omits required containers: %s", encoded)
+	if !strings.Contains(string(encoded), `"sources":[`) {
+		t.Fatalf("JSON omits sources: %s", encoded)
 	}
 }
 
@@ -244,15 +273,15 @@ func TestParseCreator(t *testing.T) {
 		name      string
 		value     string
 		wantName  string
-		wantRoles []ContributorRole
+		wantRoles []string
 		hasRole   bool
 		wantOK    bool
 	}{
-		{name: "author", value: "[著]佐藤花子", wantName: "佐藤花子", wantRoles: []ContributorRole{ContributorRoleAuthor}, hasRole: true, wantOK: true},
-		{name: "compound", value: "[原作・監修]山田太郎", wantName: "山田太郎", wantRoles: []ContributorRole{ContributorRoleOriginalCreator, ContributorRoleSupervisor}, hasRole: true, wantOK: true},
-		{name: "author and artist", value: "[作・画]鈴木一郎", wantName: "鈴木一郎", wantRoles: []ContributorRole{ContributorRoleAuthor, ContributorRoleArtist}, hasRole: true, wantOK: true},
-		{name: "bracketed full name", value: "[作画][田辺節雄]", wantName: "田辺節雄", wantRoles: []ContributorRole{ContributorRoleArtist}, hasRole: true, wantOK: true},
-		{name: "bracketed given part", value: "[画][葛飾]北斎", wantName: "葛飾北斎", wantRoles: []ContributorRole{ContributorRoleArtist}, hasRole: true, wantOK: true},
+		{name: "author", value: "[著]佐藤花子", wantName: "佐藤花子", wantRoles: []string{"著者"}, hasRole: true, wantOK: true},
+		{name: "compound", value: "[原作・監修]山田太郎", wantName: "山田太郎", wantRoles: []string{"原作", "監修"}, hasRole: true, wantOK: true},
+		{name: "author and artist", value: "[作・画]鈴木一郎", wantName: "鈴木一郎", wantRoles: []string{"著者", "作画"}, hasRole: true, wantOK: true},
+		{name: "bracketed full name", value: "[作画][田辺節雄]", wantName: "田辺節雄", wantRoles: []string{"作画"}, hasRole: true, wantOK: true},
+		{name: "bracketed given part", value: "[画][葛飾]北斎", wantName: "葛飾北斎", wantRoles: []string{"作画"}, hasRole: true, wantOK: true},
 		{name: "roleless", value: "Arinco", wantName: "Arinco", wantOK: true},
 		{name: "unknown role", value: "[協力]佐藤花子", wantName: "佐藤花子", hasRole: true, wantOK: true},
 		{name: "unknown compound part", value: "[監修・協力]佐藤花子", wantName: "佐藤花子", hasRole: true, wantOK: true},
@@ -277,23 +306,23 @@ func TestParseCreator(t *testing.T) {
 // TestMapCreatorRole は、確定したMADB役割を11種類の共通役割へ変換する
 func TestMapCreatorRole(t *testing.T) {
 	tests := []struct {
-		role   ContributorRole
+		role   string
 		values []string
 	}{
-		{role: ContributorRoleAuthor, values: []string{"著", "著者", "作", "共著", "ほか著", "他著"}},
-		{role: ContributorRoleOriginalCreator, values: []string{"原作", "原案", "共原作"}},
-		{role: ContributorRoleWriter, values: []string{"脚本", "シナリオ", "構成", "脚色", "文", "ストーリー", "ライター"}},
-		{role: ContributorRoleArtist, values: []string{
+		{role: "著者", values: []string{"著", "著者", "作", "共著", "ほか著", "他著"}},
+		{role: "原作", values: []string{"原作", "原案", "共原作"}},
+		{role: "脚本", values: []string{"脚本", "シナリオ", "構成", "脚色", "文", "ストーリー", "ライター"}},
+		{role: "作画", values: []string{
 			"漫画", "作画", "画", "劇画", "まんが", "絵",
 			"comic", "Comic", "COMIC", "comics", "コミック", "マンガ", "アーティスト",
 		}},
-		{role: ContributorRoleCharacterCreator, values: []string{"キャラクター原案"}},
-		{role: ContributorRoleCharacterDesigner, values: []string{"キャラクターデザイン"}},
-		{role: ContributorRoleEditor, values: []string{"編", "編集"}},
-		{role: ContributorRoleTranslator, values: []string{"訳"}},
-		{role: ContributorRoleSupervisor, values: []string{"監修"}},
-		{role: ContributorRoleCommentator, values: []string{"解説"}},
-		{role: ContributorRoleDesigner, values: []string{"カバーデザイン", "装丁", "装幀", "デザイン"}},
+		{role: "キャラクター原案", values: []string{"キャラクター原案"}},
+		{role: "キャラクターデザイン", values: []string{"キャラクターデザイン"}},
+		{role: "編集", values: []string{"編", "編集"}},
+		{role: "翻訳", values: []string{"訳"}},
+		{role: "監修", values: []string{"監修"}},
+		{role: "解説", values: []string{"解説"}},
+		{role: "デザイン", values: []string{"カバーデザイン", "装丁", "装幀", "デザイン"}},
 	}
 	for _, test := range tests {
 		for _, value := range test.values {
@@ -325,9 +354,9 @@ func TestConvertCreators_MergesRolesAndKeepsStableOrder(t *testing.T) {
 
 	assertStrings(t, authors, []string{"田辺節雄", "山田太郎", "役割なし"})
 	assertContributors(t, contributors, []Contributor{
-		{Name: "田辺節雄", Roles: []ContributorRole{ContributorRoleArtist}},
-		{Name: "山田太郎", Roles: []ContributorRole{ContributorRoleOriginalCreator, ContributorRoleSupervisor}},
-		{Name: "藤原新也", Roles: []ContributorRole{ContributorRoleCommentator}},
+		{Name: "田辺節雄", Roles: []string{"作画"}},
+		{Name: "山田太郎", Roles: []string{"原作", "監修"}},
+		{Name: "藤原新也", Roles: []string{"解説"}},
 		{Name: "役割なし"},
 		{Name: "佐藤花子"},
 		{Name: "鈴木一郎"},
@@ -484,19 +513,6 @@ func assertStrings(t *testing.T, got, want []string) {
 	}
 }
 
-// assertIdentifiers は、識別子スライスの内容と順序を検証する
-func assertIdentifiers(t *testing.T, got, want []Identifier) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Fatalf("identifiers = %#v, want %#v", got, want)
-	}
-	for index := range want {
-		if got[index] != want[index] {
-			t.Fatalf("identifiers = %#v, want %#v", got, want)
-		}
-	}
-}
-
 // assertContributors は、寄与者の名前、役割、順序を検証する
 func assertContributors(t *testing.T, got, want []Contributor) {
 	t.Helper()
@@ -512,7 +528,7 @@ func assertContributors(t *testing.T, got, want []Contributor) {
 }
 
 // assertContributorRoles は、寄与者役割の内容と順序を検証する
-func assertContributorRoles(t *testing.T, got, want []ContributorRole) {
+func assertContributorRoles(t *testing.T, got, want []string) {
 	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("roles = %#v, want %#v", got, want)

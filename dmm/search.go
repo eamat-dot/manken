@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/eamat-dot/manken/internal/daterange"
 )
 
 const (
@@ -46,7 +48,7 @@ func (client *Client) searchSeries(ctx context.Context, request SearchSeriesRequ
 	if ctx == nil {
 		return SearchSeriesResult{}, nil, newError(operationSearchSeries, ErrorKindInvalidArgument, errors.New("context must not be nil"))
 	}
-	keyword, err := searchSeriesKeyword(request)
+	keyword, dateRange, err := searchSeriesKeyword(request)
 	if err != nil {
 		return SearchSeriesResult{}, nil, newError(operationSearchSeries, ErrorKindInvalidArgument, err)
 	}
@@ -54,11 +56,12 @@ func (client *Client) searchSeries(ctx context.Context, request SearchSeriesRequ
 	if err != nil {
 		return SearchSeriesResult{}, nil, newError(operationSearchSeries, ErrorKindInvalidArgument, err)
 	}
-	offset, err := decodeCursor(request.Cursor, cursorAPISeries, keyword, limit)
+	key := seriesSearchKey(keyword, dateRange)
+	offset, err := decodeCursor(request.Cursor, cursorAPISeries, key, limit)
 	if err != nil {
 		return SearchSeriesResult{}, nil, newError(operationSearchSeries, ErrorKindInvalidArgument, err)
 	}
-	body, err := client.execute(ctx, operationSearchSeries, keywordQuery(keyword, limit, offset))
+	body, err := client.execute(ctx, operationSearchSeries, keywordQuery(keyword, dateRange, limit, offset))
 	if err != nil {
 		return SearchSeriesResult{}, nil, err
 	}
@@ -73,7 +76,7 @@ func (client *Client) searchSeries(ctx context.Context, request SearchSeriesRequ
 	if response.Result.Status != http.StatusOK {
 		return SearchSeriesResult{}, raw, newError(operationSearchSeries, ErrorKindUpstream, fmt.Errorf("dmm result status %d", response.Result.Status))
 	}
-	result, err := buildSeriesResult(response.Result, offset, keyword, limit)
+	result, err := buildSeriesResult(response.Result, offset, key, limit)
 	if err != nil {
 		return SearchSeriesResult{}, raw, newError(operationSearchSeries, ErrorKindInvalidResponse, err)
 	}
@@ -123,8 +126,15 @@ func (client *Client) searchBooksBySeries(ctx context.Context, request SearchBoo
 }
 
 // keywordQuery は、DMMのkeyword検索用queryを構成する
-func keywordQuery(keyword string, limit, offset int) url.Values {
-	return baseQuery(limit, offset, url.Values{"sort": {"rank"}, "keyword": {keyword}})
+func keywordQuery(keyword string, dateRange daterange.Range, limit, offset int) url.Values {
+	values := url.Values{"sort": {"rank"}, "keyword": {keyword}}
+	if !dateRange.FromStart().IsZero() {
+		values.Set("gte_date", dateRange.FromStart().Format("2006-01-02T15:04:05"))
+	}
+	if !dateRange.ToEnd().IsZero() {
+		values.Set("lte_date", dateRange.ToEnd().Format("2006-01-02T15:04:05"))
+	}
+	return baseQuery(limit, offset, values)
 }
 
 // seriesQuery は、DMMシリーズ指定の商品検索用queryを構成する
@@ -144,22 +154,31 @@ func baseQuery(limit, offset int, values url.Values) url.Values {
 }
 
 // searchSeriesKeyword は、シリーズ検索条件をDMMのkeyword値へ変換する
-func searchSeriesKeyword(request SearchSeriesRequest) (string, error) {
+func searchSeriesKeyword(request SearchSeriesRequest) (string, daterange.Range, error) {
 	freeText := strings.Join(strings.Fields(request.FreeText), " ")
 	if freeText == "" {
-		return "", errors.New("free text must be specified")
+		return "", daterange.Range{}, errors.New("free text must be specified")
 	}
 	if err := validateKeyword(freeText); err != nil {
-		return "", err
+		return "", daterange.Range{}, err
 	}
 	terms := []string{freeText}
 	for _, value := range strings.Fields(request.ExcludedText) {
 		if err := validateKeyword(value); err != nil {
-			return "", err
+			return "", daterange.Range{}, err
 		}
 		terms = append(terms, "-"+value)
 	}
-	return strings.Join(terms, " "), nil
+	dateRange, err := daterange.Parse(request.DateFrom, request.DateTo)
+	if err != nil {
+		return "", daterange.Range{}, err
+	}
+	return strings.Join(terms, " "), dateRange, nil
+}
+
+// seriesSearchKey は、keywordと時期条件をCursor照合用の検索キーへ変換する
+func seriesSearchKey(keyword string, dateRange daterange.Range) string {
+	return keyword + "\x00" + dateRange.From + "\x00" + dateRange.To
 }
 
 // validateKeyword は、リテラルエスケープ方法が未確認のDMM演算子構文を拒否する

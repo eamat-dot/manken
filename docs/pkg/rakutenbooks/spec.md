@@ -3,7 +3,7 @@
 ## 1. 概要
 
 `rakutenbooks` パッケージは、楽天ブックス書籍検索APIを使って紙書籍を検索・ISBN参照し、
-取得結果を `api.Book` へ変換する。
+取得結果を `model.Book` へ変換する。
 
 import path:
 
@@ -65,8 +65,9 @@ user information、query、fragmentを含むURLを受け付けない。
 | `ComicGenreTL`      | `tl`      | `001029002`    |
 
 Clientの既定値は `ComicGenreGeneral` である。
-1回の `SearchBooks` で複数区分を横断しない。BLまたはTLを検索する場合は、対応する
-`WithComicGenre` を指定したClientを使用する。
+1回の `SearchBooks` で複数区分を横断しない。複数区分を内部で別々のAPIリクエストへ展開すると、
+Limit、page、取得元の返却順を単一の検索結果とCursorで表せなくなるためである。BLまたはTLを検索する場合は、
+対応する `WithComicGenre` を指定したClientを使用する。
 
 ISBN参照ではClientの漫画区分を使用しない。
 
@@ -96,7 +97,7 @@ ISBN参照ではClientの漫画区分を使用しない。
 ```go
 func (client *Client) SearchBooks(
     ctx context.Context,
-    request SearchBooksRequest,
+    request SearchRequest,
 ) (SearchBooksResult, error)
 ```
 
@@ -105,26 +106,28 @@ func (client *Client) SearchBooks(
 ```go
 func (client *Client) SearchBooksWithRawResponse(
     ctx context.Context,
-    request SearchBooksRequest,
+    request SearchRequest,
 ) (SearchBooksResult, []byte, error)
 ```
 
 ### 5.1 対応する共通検索条件
 
-| `SearchBooksRequest` | 楽天Books       | 動作                        |
+`DateFrom` と `DateTo` は楽天Booksが範囲検索条件を提供しないため、通信前に `invalid_argument` を返す。取得後の絞り込みは行わない。
+
+| `SearchRequest` | 楽天Books       | 動作                        |
 | -------------------- | --------------- | --------------------------- |
 | `Title`              | `title`         | 対応                        |
 | `Author`             | `author`        | 対応                        |
 | `Publisher`          | `publisherName` | 対応                        |
-| `FreeText`           | 直接対応なし    | 非空なら `invalid_argument` |
-| `ExcludedText`       | 直接対応なし    | 非空なら `invalid_argument` |
+| `Query`           | 直接対応なし    | 非空なら `invalid_argument` |
+| `Exclude`       | 直接対応なし    | 非空なら `invalid_argument` |
 | `Limit`              | `hits`          | 対応                        |
 | `Cursor`             | `page`          | 不透明Cursor経由で対応      |
 
 `Title`、`Author`、`Publisher` の少なくとも1つが必要である。前後の空白は除いて送信する。
 複数を指定した場合はすべてを楽天Booksへ渡す。
 
-`FreeText` と `ExcludedText` は取得後フィルターで擬似対応しない。楽天Books上の件数と
+`Query` と `Exclude` は取得後フィルターで擬似対応しない。楽天Books上の件数と
 ページングの意味が変わるため、非空入力を通信前に拒否する。
 
 ### 5.2 固定パラメータ
@@ -139,6 +142,10 @@ booksGenreId=<Clientの漫画区分>
 size=<Clientの商品形態。ただしBookSizeAllでは省略>
 ```
 
+`sort=+releaseDate` は発売日の古い順である。古い商品から候補を確認しやすくし、楽天KoboやNDLサーチと
+固定既定の考え方を揃えるため明示指定する。新装版や特装版等が混在し得るため巻数順は保証しない。
+
+titleは非破壊で保持する。明確な巻表示、確認済み版表示、巻表示へ隣接する完結表示だけをVolume、Editions、IsFinalVolumeへ補う場合がある。titleKanaはタイトル解析によって変更しない。分冊、単話、セット、合本、無料試読、Vol.NはVolumeへ推測しない。
 楽天Booksが返した順序を維持し、ライブラリ内で独自に並べ替えない。
 
 ## 6. Limitとページング
@@ -208,25 +215,27 @@ formatVersion=2
 
 ### 8.1 変換する項目
 
-| 楽天Books               | 共通モデル                     | 規則                                                                                            |
-| ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `itemUrl`               | `BookSource.URL`               | 有効なHTTP(S) URLだけを通常商品URLとして使用                                                    |
-| `affiliateUrl`          | `BookSource.AffiliateURL`      | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない                                           |
-| `title`                 | `Normalized.Title`             | そのまま保持                                                                                    |
-| `titleKana`             | `Normalized.TitleReading`      | そのまま保持                                                                                    |
-| `subTitle`              | `Normalized.Subtitle`          | そのまま保持                                                                                    |
-| `seriesName`            | `Normalized.Series[].Name`     | 1要素として保持                                                                                 |
-| `author`                | `Normalized.Authors`           | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外                       |
-| `author` / `authorKana` | `Normalized.Contributors`      | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
-| `publisherName`         | `Normalized.Publishers`        | 1要素として保持                                                                                 |
-| `isbn`                  | `Normalized.Identifiers`       | 検証できるISBN-10 / ISBN-13だけを保持                                                           |
-| `salesDate`             | `Normalized.Dates`             | `released` として原文の精度を維持                                                               |
-| `itemCaption`           | `Normalized.Description`       | そのまま保持                                                                                    |
-| `booksGenreId`          | `Normalized.Subjects`          | `/` で分割し、Scheme=`rakuten_books` とする                                                     |
-| `size`                  | `Normalized.PhysicalSize.Name` | 判型名として保持                                                                                |
-| `itemPrice`             | `Normalized.Prices`            | `current` / JPY / 税込。取得時刻を `ObservedAt` に保持                                          |
-| API種別                 | `Normalized.Medium`            | `print`                                                                                         |
-| 3種の画像URL            | `Normalized.Images`            | small / medium / largeの順に保持                                                                |
+| 楽天Books               | 共通モデル                | 規則                                                                                            |
+| ----------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `itemUrl`               | `BookSource.URL`          | 有効なHTTP(S) URLだけを通常商品URLとして使用                                                    |
+| `affiliateUrl`          | `BookSource.AffiliateURL` | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない                                           |
+| `title`                 | `Title`                   | そのまま保持                                                                                    |
+| `titleKana`             | `TitleReading`            | そのまま保持                                                                                    |
+| `subTitle`              | `Subtitle`                | そのまま保持                                                                                    |
+| `seriesName`            | `PublicationSeries[]`     | 1要素として保持。`seriesNameKana`は共通Bookへ変換しない                                         |
+| `author`                | `Authors`                 | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外                       |
+| `author` / `authorKana` | `Contributors`            | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
+| `publisherName`         | `Publishers`              | 1要素として保持                                                                                 |
+| `isbn`                  | `ISBN10` / `ISBN13`       | 検証できるISBN-10 / ISBN-13だけを対応するフィールドへ保持                                       |
+| `salesDate`             | `ReleaseDate`             | 発売日として原文の精度を維持                                                                    |
+| `itemCaption`           | `Description`             | そのまま保持                                                                                    |
+| `booksGenreId`          | `Subjects`                | `/` で分割し、Scheme=`rakuten_books` とする                                                     |
+| `size`                  | `Size`                    | 取得元の判型名を文字列のまま保持                                                                |
+| `itemPrice`             | `CurrentPrice`            | JPY / 税込。取得時刻を `ObservedAt` に保持                                                      |
+| API種別                 | `Medium`                  | `print`                                                                                         |
+| 3種の画像URL            | `CoverURL`                | 利用可能な最大サイズのURLを1件保持                                                              |
+
+`seriesName` は `PublicationSeries` に保持する。`seriesNameKana` は共通Bookへ変換しない。作品シリーズであることは保証しないため、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
 
 `authorKana`の分割要素数が`author`と一致しない場合は、Readingを推測せず全ContributorのReadingを空にする。
 氏名内部の半角・全角空白、カンマなどは変更しない。Contributorの役割も推測しない。
@@ -291,7 +300,7 @@ Access Keyをredirect先へ送らないため、Clientは自動redirectを追跡
 
 ## 11. エラー
 
-楽天Booksパッケージは共通の `api.Error` / `ErrorKind` を使用する。
+楽天Booksパッケージは共通の `model.Error` / `model.ErrorKind` を使用する。
 
 | 状態                                                          | ErrorKind          |
 | ------------------------------------------------------------- | ------------------ |

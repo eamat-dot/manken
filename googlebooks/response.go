@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 // volumesResponse は、Google Books Volumes listの初期変換に必要な項目を保持する
@@ -95,7 +96,7 @@ func convertVolume(value volume, observedAt string) (Book, error) {
 		return Book{}, errors.New("response volume is missing id")
 	}
 	info := value.VolumeInfo
-	book := Book{Normalized: NormalizedBook{
+	book := Book{
 		Title:        info.Title,
 		Subtitle:     info.Subtitle,
 		Authors:      nonEmptyStrings(info.Authors),
@@ -104,50 +105,52 @@ func convertVolume(value volume, observedAt string) (Book, error) {
 		Languages:    nonEmptyStrings([]string{info.Language}),
 		Subjects:     subjects(info.Categories),
 		PageCount:    positivePageCount(info.PageCount),
-		Images:       images(info.ImageLinks),
-	}, Sources: []BookSource{{Source: SourceGoogleBooks, ID: value.ID, URL: sourceURL(info)}}}
+		CoverURL:     coverURL(info.ImageLinks),
+		Sources:      []BookSource{{Source: SourceGoogleBooks, ID: value.ID, URL: sourceURL(info)}},
+	}
 	if info.Publisher != "" {
-		book.Normalized.Publishers = []string{info.Publisher}
+		book.Publishers = []string{info.Publisher}
 	}
 	if info.PublishedDate != "" {
-		book.Normalized.Dates = []BookDate{{Type: BookDateTypePublished, Value: info.PublishedDate}}
+		book.PublishedDate = info.PublishedDate
 	}
-	book.Normalized.Identifiers = identifiers(info.IndustryIdentifiers)
+	book.ISBN10, book.ISBN13 = identifiers(info.IndustryIdentifiers)
 	if value.SaleInfo.IsEbook {
-		book.Normalized.Medium = PublicationMediumDigital
+		book.Medium = PublicationMediumDigital
 	}
-	book.Normalized.Prices = prices(value.SaleInfo, observedAt)
+	book.ListPrice, book.CurrentPrice = prices(value.SaleInfo, observedAt)
+	applyTitleMetadata(&book)
 	return book, nil
 }
 
-// prices は、条件を満たす日本向けの日本円販売価格だけを共通価格へ変換する
-func prices(value saleInfo, observedAt string) []Price {
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
+}
+
+// prices は、条件を満たす日本向けの日本円販売価格を用途別に変換する
+func prices(value saleInfo, observedAt string) (*Price, *Price) {
 	if !strings.EqualFold(value.Country, "JP") {
-		return nil
+		return nil, nil
 	}
 
-	prices := make([]Price, 0, 2)
+	var listPrice, currentPrice *Price
 	if amount, ok := priceAmount(value.ListPrice); ok {
-		prices = append(prices, Price{
-			Type:     PriceTypeList,
+		listPrice = &Price{
 			Amount:   amount,
 			Currency: "JPY",
 			Source:   SourceGoogleBooks,
-		})
+		}
 	}
 	if amount, ok := priceAmount(value.RetailPrice); ok && observedAt != "" {
-		prices = append(prices, Price{
-			Type:       PriceTypeCurrent,
+		currentPrice = &Price{
 			Amount:     amount,
 			Currency:   "JPY",
 			Source:     SourceGoogleBooks,
 			ObservedAt: observedAt,
-		})
+		}
 	}
-	if len(prices) == 0 {
-		return nil
-	}
-	return prices
+	return listPrice, currentPrice
 }
 
 // priceAmount は、Google Booksの価格を正確に表現できる日本円の整数へ変換する
@@ -207,28 +210,27 @@ func contributors(authors []string) []Contributor {
 	return result
 }
 
-// identifiers は、検証済みのISBNだけを共通識別子へ変換する
-func identifiers(values []industryIdentifier) []Identifier {
-	result := make([]Identifier, 0, len(values))
+// identifiers は、検証済みのISBNを種類ごとのスライスへ変換する
+func identifiers(values []industryIdentifier) ([]string, []string) {
+	isbn10 := make([]string, 0, len(values))
+	isbn13 := make([]string, 0, len(values))
 	for _, value := range values {
-		var kind IdentifierType
 		switch value.Type {
 		case "ISBN_10":
 			if !internalisbn.IsValidISBN10(value.Identifier) {
 				continue
 			}
-			kind = IdentifierTypeISBN10
+			isbn10 = append(isbn10, value.Identifier)
 		case "ISBN_13":
 			if !internalisbn.IsValidISBN13(value.Identifier) {
 				continue
 			}
-			kind = IdentifierTypeISBN13
+			isbn13 = append(isbn13, value.Identifier)
 		default:
 			continue
 		}
-		result = append(result, Identifier{Type: kind, Value: value.Identifier})
 	}
-	return result
+	return isbn10, isbn13
 }
 
 // subjects は、Google Booksカテゴリーを取得元の分類として変換する
@@ -242,17 +244,12 @@ func subjects(values []string) []Subject {
 	return result
 }
 
-// images は、Google Booksの画像URLを安定したフィールド順で変換する
-func images(links imageLinks) []Image {
-	values := []struct{ purpose, url string }{
-		{"smallThumbnail", links.SmallThumbnail}, {"thumbnail", links.Thumbnail}, {"small", links.Small},
-		{"medium", links.Medium}, {"large", links.Large}, {"extraLarge", links.ExtraLarge},
-	}
-	result := make([]Image, 0, len(values))
-	for _, value := range values {
-		if value.url != "" {
-			result = append(result, Image{URL: value.url, Purpose: value.purpose})
+// coverURL は、Google Booksの利用可能な最大サイズの画像URLを返す
+func coverURL(links imageLinks) string {
+	for _, value := range []string{links.ExtraLarge, links.Large, links.Medium, links.Small, links.Thumbnail, links.SmallThumbnail} {
+		if value != "" {
+			return value
 		}
 	}
-	return result
+	return ""
 }

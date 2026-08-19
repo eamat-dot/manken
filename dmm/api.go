@@ -1,25 +1,22 @@
 // Package dmm は、DMMブックス電子コミックのシリーズ探索と個別商品取得を提供する
 package dmm
 
-import "github.com/eamat-dot/manken/api"
+import "github.com/eamat-dot/manken/model"
 
 // Source は、書誌情報の取得元を表す
-type Source = api.Source
+type Source = model.Source
 
 // Book は、取得した1冊の電子コミックを表す
-type Book = api.Book
-
-// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
-type NormalizedBook = api.NormalizedBook
+type Book = model.Book
 
 // BookSource は、Bookの情報を取得した取得元と参照先を表す
-type BookSource = api.BookSource
+type BookSource = model.BookSource
 
 // Contributor は、制作への寄与者と複数の役割を表す
-type Contributor = api.Contributor
+type Contributor = model.Contributor
 
 // BookSeries は、書籍が属する作品または刊行物のシリーズと取得元内の参照情報を表す
-type BookSeries = api.BookSeries
+type BookSeries = model.BookSeries
 
 // SeriesSearchItem は、DMMシリーズの候補とkeyword応答の代表商品由来の補助情報を表す
 type SeriesSearchItem struct {
@@ -33,18 +30,25 @@ type SeriesSearchItem struct {
 }
 
 // PublicationMedium は、出版物の媒体を表し、未設定または不明な値も取り得る
-type PublicationMedium = api.PublicationMedium
+type PublicationMedium = model.PublicationMedium
 
 // Subject は、取得元の分類体系に基づく主題またはジャンルを表す
-type Subject = api.Subject
+type Subject = model.Subject
 
-// Image は、表紙など書籍に関係する画像を表す
-type Image = api.Image
+// Image は、DMMシリーズ候補の代表商品に含まれる画像を表す
+type Image struct {
+	URL     string `json:"url"`
+	Purpose string `json:"purpose,omitempty"`
+	Width   *int   `json:"width,omitempty"`
+	Height  *int   `json:"height,omitempty"`
+}
 
 // SearchSeriesRequest は、DMMが付与するシリーズを検索する条件を表す
 type SearchSeriesRequest struct {
 	FreeText     string `json:"free_text"`
 	ExcludedText string `json:"excluded_text"`
+	DateFrom     string `json:"date_from"`
+	DateTo       string `json:"date_to"`
 	Limit        int    `json:"limit"`
 	Cursor       string `json:"cursor"`
 }
@@ -69,22 +73,22 @@ type SearchBooksBySeriesResult struct {
 }
 
 // ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
-type ErrorKind = api.ErrorKind
+type ErrorKind = model.ErrorKind
 
 // Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
-type Error = api.Error
+type Error = model.Error
 
 const (
 	// SourceDMM は、DMM.com Webサービス v3 ItemListを表す
-	SourceDMM = api.SourceDMM
+	SourceDMM = model.SourceDMM
 	// PublicationMediumDigital は、電子書籍を表す
-	PublicationMediumDigital = api.PublicationMediumDigital
+	PublicationMediumDigital = model.PublicationMediumDigital
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
-	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
+	ErrorKindInvalidArgument = model.ErrorKindInvalidArgument
 	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す
-	ErrorKindUpstream = api.ErrorKindUpstream
+	ErrorKindUpstream = model.ErrorKindUpstream
 	// ErrorKindUnavailable は、取得元または通信が一時的に利用できない状態を表す
-	ErrorKindUnavailable = api.ErrorKindUnavailable
+	ErrorKindUnavailable = model.ErrorKindUnavailable
 	// ErrorKindInvalidResponse は、取得元の成功応答を解釈できない状態を表す
-	ErrorKindInvalidResponse = api.ErrorKindInvalidResponse
+	ErrorKindInvalidResponse = model.ErrorKindInvalidResponse
 )

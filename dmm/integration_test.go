@@ -52,7 +52,7 @@ func TestIntegrationDMM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(books.Books) == 0 || books.Books[0].Normalized.BookSeries[0].ID != series.ID || len(books.Books[0].Normalized.Publishers) == 0 {
+	if len(books.Books) == 0 || len(books.Books[0].BookSeries) == 0 || books.Books[0].BookSeries[0].ID != series.ID || len(books.Books[0].Publishers) == 0 {
 		t.Fatal("DMM series search did not lead to a matching individual book")
 	}
 }

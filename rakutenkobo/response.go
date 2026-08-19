@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 // koboResponse は、楽天Kobo検索APIの初期変換に必要な項目を保持する
@@ -57,22 +59,37 @@ func decodeKoboResponse(body []byte) (koboResponse, error) {
 
 // convertItem は、楽天Kobo商品を共通のBookへ変換する
 func convertItem(value koboItem, observedAt string) Book {
-	book := Book{Normalized: NormalizedBook{Title: value.Title, TitleReading: value.TitleKana, Subtitle: value.SubTitle, Description: value.ItemCaption, Medium: PublicationMediumDigital, Subjects: subjects(value.KoboGenreID), Images: images(value)}, Sources: []BookSource{{Source: SourceRakutenKobo, ID: value.ItemNumber, URL: sourceURL(value.ItemURL), AffiliateURL: sourceURL(value.AffiliateURL)}}}
-	if value.SeriesName != "" {
-		book.Normalized.Series = []Series{{Name: value.SeriesName}}
+	book := Book{
+		Title:        value.Title,
+		TitleReading: value.TitleKana,
+		Subtitle:     value.SubTitle,
+		Description:  value.ItemCaption,
+		Medium:       PublicationMediumDigital,
+		Subjects:     subjects(value.KoboGenreID),
+		CoverURL:     coverURL(value),
+		Sources:      []BookSource{{Source: SourceRakutenKobo, ID: value.ItemNumber, URL: sourceURL(value.ItemURL), AffiliateURL: sourceURL(value.AffiliateURL)}},
 	}
-	book.Normalized.Authors, book.Normalized.Contributors = contributors(value.Author, value.AuthorKana)
+	if value.SeriesName != "" {
+		book.PublicationSeries = []string{value.SeriesName}
+	}
+	book.Authors, book.Contributors = contributors(value.Author, value.AuthorKana)
 	if value.PublisherName != "" {
-		book.Normalized.Publishers = []string{value.PublisherName}
+		book.Publishers = []string{value.PublisherName}
 	}
 	if value.SalesDate != "" {
-		book.Normalized.Dates = []BookDate{{Type: BookDateTypeReleased, Value: value.SalesDate}}
+		book.ReleaseDate = value.SalesDate
 	}
 	if value.ItemPrice != nil {
 		taxIncluded := true
-		book.Normalized.Prices = []Price{{Type: PriceTypeCurrent, Amount: *value.ItemPrice, Currency: "JPY", TaxIncluded: &taxIncluded, Source: SourceRakutenKobo, ObservedAt: observedAt}}
+		book.CurrentPrice = &Price{Amount: *value.ItemPrice, Currency: "JPY", TaxIncluded: &taxIncluded, Source: SourceRakutenKobo, ObservedAt: observedAt}
 	}
+	applyTitleMetadata(&book)
 	return book
+}
+
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
 }
 
 // contributors は、楽天Koboのスラッシュ区切り著者と検証済みの読みを人物単位へ変換する
@@ -167,14 +184,12 @@ func subjects(value string) []Subject {
 	return result
 }
 
-// images は、楽天Koboの3サイズ画像URLを安定したフィールド順で変換する
-func images(value koboItem) []Image {
-	values := []struct{ purpose, url string }{{"smallImageUrl", value.SmallImageURL}, {"mediumImageUrl", value.MediumImageURL}, {"largeImageUrl", value.LargeImageURL}}
-	result := make([]Image, 0, len(values))
-	for _, image := range values {
-		if image.url != "" {
-			result = append(result, Image{URL: image.url, Purpose: image.purpose})
+// coverURL は、楽天Koboの利用可能な最大サイズ画像URLを返す
+func coverURL(value koboItem) string {
+	for _, value := range []string{value.LargeImageURL, value.MediumImageURL, value.SmallImageURL} {
+		if value != "" {
+			return value
 		}
 	}
-	return result
+	return ""
 }

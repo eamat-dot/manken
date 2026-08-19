@@ -17,18 +17,18 @@ const (
 )
 
 // SearchBooks は、指定された検索条件に一致するGoogle Booksの書籍を検索する
-func (client *Client) SearchBooks(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, error) {
+func (client *Client) SearchBooks(ctx context.Context, request SearchRequest) (SearchBooksResult, error) {
 	result, _, err := client.searchBooks(ctx, request)
 	return result, err
 }
 
 // SearchBooksWithRawResponse は、検索結果と受信した成功レスポンス本文を返す
-func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, []byte, error) {
+func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchRequest) (SearchBooksResult, []byte, error) {
 	return client.searchBooks(ctx, request)
 }
 
 // searchBooks は、Google Booksを検索して変換済み結果と成功レスポンス本文を返す
-func (client *Client) searchBooks(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, []byte, error) {
+func (client *Client) searchBooks(ctx context.Context, request SearchRequest) (SearchBooksResult, []byte, error) {
 	if client == nil || client.httpClient == nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, errors.New("client is not initialized"))
 	}
@@ -64,16 +64,19 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 }
 
 // buildSearchQuery は、共通検索条件をGoogle Booksの安全な検索式へ変換する
-func buildSearchQuery(request SearchBooksRequest) (string, error) {
+func buildSearchQuery(request SearchRequest) (string, error) {
+	if strings.TrimSpace(request.DateFrom) != "" || strings.TrimSpace(request.DateTo) != "" {
+		return "", errors.New("date range search is not supported by Google Books")
+	}
 	parts := make([]string, 0)
 	parts = append(parts, queryTerms("intitle:", request.Title)...)
 	parts = append(parts, queryTerms("inauthor:", request.Author)...)
 	parts = append(parts, queryTerms("inpublisher:", request.Publisher)...)
-	parts = append(parts, queryTerms("", request.FreeText)...)
+	parts = append(parts, queryTerms("", request.Query)...)
 	if len(parts) == 0 {
-		return "", errors.New("at least one of Title, Author, Publisher, or FreeText must be specified")
+		return "", errors.New("at least one of Title, Author, Publisher, or Query must be specified")
 	}
-	parts = append(parts, queryTerms("-", request.ExcludedText)...)
+	parts = append(parts, queryTerms("-", request.Exclude)...)
 	return strings.Join(parts, " "), nil
 }
 

@@ -39,11 +39,11 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	}
 
 	var result madb.SearchBooksResult
-	result, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{
-		Title:    "作品",
-		Author:   "著者",
-		FreeText: "新装版",
-		Limit:    1,
+	result, err = client.SearchBooks(context.Background(), madb.SearchRequest{
+		Title:  "作品",
+		Author: "著者",
+		Query:  "新装版",
+		Limit:  1,
 	})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -54,10 +54,9 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 		t.Fatalf("result = %#v, want one MADB book", result)
 	}
 	book := result.Books[0]
-	_ = book.Normalized.ParallelTitles
-	_ = book.Normalized.EditionStatements
-	_ = book.Normalized.Imprints
-	_ = book.Normalized.Series
+	_ = book.Editions
+	_ = book.BookSeries
+	_ = book.PublicationSeries
 
 	var lookup madb.ISBNLookupResult
 	lookup, err = client.LookupBooksByISBN(context.Background(), []string{"9784088466361"})
@@ -68,7 +67,7 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 		t.Fatalf("lookup = %#v, want one item", lookup)
 	}
 
-	_, err = client.SearchBooks(context.Background(), madb.SearchBooksRequest{})
+	_, err = client.SearchBooks(context.Background(), madb.SearchRequest{})
 	var classified *madb.Error
 	if !errors.As(err, &classified) {
 		t.Fatalf("error = %T, want *madb.Error", err)
@@ -87,20 +86,4 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 		t.Fatalf("error kinds = %d, want 4", len(kinds))
 	}
 
-	roles := []madb.ContributorRole{
-		madb.ContributorRoleAuthor,
-		madb.ContributorRoleOriginalCreator,
-		madb.ContributorRoleWriter,
-		madb.ContributorRoleArtist,
-		madb.ContributorRoleCharacterCreator,
-		madb.ContributorRoleCharacterDesigner,
-		madb.ContributorRoleEditor,
-		madb.ContributorRoleTranslator,
-		madb.ContributorRoleSupervisor,
-		madb.ContributorRoleCommentator,
-		madb.ContributorRoleDesigner,
-	}
-	if len(roles) != 11 {
-		t.Fatalf("contributor roles = %d, want 11", len(roles))
-	}
 }

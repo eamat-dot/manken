@@ -12,22 +12,41 @@ func TestConvertBook_SummaryFallback(t *testing.T) {
 			Publisher: "出版社",
 			PubDate:   "2026-08",
 			Cover:     "https://example.test/cover.jpg",
+			Series:    "要約叢書",
 		},
 	}, "9784088466361")
 
-	if book.Normalized.Title != "欠落項目を持つ書籍" {
-		t.Fatalf("Title = %q", book.Normalized.Title)
+	if book.Title != "欠落項目を持つ書籍" {
+		t.Fatalf("Title = %q", book.Title)
 	}
-	assertStrings(t, book.Normalized.Authors, []string{"著者A,著者B"})
-	assertStrings(t, book.Normalized.Publishers, []string{"出版社"})
-	if len(book.Normalized.Series) != 0 || len(book.Normalized.Imprints) != 0 {
-		t.Fatalf("Series = %#v, Imprints = %#v", book.Normalized.Series, book.Normalized.Imprints)
+	assertStrings(t, book.Authors, []string{"著者A,著者B"})
+	assertStrings(t, book.Publishers, []string{"出版社"})
+	if len(book.PublicationSeries) != 1 || book.PublicationSeries[0] != "要約叢書" {
+		t.Fatalf("PublicationSeries = %#v", book.PublicationSeries)
 	}
-	if len(book.Normalized.Dates) != 1 || book.Normalized.Dates[0].Value != "2026-08" {
-		t.Fatalf("Dates = %#v", book.Normalized.Dates)
+	if book.PublishedDate != "2026-08" {
+		t.Fatalf("PublishedDate = %q", book.PublishedDate)
 	}
-	if len(book.Normalized.Images) != 1 || book.Normalized.Images[0].Purpose != "cover" {
-		t.Fatalf("Images = %#v", book.Normalized.Images)
+	if book.CoverURL != "https://example.test/cover.jpg" {
+		t.Fatalf("CoverURL = %q", book.CoverURL)
+	}
+	if len(book.ISBN13) != 1 || book.ISBN13[0] != "9784088466361" {
+		t.Fatalf("ISBN13 = %#v", book.ISBN13)
+	}
+}
+
+// TestApplyTitleMetadata_GuardsParallelTrailingNumber は、並列タイトルの曖昧な末尾数値を巻数にしないことを確認する
+func TestApplyTitleMetadata_GuardsParallelTrailingNumber(t *testing.T) {
+	book := Book{Title: "作品 = WORK. 1", TitleReading: "サクヒン = ワーク. 1"}
+	applyTitleMetadata(&book)
+	if book.Volume.Number != nil || book.Volume.Label != "" || book.Title != "作品 = WORK. 1" || book.TitleReading != "サクヒン = ワーク. 1" {
+		t.Fatalf("book = %#v", book)
+	}
+
+	book = Book{Title: "作品 = WORK 第1巻"}
+	applyTitleMetadata(&book)
+	if book.Volume.Number == nil || *book.Volume.Number != 1 {
+		t.Fatalf("book = %#v", book)
 	}
 }
 
@@ -44,7 +63,10 @@ func TestConvertBook_PreservesTitleElementPair(t *testing.T) {
 							{"TitleElementLevel": "01", "TitleText": {"content": "主題 = MAIN TITLE. 4", "collationkey": "シュダイ = メインタイトル. 4"}, "Subtitle": {"content": "副題"}}
 						]
 					},
-					"Collection": {"TitleDetail": {"TitleElement": {"TitleElementLevel": "02", "TitleText": {"content": "出版社コレクション"}, "PartNumber": "999"}}}
+					"Collection": {"TitleDetail": {"TitleElement": [
+						{"TitleElementLevel": "02", "TitleText": {"content": "出版社コレクション", "collationkey": "シュッパンシャコレクション"}, "PartNumber": "999"},
+						{"TitleElementLevel": "03", "TitleText": {"content": "商品階層タイトル"}}
+					]}}
 				}
 			},
 			"summary": {"title": "代替題", "series": "要約レーベル", "volume": "999"}
@@ -55,13 +77,13 @@ func TestConvertBook_PreservesTitleElementPair(t *testing.T) {
 	}
 
 	book := convertBook(*response[0], "9784088466361")
-	if book.Normalized.Title != "主題 = MAIN TITLE. 4" || book.Normalized.TitleReading != "シュダイ = メインタイトル. 4" ||
-		book.Normalized.Subtitle != "副題" {
-		t.Fatalf("Normalized = %#v", book.Normalized)
+	if book.Title != "主題 = MAIN TITLE. 4" || book.TitleReading != "シュダイ = メインタイトル. 4" ||
+		book.Subtitle != "副題" {
+		t.Fatalf("Book = %#v", book)
 	}
-	if len(book.Normalized.ParallelTitles) != 0 || book.Normalized.Volume.Number != nil || book.Normalized.Volume.Label != "" ||
-		len(book.Normalized.Series) != 0 || len(book.Normalized.Imprints) != 0 {
-		t.Fatalf("unexpected inferred fields: %#v", book.Normalized)
+	if book.Volume.Number != nil || book.Volume.Label != "" ||
+		len(book.PublicationSeries) != 2 || book.PublicationSeries[0] != "出版社コレクション" || book.PublicationSeries[1] != "要約レーベル" {
+		t.Fatalf("unexpected inferred fields: %#v", book)
 	}
 }
 
@@ -78,7 +100,7 @@ func TestConvertBook_IgnoresOutOfScopeONIXFields(t *testing.T) {
 					"Collection": {"CollectionSequence": {"CollectionSequenceNumber": "999"}, "TitleDetail": {"TitleElement": {"TitleElementLevel": "02", "TitleText": {"content": "出版社コレクション"}, "PartNumber": "999"}}}
 				},
 				"CollateralDetail": {"SupportingResource": [{"ResourceContentType": "01", "ResourceVersion": [{"ResourceLink": "https://example.test/resource.jpg"}]}]},
-				"ProductSupply": {"SupplyDetail": {"Price": [{"PriceTypeCode": "01", "PriceAmount": "1000", "CurrencyCode": "JPY"}]}}
+				"ProductSupply": {"SupplyDetail": {"Price": [{"PriceType": "01", "PriceAmount": "1000", "CurrencyCode": "JPY"}]}}
 			},
 			"summary": {"isbn": "9784088466361", "series": "要約レーベル", "volume": "999"}
 		}
@@ -88,13 +110,66 @@ func TestConvertBook_IgnoresOutOfScopeONIXFields(t *testing.T) {
 	}
 
 	book := convertBook(*response[0], "9784088466361")
-	if book.Normalized.Title != "対象外項目を持つ本 4" {
-		t.Fatalf("Title = %q", book.Normalized.Title)
+	if book.Title != "対象外項目を持つ本 4" {
+		t.Fatalf("Title = %q", book.Title)
 	}
-	if book.Normalized.Volume.Number != nil || book.Normalized.Volume.Label != "" ||
-		len(book.Normalized.Series) != 0 || len(book.Normalized.Imprints) != 0 ||
-		len(book.Normalized.Prices) != 0 || len(book.Normalized.Images) != 0 {
-		t.Fatalf("unexpected out-of-scope values: %#v", book.Normalized)
+	if book.Volume.Number == nil || *book.Volume.Number != 4 || book.Volume.Label != "4" ||
+		len(book.PublicationSeries) != 2 ||
+		book.ListPrice == nil || book.ListPrice.Amount != 1000 || book.ListPrice.TaxIncluded == nil || *book.ListPrice.TaxIncluded || book.CurrentPrice != nil || book.CoverURL != "" {
+		t.Fatalf("unexpected out-of-scope values: %#v", book)
+	}
+}
+
+// TestListPrice は、対応するONIX価格だけを一意の定価として変換する
+func TestListPrice(t *testing.T) {
+	tests := []struct {
+		name   string
+		prices []responsePrice
+		want   *Price
+	}{
+		{name: "excluding tax", prices: []responsePrice{{PriceType: "01", CurrencyCode: "JPY", PriceAmount: "630"}}, want: price(630, false)},
+		{name: "including tax", prices: []responsePrice{{PriceType: "02", CurrencyCode: "JPY", PriceAmount: "693"}}, want: price(693, true)},
+		{name: "deduplicates", prices: []responsePrice{{PriceType: "01", CurrencyCode: "JPY", PriceAmount: "630"}, {PriceType: "01", CurrencyCode: "JPY", PriceAmount: "630"}}, want: price(630, false)},
+		{name: "different candidates", prices: []responsePrice{{PriceType: "01", CurrencyCode: "JPY", PriceAmount: "630"}, {PriceType: "02", CurrencyCode: "JPY", PriceAmount: "693"}}},
+		{name: "skips unsupported", prices: []responsePrice{{PriceType: "03", CurrencyCode: "JPY", PriceAmount: "630"}}},
+		{name: "skips invalid", prices: []responsePrice{{PriceType: "01", CurrencyCode: "USD", PriceAmount: "630"}, {PriceType: "02", CurrencyCode: "JPY", PriceAmount: "630.5"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := listPrice(responseProductSupply{SupplyDetail: []responseSupplyDetail{{Price: test.prices}}})
+			if !samePrice(got, test.want) {
+				t.Fatalf("listPrice() = %#v, want %#v", got, test.want)
+			}
+		})
+	}
+}
+
+// price は、openBD価格テスト用のPriceを返す
+func price(amount int64, taxIncluded bool) *Price {
+	return &Price{Amount: amount, Currency: "JPY", TaxIncluded: &taxIncluded, Source: SourceOpenBD}
+}
+
+// samePrice は、価格と税込情報が一致するか判定する
+func samePrice(left, right *Price) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	if left.Amount != right.Amount || left.Currency != right.Currency || left.Source != right.Source || left.ObservedAt != right.ObservedAt {
+		return false
+	}
+	if left.TaxIncluded == nil || right.TaxIncluded == nil {
+		return left.TaxIncluded == right.TaxIncluded
+	}
+	return *left.TaxIncluded == *right.TaxIncluded
+}
+
+// TestAppendUnique_DeduplicatesPublicationSeriesNames は、同名系列を重複なく最初の出現順で保持する
+func TestAppendUnique_DeduplicatesPublicationSeriesNames(t *testing.T) {
+	values := appendUnique(nil, "叢書")
+	values = appendUnique(values, "叢書")
+	values = appendUnique(values, "別叢書")
+	if len(values) != 2 || values[0] != "叢書" || values[1] != "別叢書" {
+		t.Fatalf("PublicationSeries = %#v", values)
 	}
 }
 
@@ -123,7 +198,7 @@ func TestConvertContributors_PreservesReadingWithKnownRole(t *testing.T) {
 	assertStrings(t, authors, []string{"長頼"})
 	if len(contributors) != 1 || contributors[0].Name != "長頼" ||
 		contributors[0].Reading != "ナガヨリ" ||
-		len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != ContributorRoleAuthor {
+		len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != "著者" {
 		t.Fatalf("Contributors = %#v", contributors)
 	}
 }
@@ -163,7 +238,7 @@ func TestConvertContributors_DoesNotMergeSeparateElements(t *testing.T) {
 		{SequenceNumber: "2", ContributorRole: []string{"A36"}, PersonName: responseContentValue{Content: "著者", CollationKey: "チョシャ"}},
 	})
 	if len(contributors) != 2 || contributors[0].Name != "著者" || contributors[0].Reading != "チョシャ" ||
-		len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != ContributorRoleAuthor ||
+		len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != "著者" ||
 		contributors[1].Name != "著者" || contributors[1].Reading != "チョシャ" || len(contributors[1].Roles) != 0 {
 		t.Fatalf("Contributors = %#v", contributors)
 	}
@@ -173,18 +248,18 @@ func TestConvertContributors_DoesNotMergeSeparateElements(t *testing.T) {
 func TestMapContributorRole(t *testing.T) {
 	tests := []struct {
 		code string
-		role ContributorRole
+		role string
 		ok   bool
 	}{
-		{code: "A01", role: ContributorRoleAuthor, ok: true},
-		{code: "A03", role: ContributorRoleWriter, ok: true},
-		{code: "A14", role: ContributorRoleWriter, ok: true},
-		{code: "A45", role: ContributorRoleWriter, ok: true},
-		{code: "A07", role: ContributorRoleArtist, ok: true},
-		{code: "A12", role: ContributorRoleArtist, ok: true},
-		{code: "A35", role: ContributorRoleArtist, ok: true},
-		{code: "B01", role: ContributorRoleEditor, ok: true},
-		{code: "B06", role: ContributorRoleTranslator, ok: true},
+		{code: "A01", role: "著者", ok: true},
+		{code: "A03", role: "脚本", ok: true},
+		{code: "A14", role: "脚本", ok: true},
+		{code: "A45", role: "脚本", ok: true},
+		{code: "A07", role: "作画", ok: true},
+		{code: "A12", role: "作画", ok: true},
+		{code: "A35", role: "作画", ok: true},
+		{code: "B01", role: "編集", ok: true},
+		{code: "B06", role: "翻訳", ok: true},
 		{code: "A36"},
 		{code: "A38"},
 		{code: "A46"},
@@ -210,7 +285,7 @@ func TestConvertContributors_DoesNotMapUnsupportedRoles(t *testing.T) {
 		{SequenceNumber: "4", ContributorRole: []string{"A46"}, PersonName: responseContentValue{Content: "インカー"}},
 		{SequenceNumber: "5", ContributorRole: []string{"A47"}, PersonName: responseContentValue{Content: "カラーリスト"}},
 	})
-	if len(contributors) != 5 || len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != ContributorRoleAuthor {
+	if len(contributors) != 5 || len(contributors[0].Roles) != 1 || contributors[0].Roles[0] != "著者" {
 		t.Fatalf("Contributors = %#v", contributors)
 	}
 	assertStrings(t, authors, []string{"著者"})

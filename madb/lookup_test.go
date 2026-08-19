@@ -122,8 +122,8 @@ func TestClient_LookupBooksByISBN_ValidatesBeforeRequest(t *testing.T) {
 	var nilClient *Client
 	_, err := nilClient.LookupBooksByISBN(context.Background(), []string{"9784088466361"})
 	assertLookupError(t, err, ErrorKindInvalidArgument)
-	//nolint:staticcheck // nil Contextを通信前に拒否する公開API仕様を検証する
-	_, err = client.LookupBooksByISBN(nil, []string{"9784088466361"})
+	//lint:ignore SA1012 nil Contextを通信前に拒否する公開API仕様を検証する
+	_, err = client.LookupBooksByISBN(nil, []string{"9784088466361"}) //nolint:staticcheck // nil Contextを通信前に拒否する公開API仕様を検証する
 	assertLookupError(t, err, ErrorKindInvalidArgument)
 }
 

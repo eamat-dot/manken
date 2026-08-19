@@ -16,7 +16,7 @@ func TestIntegrationTowerSearchAndISBNLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "The Savior's Pride", Limit: 20})
+	result, err := client.SearchBooks(context.Background(), SearchRequest{Title: "The Savior's Pride", Limit: 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,8 +35,8 @@ func TestIntegrationTowerSearchAndISBNLookup(t *testing.T) {
 // hasISBN は、書籍一覧に指定ISBN-13が含まれるかを判定する
 func hasISBN(books []Book, isbn string) bool {
 	for _, book := range books {
-		for _, identifier := range book.Normalized.Identifiers {
-			if identifier.Type == IdentifierTypeISBN13 && identifier.Value == isbn {
+		for _, value := range book.ISBN13 {
+			if value == isbn {
 				return true
 			}
 		}

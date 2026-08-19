@@ -1,78 +1,55 @@
 // Package yahooshopping は、Yahoo!ショッピングのTower商品から紙書籍情報を検索する機能を提供する
 package yahooshopping
 
-import "github.com/eamat-dot/manken/api"
+import "github.com/eamat-dot/manken/model"
 
 // Source は、書誌情報の取得元を表す
-type Source = api.Source
+type Source = model.Source
 
 // Book は、取得した1冊の漫画本を表す
-type Book = api.Book
-
-// NormalizedBook は、取得元に依存せず利用できる共通書籍情報を表す
-type NormalizedBook = api.NormalizedBook
+type Book = model.Book
 
 // BookSource は、Bookの情報を取得した取得元と参照先を表す
-type BookSource = api.BookSource
-
-// Identifier は、種類を明示した書誌識別子を表す
-type Identifier = api.Identifier
+type BookSource = model.BookSource
 
 // Contributor は、制作への寄与者と複数の役割を表す
-type Contributor = api.Contributor
+type Contributor = model.Contributor
 
-// BookDate は、種類と精度を維持した日付文字列を表す
-type BookDate = api.BookDate
+// PublicationMedium は、出版物が紙または電子のどちらかを表す
+type PublicationMedium = model.PublicationMedium
 
-// Image は、表紙など書籍に関係する画像を表す
-type Image = api.Image
+// Price は、金額、通貨、税込情報、取得元、確認時刻を表す
+type Price = model.Price
 
-// Price は、種類と出典を明示した価格を表す
-type Price = api.Price
-
-// SearchBooksRequest は、漫画本の検索条件を表す
-type SearchBooksRequest = api.SearchBooksRequest
+// SearchRequest は、漫画本の検索条件を表す
+type SearchRequest = model.SearchRequest
 
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
-type SearchBooksResult = api.SearchBooksResult
+type SearchBooksResult = model.SearchBooksResult
 
 // ISBNLookupResult は、入力ISBNごとの書籍参照結果を表す
-type ISBNLookupResult = api.ISBNLookupResult
+type ISBNLookupResult = model.ISBNLookupResult
 
 // ISBNLookupItem は、指定された1つのISBNと対応する書籍を表す
-type ISBNLookupItem = api.ISBNLookupItem
+type ISBNLookupItem = model.ISBNLookupItem
 
 // ErrorKind は、書誌情報の取得処理で発生したエラーの分類を表す
-type ErrorKind = api.ErrorKind
+type ErrorKind = model.ErrorKind
 
 // Error は、書誌情報の取得処理の失敗を分類可能な形で保持する
-type Error = api.Error
+type Error = model.Error
 
 const (
 	// SourceYahooShopping は、Yahoo!ショッピング商品検索APIを表す
-	SourceYahooShopping = api.SourceYahooShopping
-	// IdentifierTypeISBN13 は、ISBN-13を表す
-	IdentifierTypeISBN13 = api.IdentifierTypeISBN13
-	// IdentifierTypeJAN は、JANを表す
-	IdentifierTypeJAN = api.IdentifierTypeJAN
-	// ContributorRoleAuthor は、著者の役割を表す
-	ContributorRoleAuthor = api.ContributorRoleAuthor
-	// ContributorRoleArtist は、画家などの制作担当を表す
-	ContributorRoleArtist = api.ContributorRoleArtist
-	// ContributorRoleOriginalCreator は、原作担当を表す
-	ContributorRoleOriginalCreator = api.ContributorRoleOriginalCreator
-	// BookDateTypeReleased は、発売日を表す
-	BookDateTypeReleased = api.BookDateTypeReleased
+	SourceYahooShopping = model.SourceYahooShopping
 	// PublicationMediumPrint は、紙書籍を表す
-	PublicationMediumPrint = api.PublicationMediumPrint
-	// PriceTypeCurrent は、API取得時点の販売価格を表す
-	PriceTypeCurrent = api.PriceTypeCurrent
+	PublicationMediumPrint = model.PublicationMediumPrint
 	// ErrorKindInvalidArgument は、呼び出し側が修正できる入力エラーを表す
-	ErrorKindInvalidArgument = api.ErrorKindInvalidArgument
+	ErrorKindInvalidArgument = model.ErrorKindInvalidArgument
 	// ErrorKindUpstream は、取得元が返した恒久的または未分類のエラーを表す
-	ErrorKindUpstream = api.ErrorKindUpstream
+	ErrorKindUpstream = model.ErrorKindUpstream
 	// ErrorKindUnavailable は、取得元または通信が一時的に利用できない状態を表す
-	ErrorKindUnavailable = api.ErrorKindUnavailable
+	ErrorKindUnavailable = model.ErrorKindUnavailable
 	// ErrorKindInvalidResponse は、取得元の成功応答を解釈できない状態を表す
-	ErrorKindInvalidResponse = api.ErrorKindInvalidResponse
+	ErrorKindInvalidResponse = model.ErrorKindInvalidResponse
 )

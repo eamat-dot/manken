@@ -26,7 +26,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	defer cancel()
 
 	client := newIntegrationClient(t, applicationID, accessKey, "", rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeAll)
-	result, raw, err := client.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
+	result, raw, err := client.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil {
 		t.Fatalf("general title search error = %v", err)
 	}
@@ -39,32 +39,32 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	if len(result.Books[0].Sources) == 0 || result.Books[0].Sources[0].AffiliateURL != "" {
 		t.Fatalf("normalized affiliate URL without Affiliate ID = %#v", result.Books[0].Sources)
 	}
-	if len(result.Books[0].Normalized.Prices) == 0 {
-		t.Fatalf("normalized price is missing: %#v", result.Books[0].Normalized)
+	if result.Books[0].CurrentPrice == nil {
+		t.Fatalf("current price is missing: %#v", result.Books[0])
 	}
-	price := result.Books[0].Normalized.Prices[0]
-	if price.Type != rakutenbooks.PriceTypeCurrent || price.Currency != "JPY" || price.TaxIncluded == nil || !*price.TaxIncluded || price.Source != rakutenbooks.SourceRakutenBooks {
-		t.Fatalf("normalized price = %#v", price)
+	price := result.Books[0].CurrentPrice
+	if price.Currency != "JPY" || price.TaxIncluded == nil || !*price.TaxIncluded || price.Source != rakutenbooks.SourceRakutenBooks {
+		t.Fatalf("current price = %#v", price)
 	}
 	if _, err := time.Parse(time.RFC3339Nano, price.ObservedAt); err != nil {
 		t.Fatalf("price ObservedAt = %q: %v", price.ObservedAt, err)
 	}
 
 	time.Sleep(integrationRequestInterval)
-	result, err = client.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Author: "佐々木倫子", Limit: 3})
+	result, err = client.SearchBooks(ctx, rakutenbooks.SearchRequest{Author: "佐々木倫子", Limit: 3})
 	if err != nil || len(result.Books) == 0 {
 		t.Fatalf("author search result = %#v, error = %v", result, err)
 	}
 
 	time.Sleep(integrationRequestInterval)
 	sizeClient := newIntegrationClient(t, applicationID, accessKey, "", rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeComic)
-	sizeResult, err := sizeClient.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
+	sizeResult, err := sizeClient.SearchBooks(ctx, rakutenbooks.SearchRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil || len(sizeResult.Books) == 0 {
 		t.Fatalf("comic size search result = %#v, error = %v", sizeResult, err)
 	}
 	for _, book := range sizeResult.Books {
-		if book.Normalized.PhysicalSize == nil || book.Normalized.PhysicalSize.Name != "コミック" {
-			t.Fatalf("comic size search physical size = %#v", book.Normalized.PhysicalSize)
+		if book.Size != "コミック" {
+			t.Fatalf("comic size search size = %q", book.Size)
 		}
 	}
 
@@ -87,7 +87,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	for _, test := range genreCases {
 		time.Sleep(integrationRequestInterval)
 		genreClient := newIntegrationClient(t, applicationID, accessKey, "", test.genre, rakutenbooks.BookSizeAll)
-		genreResult, err := genreClient.SearchBooks(ctx, rakutenbooks.SearchBooksRequest{Title: test.title, Limit: 3})
+		genreResult, err := genreClient.SearchBooks(ctx, rakutenbooks.SearchRequest{Title: test.title, Limit: 3})
 		if err != nil || len(genreResult.Books) == 0 {
 			t.Fatalf("genre %q search result = %#v, error = %v", test.genre, genreResult, err)
 		}
@@ -100,7 +100,7 @@ func TestIntegrationRakutenBooks(t *testing.T) {
 	}
 	time.Sleep(integrationRequestInterval)
 	affiliateClient := newIntegrationClient(t, applicationID, accessKey, affiliateID, rakutenbooks.ComicGenreGeneral, rakutenbooks.BookSizeAll)
-	affiliateResult, raw, err := affiliateClient.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchBooksRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
+	affiliateResult, raw, err := affiliateClient.SearchBooksWithRawResponse(ctx, rakutenbooks.SearchRequest{Title: "ふつつかな悪女ではございますが", Limit: 3})
 	if err != nil {
 		t.Fatalf("affiliate search error = %v", err)
 	}

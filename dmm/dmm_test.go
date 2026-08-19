@@ -91,7 +91,7 @@ func TestSearchSeries_KeepsSeriesWhenSupplementaryInformationIsMissing(t *testin
 // TestSearchSeriesKeyword_RejectsUnsupportedOrEmptyConditions は、FreeTextだけを正条件として検証する
 func TestSearchSeriesKeyword_RejectsUnsupportedOrEmptyConditions(t *testing.T) {
 	for _, request := range []SearchSeriesRequest{{}, {ExcludedText: "omit"}, {FreeText: "-omit"}, {FreeText: `"operator"`}, {FreeText: "title|operator"}, {FreeText: "title", ExcludedText: "-omit"}, {FreeText: "title", ExcludedText: `"omit"`}, {FreeText: "title", ExcludedText: "omit|other"}} {
-		if _, err := searchSeriesKeyword(request); err == nil {
+		if _, _, err := searchSeriesKeyword(request); err == nil {
 			t.Fatalf("searchSeriesKeyword(%+v) error = nil", request)
 		}
 	}
@@ -119,30 +119,38 @@ func TestSearchBooksBySeries_SendsArticleAndConvertsIndividualBooks(t *testing.T
 	if len(result.Books) != 2 {
 		t.Fatalf("books = %#v", result.Books)
 	}
-	if result.Books[0].Normalized.Title != "Series 7" || result.Books[1].Normalized.Title != "Series 6" {
+	if result.Books[0].Title != "Series 7" || result.Books[1].Title != "Series 6" {
 		t.Fatalf("book order = %#v", result.Books)
 	}
 	book := result.Books[0]
-	if book.Sources[0].ID != "cid-7" || book.Sources[0].URL == book.Sources[0].AffiliateURL || book.Normalized.Title != "Series 7" || book.Normalized.Medium != PublicationMediumDigital {
+	if book.Sources[0].ID != "cid-7" || book.Sources[0].URL == book.Sources[0].AffiliateURL || book.Title != "Series 7" || book.Medium != PublicationMediumDigital {
 		t.Fatal("book conversion did not preserve individual product fields")
 	}
-	if book.Normalized.Volume.Number != nil || book.Normalized.Volume.Label != "" {
-		t.Fatalf("volume = %#v", book.Normalized.Volume)
+	if book.Volume.Number == nil || *book.Volume.Number != 7 || book.Volume.Label != "7" {
+		t.Fatalf("volume = %#v", book.Volume)
 	}
-	if got := book.Normalized.BookSeries; len(got) != 1 || got[0] != (BookSeries{Name: "Series", ID: "4009192", Source: SourceDMM}) {
+	if got := book.BookSeries; len(got) != 1 || got[0] != (BookSeries{Name: "Series", ID: "4009192", Source: SourceDMM}) {
 		t.Fatalf("book series = %#v", got)
 	}
-	if len(book.Normalized.Series) != 0 {
-		t.Fatalf("legacy series = %#v", book.Normalized.Series)
+	if len(book.PublicationSeries) != 0 {
+		t.Fatalf("publication series = %#v", book.PublicationSeries)
 	}
-	if got := book.Normalized.Publishers; len(got) != 1 || got[0] != "Publisher" {
+	if got := book.Publishers; len(got) != 1 || got[0] != "Publisher" {
 		t.Fatalf("publishers = %#v", got)
 	}
-	if got := book.Normalized.Subjects; len(got) != 1 || got[0] != (Subject{Scheme: "dmm", Code: "92206", Name: "Genre"}) {
+	if got := book.Subjects; len(got) != 1 || got[0] != (Subject{Scheme: "dmm", Code: "92206", Name: "Genre"}) {
 		t.Fatalf("subjects = %#v", got)
 	}
-	if got := book.Normalized.Images; len(got) != 1 || got[0].URL != "https://example.com/large" {
-		t.Fatalf("images = %#v", got)
+	if book.CoverURL != "https://example.com/large" {
+		t.Fatalf("CoverURL = %q", book.CoverURL)
+	}
+}
+
+// TestConvertItem_ExtractsParenthesizedVolume は、DMMシリーズ内商品の括弧付き巻表示を補うことを確認する
+func TestConvertItem_ExtractsParenthesizedVolume(t *testing.T) {
+	book := convertItem(item{Title: "シリーズ作品（7）"}, BookSeries{Name: "シリーズ", ID: "1", Source: SourceDMM})
+	if book.Title != "シリーズ作品（7）" || book.Volume.Number == nil || *book.Volume.Number != 7 || book.Volume.Label != "7" {
+		t.Fatalf("book = %#v", book)
 	}
 }
 
@@ -330,12 +338,12 @@ func TestValidURL(t *testing.T) {
 	}
 }
 
-// TestConvertItem_OmitsMissingImages は、画像項目が欠落しても利用可能な画像だけを変換することを検証する
-func TestConvertItem_OmitsMissingImages(t *testing.T) {
+// TestConvertItem_SetsCoverURL は、画像項目が欠落しても利用可能な最大画像をCoverURLへ設定することを検証する
+func TestConvertItem_SetsCoverURL(t *testing.T) {
 	item := item{ImageURL: imageURLs{Small: "https://example.com/small"}}
 	book := convertItem(item, BookSeries{Name: "Series", ID: "1", Source: SourceDMM})
-	if got := book.Normalized.Images; len(got) != 1 || got[0].URL != "https://example.com/small" {
-		t.Fatalf("images = %#v", got)
+	if book.CoverURL != "https://example.com/small" {
+		t.Fatalf("CoverURL = %q", book.CoverURL)
 	}
 }
 

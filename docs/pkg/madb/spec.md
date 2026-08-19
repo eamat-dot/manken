@@ -3,16 +3,19 @@
 ## 1. 目的
 
 `madb` パッケージは、メディア芸術データベース（MADB）からマンガ単行本を
-タイトル、著者名、主要な書誌項目で検索し、ISBNから書籍を参照して、`api`
+タイトル、著者名、主要な書誌項目で検索し、ISBNから書籍を参照して、`model`
 パッケージで定義する共通モデルへ変換する。指定語を含む検索結果の除外にも対応する。
 
 本仕様書は、MADB固有の検索、項目対応、HTTP処理、
 ページング、エラー分類を定義する。
 
+`DateFrom` と `DateTo` は `schema:datePublished` をMADB側で絞り込む。年、年月、年月日の精度に応じた半開区間を使い、指定精度より粗い取得値を推測して含めない。日付だけの検索と片側指定を受け付け、日付条件はCursor照合にも含める。
+
 共通モデルの仕様は [manken API仕様](../../spec.md)、パッケージの責務境界は
 [アーキテクチャ](../../../ARCHITECTURE.md)で定義する。
 
-MADBの `schema:provider` 配下にある `schema:price` は、書籍の共通価格へ変換しない。
+MADBの `schema:provider` 配下にある `schema:price` は、所蔵・提供元に付随する値であり、
+共通 `Price` が表す書籍の定価または取得時点販売価格とは意味が異なるため変換しない。
 所蔵情報も現在の取得対象外とする。
 
 ## 2. 参照資料
@@ -46,12 +49,12 @@ func WithEndpoint(endpoint string) Option
 
 func (client *Client) SearchBooks(
 	ctx context.Context,
-	request madb.SearchBooksRequest,
+	request madb.SearchRequest,
 ) (madb.SearchBooksResult, error)
 
 func (client *Client) SearchBooksWithRawResponse(
 	ctx context.Context,
-	request madb.SearchBooksRequest,
+	request madb.SearchRequest,
 ) (madb.SearchBooksResult, []byte, error)
 
 func (client *Client) LookupBooksByISBN(
@@ -65,7 +68,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 ) (madb.ISBNLookupResult, []byte, error)
 ```
 
-共通型と共通エラーの実体は `api` パッケージに定義する。`madb` は通常利用に
+共通型と共通エラーの実体は `model` パッケージに定義する。`madb` は通常利用に
 必要な型と定数をエイリアスとして公開し、利用側は `madb` だけをimportして
 検索、結果の参照、分類済みエラーの判定を行える。
 
@@ -107,27 +110,27 @@ https://mediaarts-db.artmuseums.go.jp/data/class#MangaBook
 クラス識別子は `cm101` である。マンガ単行本シリーズを示す
 `class:MangaBookSeries` は検索結果に含めない。
 
-| MADBの取得元                                | `madb` の非公開型        | `madb.Book`                                     |
-| ------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `schema:identifier`                         | `ID`                     | `Sources[0].ID`                                 |
-| 言語タグなしの `schema:name`                | `Titles`                 | `Normalized.Title`                              |
-| `ja-hrkt` の `schema:name`                  | `TitleKana`              | `Normalized.TitleReading`                       |
-| 言語タグなしの `schema:alternativeHeadline` | `Subtitles`              | `Normalized.Subtitle`                           |
-| 言語タグなしの `ma:seriesName`              | `SeriesNames`            | `Normalized.Series`                             |
-| 参照先シリーズの言語タグなし `schema:name`  | `RelatedSeriesNames`     | `Normalized.Series`                             |
-| 参照先シリーズの `schema:identifier`        | `SeriesID`               | `Normalized.Series[].ID`                        |
-| 参照先シリーズURI                           | `SeriesResourceURI`      | `Normalized.Series[].URL`                       |
-| `schema:volumeNumber`                       | `VolumeNumber`           | `Normalized.Volume`                             |
-| 言語タグなしの `schema:version`             | `Versions`               | `Normalized.EditionStatements`                  |
-| `schema:creator` とcreator Agent            | `Creators`、`AgentNames` | `Normalized.Authors`、`Normalized.Contributors` |
-| `schema:publisher`                          | `Publishers`             | `Normalized.Publishers`                         |
-| 言語タグなしの `schema:brand`               | `Brands`                 | `Normalized.Imprints`                           |
-| `schema:isbn`                               | `ISBNs`                  | `Normalized.Identifiers`                        |
-| `schema:datePublished`                      | `PublishedDate`          | `Normalized.Dates`                              |
-| `schema:numberOfPages`                      | `PageCount`              | `Normalized.PageCount`                          |
-| `schema:size`                               | `Size`                   | `Normalized.PhysicalSize`                       |
-| 固定値                                      | 対応なし                 | `Sources[0].Source`、シリーズの `Source`        |
-| マンガ単行本URI                             | `ResourceURI`            | `Sources[0].URL`                                |
+| MADBの取得元                                | `madb` の非公開型        | `madb.Book`                              |
+| ------------------------------------------- | ------------------------ | ---------------------------------------- |
+| `schema:identifier`                         | `ID`                     | `Sources[0].ID`                          |
+| 言語タグなしの `schema:name`                | `Titles`                 | `Title`                                  |
+| `ja-hrkt` の `schema:name`                  | `TitleKana`              | `TitleReading`                           |
+| 言語タグなしの `schema:alternativeHeadline` | `Subtitles`              | `Subtitle`                               |
+| 言語タグなしの `ma:seriesName`              | `SeriesNames`            | `BookSeries`                             |
+| 参照先シリーズの言語タグなし `schema:name`  | `RelatedSeriesNames`     | `BookSeries`                             |
+| 参照先シリーズの `schema:identifier`        | `SeriesID`               | `BookSeries[].ID`                        |
+| 参照先シリーズURI                           | `SeriesResourceURI`      | `BookSeries[].URL`                       |
+| `schema:volumeNumber`                       | `VolumeNumber`           | `Volume`                                 |
+| 言語タグなしの `schema:version`             | `Versions`               | `Editions`                               |
+| `schema:creator` とcreator Agent            | `Creators`、`AgentNames` | `Authors`、`Contributors`                |
+| `schema:publisher`                          | `Publishers`             | `Publishers`                             |
+| 言語タグなしの `schema:brand`               | `Brands`                 | `PublicationSeries`                      |
+| `schema:isbn`                               | `ISBNs`                  | `ISBN10`、`ISBN13`                       |
+| `schema:datePublished`                      | `PublishedDate`          | `PublishedDate`                          |
+| `schema:numberOfPages`                      | `PageCount`              | `PageCount`                              |
+| `schema:size`                               | `Size`                   | `Size`                                   |
+| 固定値                                      | 対応なし                 | `Sources[0].Source`、シリーズの `Source` |
+| マンガ単行本URI                             | `ResourceURI`            | `Sources[0].URL`                         |
 
 中央列はMADB応答を集約するための非公開実装型を示し、公開APIではない。
 
@@ -143,7 +146,7 @@ https://mediaarts-db.artmuseums.go.jp/id/ + MADB ID
 `schema:isPartOf` が参照するリソースは
 `class:MangaBookSeries` に限定する。マンガ単行本シリーズのMADB IDは
 `C` と数字で構成される。参照先の `schema:identifier` とリソースURIは、
-対応する `Normalized.Series` の `ID` と `URL` に設定する。
+対応する `BookSeries` の `ID` と `URL` に設定する。
 
 ## 5. 結果変換
 
@@ -160,15 +163,15 @@ bindingを集約してから共通の `madb.Book` へ変換する。MADB固有�
 - 完全に同じ値だけを重複除去する
 - Goの文字列昇順で並べ、レスポンス順に依存させない
 - 表記揺れ、異体字、読み、役割の違いを同一値と推測しない
-- タイトルやシリーズ名から欠落項目を補完しない
+- タイトルやシリーズ名から、Volume、Editions、IsFinalVolume以外の欠落項目を補完しない。明示VolumeまたはEditionsが欠落する場合だけ、安全なタイトル構文から補う場合がある
 
 実データでは、言語タグなしの値だけでも複数タイトル、副題、シリーズ名が存在する。
-単一の正規値を示すプロパティがないため、`Normalized.Title` と
-`Normalized.Subtitle` には安定ソート後の先頭を暫定値として設定する。
+単一の正規値を示すプロパティがないため、`Title` と
+`Subtitle` には安定ソート後の先頭を暫定値として設定する。
 選択しなかった候補を確認する必要がある場合は、リクエスト単位で返すRaw responseを使用する。
 
 タイトル読みは、すべてのUnicode空白を除去して同じ値になった候補を数える。
-最多の候補が1つに決まる場合だけ `Normalized.TitleReading` へ設定し、最多候補が
+最多の候補が1つに決まる場合だけ `TitleReading` へ設定し、最多候補が
 同数の場合は空にする。
 
 ### 5.2 creator文字列からAuthors・Contributorsへの変換
@@ -195,28 +198,27 @@ creator文字列がない場合だけ、全Agent名を著者と役割なしの�
 
 先頭の角括弧内が次の表記と完全一致する場合だけ、共通役割へ変換する。
 
-| MADB役割                                                                                                                | 共通役割             |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `著`、`著者`、`作`、`共著`、`ほか著`、`他著`                                                                            | `author`             |
-| `原作`、`原案`、`共原作`                                                                                                | `original_creator`   |
-| `脚本`、`シナリオ`、`構成`、`脚色`、`文`、`ストーリー`、`ライター`                                                      | `writer`             |
-| `漫画`、`作画`、`画`、`劇画`、`まんが`、`絵`、`comic`、`Comic`、`COMIC`、`comics`、`コミック`、`マンガ`、`アーティスト` | `artist`             |
-| `キャラクター原案`                                                                                                      | `character_creator`  |
-| `キャラクターデザイン`                                                                                                  | `character_designer` |
-| `編`、`編集`                                                                                                            | `editor`             |
-| `訳`                                                                                                                    | `translator`         |
-| `監修`                                                                                                                  | `supervisor`         |
-| `解説`                                                                                                                  | `commentator`        |
-| `カバーデザイン`、`装丁`、`装幀`、`デザイン`                                                                            | `designer`           |
+| MADB役割                                                                                                                | 共通役割                   |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `著`、`著者`、`作`、`共著`、`ほか著`、`他著`                                                                            | `著者`                     |
+| `原作`、`原案`、`共原作`                                                                                                | `原作`                     |
+| `脚本`、`シナリオ`、`構成`、`脚色`、`文`、`ストーリー`、`ライター`                                                      | `脚本`                     |
+| `漫画`、`作画`、`画`、`劇画`、`まんが`、`絵`、`comic`、`Comic`、`COMIC`、`comics`、`コミック`、`マンガ`、`アーティスト` | `作画`                     |
+| `キャラクター原案`                                                                                                      | `キャラクター原案`         |
+| `キャラクターデザイン`                                                                                                  | `キャラクターデザイン`     |
+| `編`、`編集`                                                                                                            | `編集`                     |
+| `訳`                                                                                                                    | `翻訳`                     |
+| `監修`                                                                                                                  | `監修`                     |
+| `解説`                                                                                                                  | `解説`                     |
+| `カバーデザイン`、`装丁`、`装幀`、`デザイン`                                                                            | `デザイン`                 |
 
 `・` で結ばれた複合役割は、すべての構成要素が上表へ対応する場合だけ、
 複数の共通役割へ変換する。1つでも未知の構成要素があれば、複合役割全体を
 未知として扱う。同じ共通役割になる構成要素は1件へまとめる。
 
-`Authors` へ含める共通役割は `author`、`original_creator`、`writer`、
-`artist`、`character_creator`、`character_designer` とする。
-`editor`、`translator`、`supervisor`、`commentator`、`designer` は
-`Contributors` だけに含める。
+`Authors` へ含める共通役割は `著者`、`原作`、`脚本`、`作画`、
+`キャラクター原案`、`キャラクターデザイン` とする。
+`編集`、`翻訳`、`監修`、`解説`、`デザイン` は `Contributors` だけに含める。
 
 #### 5.2.2 creator文字列の解析
 
@@ -231,8 +233,8 @@ creator文字列は次の順序で解析する。
 
 先頭に役割表記がないcreator文字列は、文字列全体を人物名として `Authors` と
 役割なしの `Contributors` に含める。既知役割を持つ人物は `Contributors` に含め、
-`author`、`original_creator`、`writer`、`artist`、`character_creator`、
-`character_designer` のいずれかを持つ場合だけ `Authors` に含める。役割表記があるが
+`著者`、`原作`、`脚本`、`作画`、`キャラクター原案`、
+`キャラクターデザイン` のいずれかを持つ場合だけ `Authors` に含める。役割表記があるが
 対応できない人物は、役割なしの `Contributors` にだけ含める。
 
 閉じ角括弧がない、角括弧が不正に重なる、人物名が空になる値からは、`Authors` と
@@ -249,13 +251,13 @@ MADBのRDFはcreatorの順序を持たない。`Creators` と `AgentNames` はGo
 この順序は取得元の表示順や役割の優先順位を表さない。
 
 `M292132` の `[著]佐々木倫子` と `[解説]藤原新也` は、佐々木倫子だけを
-`Authors` に含め、両名をそれぞれ `author`、`commentator` の
+`Authors` に含め、両名をそれぞれ `著者`、`解説` の
 `Contributors` として返す。
 
 ### 5.3 publisher
 
 `schema:publisher` は文字列であり、発行、発売、読みなどを含む場合がある。
-`Normalized.Publishers` では、`∥` より後ろがカタカナ、空白、中黒、長音記号だけで
+`Publishers` では、`∥` より後ろがカタカナ、空白、中黒、長音記号だけで
 構成される場合に限り、区切り以降を出版社名の読みとして除去する。除去後に同じに
 なった出版社名は1件へまとめる。`発行元 ∥ 発売元` など、区切り後がカナ読みでは
 ない値は変更しない。
@@ -265,18 +267,18 @@ MADBのRDFはcreatorの順序を持たない。`Creators` と `AgentNames` はGo
 `schema:isbn` は0件以上存在する。ASCIIのハイフンと空白を除いた後、
 ISBN-10またはISBN-13のチェックディジットを検証する。
 
-- 正しいISBN-10は大文字の `X` を含む10文字として `Identifiers` へ設定する
-- 正しいISBN-13は13桁として `Identifiers` へ設定する
-- 検証に失敗した値は `Normalized.Identifiers` へ設定しない
+- 正しいISBN-10は大文字の `X` を含む10文字として `ISBN10` へ設定する
+- 正しいISBN-13は13桁として `ISBN13` へ設定する
+- 検証に失敗した値は `ISBN10` / `ISBN13` へ設定しない
 - 同じ種別が複数ある場合もすべて返す
 
 ### 5.5 刊行日と巻数
 
 `schema:datePublished` は `YYYY`、`YYYY-MM`、`YYYY-MM-DD` など、
-精度の異なる文字列である。日付として再解釈せず、取得値をそのまま保持する。
+精度の異なる文字列である。`PublishedDate` に取得値をそのまま保持し、日付として再解釈しない。
 空文字列は欠落として扱う。不正に見える値も推測で修正しない。
 
-文字列全体が許可した整数構文へ一致する場合は `Normalized.Volume.Number` と
+文字列全体が許可した整数構文へ一致する場合は `Volume.Number` と
 10進数の `Label`を設定する。`上`、`中`、`下`、`前編`、`後編`、小数巻、
 `別巻`、`外伝`、`番外編`は `Label`だけを設定する。解析できない値は正規化せず、
 `Volume` を設定しない。複数の異なる値が返された場合は、スキーマの0または1件という
@@ -285,23 +287,28 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 ### 5.6 ページ数と大きさ
 
 `schema:numberOfPages` は、数字だけ、または数字の後ろに `p` が付く表記だけを
-`Normalized.PageCount` の整数へ変換する。解析できない値はページ数を設定しない。
+`PageCount` の整数へ変換する。解析できない値はページ数を設定しない。
 
-整数または小数第1位までのセンチメートル表記を認識し、先頭の値を高さ、
-`×` より後ろを幅としてミリメートルへ変換する。認識できた場合は
-`Normalized.PhysicalSize` と `print` の
-`Normalized.Medium` を設定する。判型名など解析できない値は推測で寸法へ変換しない。
+`schema:size` の文字列は `Size` にそのまま保持する。整数または小数の
+センチメートル表記を認識できる場合だけ `Medium` を `print` とする。
+判型名など解析できない値から寸法や媒体を推測しない。
 
-### 5.7 版表示、単行本レーベル、シリーズ
+### 5.7 版表示、出版側グループ表示、シリーズ
 
 マンガ単行本へ直接記録された言語タグなしの `schema:version` を
-`Normalized.EditionStatements` として返す。
+`Editions` として返す。
 版表示は0件以上存在し、複数の異なる値もすべて返す。値を通常版、新装版、
 愛蔵版、完全版、文庫版などの独自分類へ変換しない。
 
-マンガ単行本へ直接記録された言語タグなしの `schema:brand` を `Imprints` として
-返す。`ja-hrkt` などの言語タグ付きの読みは返さない。レーベルらしくない値が
-含まれていても、文字列の内容から除外または修正しない。
+マンガ単行本へ直接記録された言語タグなしの `schema:brand` を
+`PublicationSeries` として返す。`ja-hrkt` などの言語タグ付きの読みは返さない。
+空文字列を除外し、完全一致の重複を除去してGo文字列昇順で返す。レーベルらしくない値が
+含まれていても、文字列の内容から除外、修正、再結合、再分類しない。たとえば
+`M530976`（ISBN `9784253121989`）では、NDL保存済みRawの
+`dcndl:seriesTitle` が `A.L.C.SELECTION. アラ還 愛子ときどき母` という1値である一方、
+現行MADBは `A`、`C`、`L`、`SELECTION`、`アラ還 愛子ときどき母` の5つの
+`schema:brand` を返す。取得元データを `A.L.C.SELECTION` へ再結合したり、
+`アラ還 愛子ときどき母` を `BookSeries` へ移したりしない。
 
 `schema:isPartOf` が参照する `class:MangaBookSeries` から、次を取得する。
 
@@ -310,7 +317,7 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 - シリーズリソースURI
 
 シリーズの `schema:name` は、単行本へ直接記録された言語タグなしの
-`ma:seriesName` と分けて `RelatedSeriesNames` に保持する。`Normalized.Series`では、
+`ma:seriesName` と分けて `RelatedSeriesNames` に保持する。`BookSeries`では、
 参照先シリーズ名とID、URL、`SourceMADB`を同じ要素へ設定する。同じ名前が
 直接指定にもある場合は1要素へまとめる。参照先が欠落する場合、直接指定された
 名前だけをID、URLなしで返す。
@@ -318,17 +325,17 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 異なる複数の参照先シリーズ、シリーズID、シリーズURIが返された場合は、
 スキーマの0または1件という保証事項に反するため `invalid_response` とする。
 参照先シリーズの `schema:brand` と `schema:version` は単行本の値として返さない。
-単行本の版表示またはレーベルが欠落しても、参照先シリーズ、タイトル、
+単行本の版表示または出版側グループ表示が欠落しても、参照先シリーズ、タイトル、
 出版社、判型から補完しない。
 
 ## 6. 検索条件
 
-`Title`、`Author`、`Publisher`、`FreeText` の少なくとも1つを正条件として必須とする。
-`ExcludedText` だけの検索は `invalid_argument` とする。
+`Title`、`Author`、`Publisher`、`Query`、`DateFrom`、`DateTo` の少なくとも1つを正条件として必須とする。
+`Exclude` だけの検索は `invalid_argument` とする。
 複数を指定した場合は、それぞれの条件をAND結合する。検索結果は必ず
 `rdf:type class:MangaBook` で絞り込む。
 
-`Title`、`schema:creator`、`FreeText`、独立した`ExcludedText`の全文検索では、
+`Title`、`schema:creator`、`Query`、独立した`Exclude`の全文検索では、
 `?resource` を返すNeptune FTS候補を `Neptune#fts.entity_id` の昇順で取得する。このentity IDは
 MADB書籍リソースURIに対応し、ページングで使用するリソースURI昇順と同じ順序とする。
 
@@ -390,7 +397,8 @@ Agent参照の逆引きはcreator文字列だけの検索より遅くなる可�
 ### 6.3 出版社名検索
 
 出版社名検索は、単行本リソースのRDF `schema:publisher` 値に対する大文字小文字を区別しない
-部分一致とする。Neptune全文検索は使用しない。
+部分一致とする。Neptune全文検索は使用しない。FTS候補を先に絞る方式ではresult windowの後に
+Publisher条件が評価され、該当書籍を取りこぼす実例があるため、出版社条件はRDF値へ直接適用する。
 
 `Publisher` はUnicode空白を区切りとして検索語へ分割し、各語がpublisher値のいずれかに
 含まれる書籍を検索する。複数の検索語はAND条件とし、各語は別々のpublisher値に一致してよい。
@@ -398,10 +406,10 @@ Agent参照の逆引きはcreator文字列だけの検索より遅くなる可�
 `ショウガクカン` も同じ値への部分一致として扱う。利用者入力はSPARQL文字列リテラルとして
 安全に扱い、SPARQL構文として解釈しない。
 
-`Title`、`Author`、`FreeText` と同時指定した場合は、すべての正条件をAND結合する。
+`Title`、`Author`、`Query` と同時指定した場合は、すべての正条件をAND結合する。
 
-`FreeText` の検索対象にも `schema:publisher` を含める。`Publisher` はその対象を限定する
-専用条件であり、`FreeText` の対象項目を変更しない。
+`Query` の検索対象にも `schema:publisher` を含める。`Publisher` はその対象を限定する
+専用条件であり、`Query` の対象項目を変更しない。
 
 ### 6.4 フリーワード検索
 
@@ -421,7 +429,7 @@ Agent参照の逆引きはcreator文字列だけの検索より遅くなる可�
 - `schema:size`
 
 Neptune全文検索の `query_string` に上記の `field` をすべて明示する。フィールドの
-省略と `*` は使用しない。`FreeText` はタイトルと同じ規則でUnicode空白を区切りに
+省略と `*` は使用しない。`Query` はタイトルと同じ規則でUnicode空白を区切りに
 検索語へ分割し、各語を安全な引用句にして `AND` で結ぶ。各語は同じ項目に存在する
 必要はなく、複数の対象項目をまたいで一致してよい。
 
@@ -436,22 +444,22 @@ Agentの `rdfs:label` は別リソースにあるため対象外とする。Agen
 
 ### 6.5 除外検索
 
-`ExcludedText` は、6.4のフリーワード検索と同じ12項目を対象にする。
+`Exclude` は、6.4のフリーワード検索と同じ12項目を対象にする。
 Agentの `rdfs:label` は対象外とし、Agent参照だけに存在する著者名では除外しない。
 
 除外文字列はUnicode空白で検索語へ分割し、各語を安全な引用句へ変換する。
 どれか1語でも含む単行本を除外する。利用者入力の `AND`、`OR`、`NOT`、引用符、
 バックスラッシュは全文検索構文として解釈しない。
 
-`FreeText` がある場合は、フリーワードのAND式へ除外語をそれぞれ `AND NOT` で
-追加する。例えば `FreeText` が `うる星`、`ExcludedText` が `復刻box 愛蔵版` の
+`Query` がある場合は、フリーワードのAND式へ除外語をそれぞれ `AND NOT` で
+追加する。例えば `Query` が `うる星`、`Exclude` が `復刻box 愛蔵版` の
 場合は、次の式を生成する。
 
 ```text
 "うる星" AND NOT "復刻box" AND NOT "愛蔵版"
 ```
 
-`FreeText` がない場合は、フリーワード対象の12項目に対して除外語を `OR` で
+`Query` がない場合は、フリーワード対象の12項目に対して除外語を `OR` で
 結合した全文検索を実行し、その一致結果をSPARQLの `MINUS` で除く。タイトルと
 著者名のどちらの正条件でも同じ除外範囲を維持する。
 

@@ -3,7 +3,7 @@
 ## 1. 概要
 
 `rakutenkobo` パッケージは、楽天Kobo電子書籍検索APIを使って電子書籍を検索し、
-取得結果を `api.Book` へ変換する。
+取得結果を `model.Book` へ変換する。
 
 import path:
 
@@ -13,7 +13,7 @@ github.com/eamat-dot/manken/rakutenkobo
 
 楽天Koboは電子書籍の商品検索APIであり、ISBN参照は提供しない。Kobo固有の商品番号、
 取得時点価格、商品URL、アフィリエイトURLなど、取得元が明示する情報だけを安全に共通化する。
-単話、分冊、合本、無料版、巻数などを商品タイトルから推測しない。
+単話、分冊、合本、無料版を商品タイトルから推測・分類しない。titleは非破壊で保持し、通常巻と安全に判断できる明確な巻表示、確認済み版表示、巻表示へ隣接する完結表示だけをVolume、Editions、IsFinalVolumeへ補う場合がある。分冊、単話、合本、無料試読、セット、Vol.NはVolumeへ推測しない。
 
 ## 2. Client
 
@@ -64,14 +64,15 @@ WithEndpoint(endpoint string)
 | `ComicGenreTL`      | `tl`      | `101940011`   |
 
 Clientの既定値は `ComicGenreGeneral` である。1回の `SearchBooks` で複数区分を横断しない。
-これらのジャンルIDは2026年8月10日にKoboジャンル検索APIで再確認している。
+複数区分を内部で別々のAPIリクエストへ展開すると、Limit、page、取得元の返却順を単一の検索結果と
+Cursorで表せなくなるためである。これらのジャンルIDは2026年8月10日にKoboジャンル検索APIで再確認している。
 
 ## 4. SearchBooks
 
 ```go
 func (client *Client) SearchBooks(
     ctx context.Context,
-    request SearchBooksRequest,
+    request SearchRequest,
 ) (SearchBooksResult, error)
 ```
 
@@ -80,33 +81,35 @@ func (client *Client) SearchBooks(
 ```go
 func (client *Client) SearchBooksWithRawResponse(
     ctx context.Context,
-    request SearchBooksRequest,
+    request SearchRequest,
 ) (SearchBooksResult, []byte, error)
 ```
 
 ### 4.1 対応する共通検索条件
 
-| `SearchBooksRequest` | 楽天Kobo        | 動作                   |
+`DateFrom` と `DateTo` は楽天Koboが範囲検索条件を提供しないため、通信前に `invalid_argument` を返す。取得後の絞り込みは行わない。
+
+| `SearchRequest` | 楽天Kobo        | 動作                   |
 | -------------------- | --------------- | ---------------------- |
 | `Title`              | `title`         | 対応                   |
 | `Author`             | `author`        | 対応                   |
 | `Publisher`          | `publisherName` | 対応                   |
-| `FreeText`           | `keyword`       | 対応                   |
-| `ExcludedText`       | `NGKeyword`     | 条件付きで対応         |
+| `Query`           | `keyword`       | 対応                   |
+| `Exclude`       | `NGKeyword`     | 条件付きで対応         |
 | `Limit`              | `hits`          | 対応                   |
 | `Cursor`             | `page`          | 不透明Cursor経由で対応 |
 
-`Title`、`Author`、`Publisher`、`FreeText` の少なくとも1つが必要である。各文字列の前後の
+`Title`、`Author`、`Publisher`、`Query` の少なくとも1つが必要である。各文字列の前後の
 空白を除いて送信する。
 
 楽天Kobo APIは `NGKeyword` を指定する場合に `keyword` も要求する。この制約に対して
 `rakutenkobo` は次の規則を適用する。
 
-- `ExcludedText` がある場合は、`FreeText`、`Title`、`Author`、`Publisher` の順で最初の非空値を `keyword` として使用する
+- `Exclude` がある場合は、`Query`、`Title`、`Author`、`Publisher` の順で最初の非空値を `keyword` として使用する
 - 専用条件は常に対応する取得元パラメーターへ送る。補完する `keyword` は利用者が別途指定した検索語ではなく、`NGKeyword` の取得元要件を満たすため既存の正条件と同じ値を送る
-- `ExcludedText` だけでは検索できない
+- `Exclude` だけでは検索できない
 
-この補完は2026年8月11日に取得元へ送信して確認した挙動に基づく回避策であり、`NGKeyword` が検索対象とする項目の範囲は保証しない。固定の除外語は追加しない。利用者が指定した `ExcludedText` だけを `NGKeyword` へ送る。
+この補完は2026年8月11日に取得元へ送信して確認した挙動に基づく回避策であり、`NGKeyword` が検索対象とする項目の範囲は保証しない。固定の除外語は追加しない。利用者が指定した `Exclude` だけを `NGKeyword` へ送る。
 
 ### 4.2 固定パラメータ
 
@@ -122,8 +125,10 @@ orFlag=0
 koboGenreId=<Clientの漫画区分>
 ```
 
-`sort=+releaseDate` は発売日の古い順である。`language=JA` で日本語商品に限定し、`field=0` は
-楽天Koboの広い検索対象範囲を使用する。複数キーワードはAND条件を維持する。
+`sort=+releaseDate` は発売日の古い順である。古い商品から候補を確認しやすくし、楽天BooksやNDLサーチと
+固定既定の考え方を揃えるため明示指定する。版違い、分冊、合本等が混在し得るため巻数順は保証しない。
+`language=JA` で日本語商品に限定し、`field=0` は楽天Koboの広い検索対象範囲を使用する。
+複数キーワードはAND条件を維持する。
 楽天Koboが返した順序を維持し、ライブラリ内で独自に並べ替えない。
 
 ## 5. Limitとページング
@@ -139,8 +144,8 @@ koboGenreId=<Clientの漫画区分>
 - Title
 - Author
 - Publisher
-- FreeText
-- ExcludedText
+- Query
+- Exclude
 - Clientの漫画区分
 
 Cursorを異なる検索条件、Limit、漫画区分で再利用した場合は `invalid_argument` となる。
@@ -160,40 +165,42 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 
 ### 6.1 変換する項目
 
-| 楽天Kobo        | 共通モデル                          | 規則                                                                   |
-| --------------- | ----------------------------------- | ---------------------------------------------------------------------- |
-| `itemNumber`    | `BookSource.ID`                     | Koboの商品IDとして保持。ISBNとして扱わない                             |
-| `itemUrl`       | `BookSource.URL`                    | 有効なHTTP(S) URLだけを使用                                            |
-| `affiliateUrl`  | `BookSource.AffiliateURL`           | 有効なHTTP(S) URLだけを使用。通常URLを置き換えない                     |
-| `title`         | `Normalized.Title`                  | そのまま保持                                                           |
-| `titleKana`     | `Normalized.TitleReading`           | そのまま保持                                                           |
-| `subTitle`      | `Normalized.Subtitle`               | そのまま保持                                                           |
-| `seriesName`    | `Normalized.Series[].Name`          | 1要素として保持                                                        |
-| `author`        | `Normalized.Authors`                | `/`で分割し、前後空白を除いて順序どおり保持。空要素は除外              |
-| `author`        | `Normalized.Contributors`           | Authorsと同じ人物を役割なしで保持                                      |
-| `authorKana`    | `Normalized.Contributors[].Reading` | Kobo固有の検証済み形式だけを著者順に設定。未知形式はRaw responseに残す |
-| `publisherName` | `Normalized.Publishers`             | 1要素として保持                                                        |
-| `salesDate`     | `Normalized.Dates`                  | `released` として原文の精度を維持                                      |
-| `itemCaption`   | `Normalized.Description`            | そのまま保持                                                           |
-| `koboGenreId`   | `Normalized.Subjects`               | `/`で分割し、Scheme=`rakuten_kobo` とする                              |
-| `itemPrice`     | `Normalized.Prices`                 | `current` / JPY / 税込。取得時刻を `ObservedAt` に保持                 |
-| API種別         | `Normalized.Medium`                 | `digital`                                                              |
-| 3種の画像URL    | `Normalized.Images`                 | small / medium / largeの順に保持                                       |
+| 楽天Kobo        | 共通モデル                | 規則                                                                   |
+| --------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `itemNumber`    | `BookSource.ID`           | Koboの商品IDとして保持。ISBNとして扱わない                             |
+| `itemUrl`       | `BookSource.URL`          | 有効なHTTP(S) URLだけを使用                                            |
+| `affiliateUrl`  | `BookSource.AffiliateURL` | 有効なHTTP(S) URLだけを使用。通常URLを置き換えない                     |
+| `title`         | `Title`                   | そのまま保持                                                           |
+| `titleKana`     | `TitleReading`            | そのまま保持                                                           |
+| `subTitle`      | `Subtitle`                | そのまま保持                                                           |
+| `seriesName`    | `PublicationSeries[]`     | 1要素として保持。読みは共通Bookへ変換しない                            |
+| `author`        | `Authors`                 | `/`で分割し、前後空白を除いて順序どおり保持。空要素は除外              |
+| `author`        | `Contributors`            | Authorsと同じ人物を役割なしで保持                                      |
+| `authorKana`    | `Contributors[].Reading`  | Kobo固有の検証済み形式だけを著者順に設定。未知形式はRaw responseに残す |
+| `publisherName` | `Publishers`              | 1要素として保持                                                        |
+| `salesDate`     | `ReleaseDate`             | 発売日として原文の精度を維持                                           |
+| `itemCaption`   | `Description`             | そのまま保持                                                           |
+| `koboGenreId`   | `Subjects`                | `/`で分割し、Scheme=`rakuten_kobo` とする                              |
+| `itemPrice`     | `CurrentPrice`            | JPY / 税込。取得時刻を `ObservedAt` に保持                             |
+| API種別         | `Medium`                  | `digital`                                                              |
+| 3種の画像URL    | `CoverURL`                | 利用可能な最大サイズのURLを1件保持                                     |
 
-`itemNumber` はKobo固有の商品番号であり、`Normalized.Identifiers` へ追加しない。
+`seriesName` は `PublicationSeries` に保持するが、作品シリーズであることは保証しない。取得元の読みは共通Bookへ変換せず、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
+
+`itemNumber` はKobo固有の商品番号であり、`ISBN10`、`ISBN13`、`JAN` へ追加しない。
 `LookupBooksByISBN` は提供しない。
 
 `author` は `/` 区切りで人物単位へ分け、各要素の前後空白を除き、空要素を除外する。
-この規則は `Normalized.Authors` と `Normalized.Contributors[].Name` の両方に適用する。
+この規則は `Authors` と `Contributors[].Name` の両方に適用する。
 
-`authorKana` は、次のいずれかを満たす場合だけ `Normalized.Contributors[].Reading` に設定する。
+`authorKana` は、次のいずれかを満たす場合だけ `Contributors[].Reading` に設定する。
 
 - 著者が1名であり、前後空白を除いた `authorKana` が空でなく、`/` と `,` を含まない場合は、その値を設定する
 - 著者が複数名であり、空要素を除外する前の `author` の `/` 区間がすべて非空である場合は、`authorKana` の `/` 区間数、各区間の非空性、前後空白を除いた各区間の完全一致を確認する。共通区間を `,` で分けた要素数が著者数と一致し、各要素が非空の場合だけ、著者順に設定する
 
 条件を満たさない `authorKana`、`A/B` に対する `エー/ビー` のような未確認形式、空要素を除外すると件数だけが一致する形式では、すべてのContributorのReadingを空のままにする。部分的な設定、役割、読みの推測は行わない。元の値はRaw responseから確認できる。
 
-`salesDate` は楽天Koboが「発売日」として返す値であるため `BookDateTypeReleased` を使用する。
+`salesDate` は楽天Koboが「発売日」として返す値であるため `ReleaseDate` に保持する。
 電子書籍であることだけを根拠に `digital_released` へ読み替えない。日付文字列には年月だけや
 「上旬」等を含み得るため、厳密な日付型へ変換しない。
 
@@ -223,7 +230,7 @@ Application ID、Access Key、Affiliate ID等をライブラリ側からRaw resp
 
 ## 8. HTTP・エラー
 
-共通の `api.Error` / `ErrorKind` を使用する。
+共通の `model.Error` / `model.ErrorKind` を使用する。
 
 | 状態                                                 | `ErrorKind`        |
 | ---------------------------------------------------- | ------------------ |

@@ -16,7 +16,7 @@
 [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md)も一次文書とする。
 [DMMパッケージ仕様](docs/pkg/dmm/spec.md)も一次文書とする。
 
-現在のモジュールは共通モデルを定義する `api`、MADBを検索・参照する `madb`、
+現在のモジュールは共通モデルを定義する `model`、MADBを検索・参照する `madb`、
 openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する `googlebooks`、
 楽天Booksを検索・ISBN参照する `rakutenbooks`、楽天Koboを検索する `rakutenkobo`、国立国会図書館サーチを検索・ISBN参照する `ndl` を提供する。
 Yahoo!ショッピングのTower紙書籍を検索・ISBN参照する `yahooshopping` も提供する。
@@ -28,101 +28,117 @@ DMMブックス電子コミックのシリーズを探索し、シリーズ内�
 ```text
 利用側・examples
        |
-       +------> madb -----> api
+       +------> madb -----> model
        |          |
        |          +------> internal/isbn
        |          |
        |          `------> MADB SPARQL Query Service
        |
-       `------> openbd --> api
+       `------> openbd --> model
                   |
                   +------> internal/isbn
                   |
                   `------> openBD
        |
-       +------> googlebooks -> api
+       +------> googlebooks -> model
        |                |
        |                +------> internal/isbn
        |                |
        |                `------> Google Books Volumes API
        |
-       +------> rakutenbooks -> api
+       +------> rakutenbooks -> model
        |                |
        |                +------> internal/isbn
        |                |
        |                `------> 楽天ブックス書籍検索API
        |
-       `------> rakutenkobo -> api
+       `------> rakutenkobo -> model
                         |
                         `------> 楽天Kobo電子書籍検索API
 
-       `------> yahooshopping -> api
+       `------> yahooshopping -> model
                          |
                          +------> internal/isbn
                          |
                          `------> Yahoo!ショッピング商品検索API
        |
-       `------> dmm -----------> api
+       `------> dmm -----------> model
                          |
                          `------> DMM.com Webサービス v3 ItemList
        |
-       `------> ndl -> api
+       `------> ndl -> model
                          |
                          +------> internal/isbn
                          |
                          `------> NDLサーチ SRU API
+
+madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
+       `------> internal/titlemeta
+madb/ndl/dmm
+       `------> internal/daterange
+madb/ndl
+       `------> internal/authorrole
 ```
 
-- `api`
+- `model`
   - 取得元に依存しない書籍モデル、検索条件、検索結果、エラー分類を定義する
   - 外部サービスのレスポンス型や通信処理へ依存しない
 - `madb`
   - 入力検証、SPARQL生成、HTTP通信、レスポンス解析、共通モデルへの変換を担当する
-  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
   - MADB固有の中間表現と変換規則をパッケージ外へ公開しない
 - `openbd`
   - ISBN入力検証、HTTP通信、応答対応の検証、共通モデルへの変換を担当する
-  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
   - openBD固有の中間表現とONIXコードをパッケージ外へ公開しない
 - `googlebooks`
   - Google Booksの検索文字列生成、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
-  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
   - Google Books固有レスポンス型、APIキー、販売・閲覧情報をパッケージ外へ公開しない
 - `rakutenbooks`
-  - 楽天Booksのタイトル・著者検索、漫画区分、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
-  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
+  - 楽天Booksのタイトル・著者・出版社検索、漫画区分、HTTP通信、ページング、ISBN参照、共通モデルへの変換を担当する
+  - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
   - 取得時点価格とアフィリエイトURLは共通モデルへ変換し、楽天Books固有レスポンス型、認証情報、在庫等はパッケージ外へ公開しない
 - `rakutenkobo`
   - 楽天Koboの検索、漫画区分、HTTP通信、ページング、共通モデルへの変換を担当する
   - 電子書籍の商品番号、取得時点価格、アフィリエイトURLは共通モデルへ変換し、ISBN推測や楽天Kobo固有レスポンス型、認証情報は公開しない
 - `ndl`
   - SRU CQL生成、HTTP通信、Cursor、ISBN参照、DC-NDL v3の解析、共通モデルへの変換を担当する
-  - 通常利用に必要な `api` の型と定数を型エイリアスとして公開する
-  - `from`、`until`、`subject`、`description` はNDL固有の `SearchOptions` として公開し、共通 `api.SearchBooksRequest` には追加しない
-  - 所蔵・個体情報、JPNO、価格、NDL固有の著者役割表記は共通モデルへ公開しない
+  - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
+  - 出版年月日の範囲は共通 `model.SearchRequest.DateFrom` / `DateTo` から `from` / `until` へ変換し、`subject` / `description` はNDL固有の `SearchOptions` として公開する
+  - 安全に変換できる書誌価格と既知の著者役割は共通モデルへ変換し、所蔵・個体情報、JPNO、未知の役割・典拠情報は公開しない
 - `yahooshopping`
   - Tower固定の紙書籍商品検索、ISBN参照、HTTP通信、Cursor、共通モデルへの変換を担当する
   - Client ID、ストア固有レスポンス型、在庫・送料・レビューは公開しない
 - `dmm`
   - DMMブックス電子コミックのシリーズ探索、シリーズ内個別商品取得、HTTP通信、Cursor、共通モデルへの限定的な変換を担当する
-  - API ID、Affiliate ID、DMM固有レスポンス型、価格・巻数・日付等の未確認項目は公開しない
+  - API ID、Affiliate ID、DMM固有レスポンス型、`prices.price`・`number`・`date` 等の未共通化項目は公開しない
 - `internal/isbn`
   - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
+- `internal/titlemeta`
+  - 取得元タイトルを変更せず、安全に判断できる巻表示、版表示、完結表示を補助フィールドへ抽出する
+  - MADB、openBD、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピング、DMMから再利用し、モジュール外へ公開しない
+- `internal/daterange`
+  - `DateFrom` / `DateTo` の形式、暦日、精度、順序を検証し、指定期間の境界を計算する
+  - MADB、NDL、DMMから再利用し、取得元固有の検索式・queryへの変換は各providerが担当する
+- `internal/authorrole`
+  - `Authors` へ含める共通の主要創作者役割を判定する
+  - MADBとNDLから再利用し、取得元固有の役割表記から共通日本語役割名への変換は各providerが担当する
 - `examples`
   - `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` の公開APIを使う動作確認用CLIを置く
   - ライブラリの一部として再利用する内部処理は置かない
 
-`api` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
+`model` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
 `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` の必要なパッケージだけをimportでき、
-共通型を直接扱う用途では `api` をimportできる。
+共通型を直接扱う用途では `model` をimportできる。
 
 ## MADBの検索処理の流れ
 
 次の流れはMADBのタイトル・著者名・フリーワード検索にだけ適用する。
 
 ```text
-SearchBooksRequest
+SearchRequest
        |
        v
 入力検証・検索条件の正規化
@@ -137,7 +153,7 @@ SPARQL生成 -> HTTP POST -> 上限付きレスポンス読込
 SPARQL Results JSONの解析・1冊単位への集約
        |
        v
-MADB固有値からapi.Bookへの変換
+MADB固有値からmodel.Bookへの変換
        |
        v
 SearchBooksResultと次ページカーソル
@@ -160,18 +176,14 @@ Google Booksの検索では、共通検索条件を引用済みのGoogle Books�
 
 ## 書籍データの境界
 
-`api.Book` は、通常利用する `Normalized` と、取得元への参照を保持する `Sources` に分ける。
+`model.Book` は共通書誌情報を直下に保持し、`Sources` に取得元への参照を保持する。
 
-- `Normalized`
-  - 取得元に依存しない形で利用できる書誌情報を保持する
-  - MADB固有の表記を変換する場合も、仕様で認めた規則だけを適用する
-- `Sources`
-  - 取得元、取得元内ID、通常の参照URL、アフィリエイトURLを保持する
-  - 正規化前の値や取得元固有のレスポンス本文は保持しない
+- `Title` は取得元から採用した完全なタイトル文字列を保持し、巻数や版表示を別フィールドへ抽出しても短縮しない
+- ISBN、日付、価格は用途別のフィールドへ置き、種別付きの汎用配列を介さない
+- 表紙は `CoverURL`、書籍サイズは `Size` として、provider間で一貫して使える範囲だけを共通化する
+- `Sources` は取得元、取得元内ID、通常の参照URL、アフィリエイトURLを保持し、取得元固有のレスポンス本文は保持しない
 
-取得元に存在しない情報は、タイトル、版表示、レーベルなどから推測しない。
-完全なレスポンス本文が必要な場合は、取得元パッケージの `WithRawResponse` メソッドを
-使い、共通モデルへ取り込まない。
+取得元に存在しない情報や項目間の対応は推測しない。完全なレスポンス本文が必要な場合は、取得元パッケージの `WithRawResponse` メソッドを使い、共通モデルへ取り込まない。
 
 ## 通信と実行制御の境界
 
@@ -180,13 +192,13 @@ Google Booksの検索では、共通検索条件を引用済みのGoogle Books�
 アクセス間隔の制御を行わない。必要な場合は呼び出し側が担当する。
 
 成功レスポンス本文は上限付きで1回読み込み、結果変換とrawレスポンス返却に共用する。
-HTTPエラー本文は公開エラーへそのまま含めない。エラーは `api.Error` の分類と標準の
+HTTPエラー本文は公開エラーへそのまま含めない。エラーは `model.Error` の分類と標準の
 エラーチェーンを通して利用側が判定できるようにする。
 
 ## 拡張時の現在の想定
 
 現時点では、新しいデータ取得元を追加する場合、取得元ごとのパッケージが通信、
-固有レスポンス、共通モデルへの変換を所有する構成を想定している。`api` には、
+固有レスポンス、共通モデルへの変換を所有する構成を想定している。`model` には、
 複数の取得元で共有できると確認した仕様だけを置く。
 
 MCPなど別のインターフェースを追加する場合は、検索ライブラリの公開入出力を利用し、

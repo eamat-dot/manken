@@ -107,13 +107,13 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server.URL)
-	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{
-		Title:        " 作品 ",
-		Author:       " 著者 ",
-		Publisher:    " 白泉社　花とゆめ ",
-		FreeText:     " 新装版　B6判 ",
-		ExcludedText: " 復刻版　愛蔵版 ",
-		Limit:        2,
+	result, err := client.SearchBooks(context.Background(), SearchRequest{
+		Title:     " 作品 ",
+		Author:    " 著者 ",
+		Publisher: " 白泉社　花とゆめ ",
+		Query:     " 新装版　B6判 ",
+		Exclude:   " 復刻版　愛蔵版 ",
+		Limit:     2,
 	})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -140,11 +140,11 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 	}
 
 	cursor, err := decodeCursor(result.NextCursor, searchConditions{
-		Title:        "作品",
-		Author:       "著者",
-		Publisher:    "白泉社 花とゆめ",
-		FreeText:     "新装版 B6判",
-		ExcludedText: "復刻版 愛蔵版",
+		Title:     "作品",
+		Author:    "著者",
+		Publisher: "白泉社 花とゆめ",
+		Query:     "新装版 B6判",
+		Exclude:   "復刻版 愛蔵版",
 	}, 2)
 	if err != nil {
 		t.Fatalf("decodeCursor() error = %v", err)
@@ -156,11 +156,11 @@ func TestClient_SearchBooks_RequestAndResult(t *testing.T) {
 
 // TestValidateSearchRequest_PublisherOnly は、出版社だけの条件をUnicode空白を正規化して受け付けることを検証する
 func TestValidateSearchRequest_PublisherOnly(t *testing.T) {
-	conditions, limit, _, err := validateSearchRequest(SearchBooksRequest{Publisher: "  白泉社　花とゆめ \n"})
+	conditions, limit, _, err := validateSearchRequest(SearchRequest{Publisher: "  白泉社　花とゆめ \n"})
 	if err != nil {
 		t.Fatalf("validateSearchRequest() error = %v", err)
 	}
-	if conditions.Publisher != "白泉社 花とゆめ" || conditions.Title != "" || conditions.Author != "" || conditions.FreeText != "" {
+	if conditions.Publisher != "白泉社 花とゆめ" || conditions.Title != "" || conditions.Author != "" || conditions.Query != "" {
 		t.Fatalf("conditions = %#v", conditions)
 	}
 	if limit != defaultLimit {
@@ -168,38 +168,38 @@ func TestValidateSearchRequest_PublisherOnly(t *testing.T) {
 	}
 }
 
-// TestValidateSearchRequest_ExcludedText は、除外語を正規化して正条件を必須にする
-func TestValidateSearchRequest_ExcludedText(t *testing.T) {
-	conditions, _, _, err := validateSearchRequest(SearchBooksRequest{
-		Title:        " うる星 ",
-		ExcludedText: "  復刻box　愛蔵版\n",
+// TestValidateSearchRequest_Exclude は、除外語を正規化して正条件を必須にする
+func TestValidateSearchRequest_Exclude(t *testing.T) {
+	conditions, _, _, err := validateSearchRequest(SearchRequest{
+		Title:   " うる星 ",
+		Exclude: "  復刻box　愛蔵版\n",
 	})
 	if err != nil {
 		t.Fatalf("validateSearchRequest() error = %v", err)
 	}
-	if conditions.ExcludedText != "復刻box 愛蔵版" {
-		t.Fatalf("ExcludedText = %q", conditions.ExcludedText)
+	if conditions.Exclude != "復刻box 愛蔵版" {
+		t.Fatalf("Exclude = %q", conditions.Exclude)
 	}
 
-	for _, request := range []SearchBooksRequest{
-		{ExcludedText: "復刻box"},
-		{ExcludedText: "\u3000\t"},
+	for _, request := range []SearchRequest{
+		{Exclude: "復刻box"},
+		{Exclude: "\u3000\t"},
 	} {
 		_, _, _, err := validateSearchRequest(request)
 		assertErrorKind(t, err, ErrorKindInvalidArgument)
 	}
 }
 
-// TestValidateSearchRequest_FreeTextOnly は、フリーワードだけの条件とUnicode空白を正規化する
-func TestValidateSearchRequest_FreeTextOnly(t *testing.T) {
-	conditions, limit, _, err := validateSearchRequest(SearchBooksRequest{
-		FreeText: "  うる星　新装版\n",
+// TestValidateSearchRequest_QueryOnly は、フリーワードだけの条件とUnicode空白を正規化する
+func TestValidateSearchRequest_QueryOnly(t *testing.T) {
+	conditions, limit, _, err := validateSearchRequest(SearchRequest{
+		Query: "  うる星　新装版\n",
 	})
 	if err != nil {
 		t.Fatalf("validateSearchRequest() error = %v", err)
 	}
-	if conditions.FreeText != "うる星 新装版" {
-		t.Fatalf("FreeText = %q", conditions.FreeText)
+	if conditions.Query != "うる星 新装版" {
+		t.Fatalf("Query = %q", conditions.Query)
 	}
 	if conditions.Title != "" || conditions.Author != "" {
 		t.Fatalf("conditions = %#v, want free text only", conditions)
@@ -211,7 +211,7 @@ func TestValidateSearchRequest_FreeTextOnly(t *testing.T) {
 
 // TestValidateSearchRequest_AuthorOnly は、著者名だけの条件とUnicode空白を正規化する
 func TestValidateSearchRequest_AuthorOnly(t *testing.T) {
-	conditions, limit, _, err := validateSearchRequest(SearchBooksRequest{
+	conditions, limit, _, err := validateSearchRequest(SearchRequest{
 		Author: "  佐々木　倫子\n",
 	})
 	if err != nil {
@@ -241,7 +241,7 @@ func TestClient_SearchBooksWithRawResponse_ResultAndRaw(t *testing.T) {
 
 	result, rawResponse, err := newTestClient(t, server.URL).SearchBooksWithRawResponse(
 		context.Background(),
-		SearchBooksRequest{Title: "作品"},
+		SearchRequest{Title: "作品"},
 	)
 	if err != nil {
 		t.Fatalf("SearchBooksWithRawResponse() error = %v", err)
@@ -267,7 +267,7 @@ func TestClient_SearchBooksWithRawResponse_ReturnsRawOnDecodeError(t *testing.T)
 
 	_, rawResponse, err := newTestClient(t, server.URL).SearchBooksWithRawResponse(
 		context.Background(),
-		SearchBooksRequest{Title: "作品"},
+		SearchRequest{Title: "作品"},
 	)
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if string(rawResponse) != body {
@@ -285,7 +285,7 @@ func TestClient_SearchBooksWithRawResponse_ReturnsRawOnConversionError(t *testin
 
 	_, rawResponse, err := newTestClient(t, server.URL).SearchBooksWithRawResponse(
 		context.Background(),
-		SearchBooksRequest{Title: "作品"},
+		SearchRequest{Title: "作品"},
 	)
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if string(rawResponse) != body {
@@ -325,7 +325,7 @@ func TestClient_SearchBooksWithRawResponse_DoesNotReturnUnavailableBody(t *testi
 
 			_, rawResponse, err := newTestClient(t, server.URL).SearchBooksWithRawResponse(
 				context.Background(),
-				SearchBooksRequest{Title: "作品"},
+				SearchRequest{Title: "作品"},
 			)
 			assertErrorKind(t, err, test.kind)
 			if rawResponse != nil {
@@ -344,7 +344,7 @@ func TestClient_SearchBooks_EmptyResult(t *testing.T) {
 
 	result, err := newTestClient(t, server.URL).SearchBooks(
 		context.Background(),
-		SearchBooksRequest{Title: "存在しない作品"},
+		SearchRequest{Title: "存在しない作品"},
 	)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -363,11 +363,11 @@ func TestClient_SearchBooks_ValidatesRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	tests := []SearchBooksRequest{
+	tests := []SearchRequest{
 		{},
 		{Title: "\u3000\t"},
 		{Author: "\u3000\t"},
-		{FreeText: "\u3000\t"},
+		{Query: "\u3000\t"},
 		{Title: "作品", Limit: -1},
 		{Title: "作品", Limit: 101},
 		{Title: "作品", Cursor: "not-base64"},
@@ -379,13 +379,13 @@ func TestClient_SearchBooks_ValidatesRequest(t *testing.T) {
 	}
 
 	var nilClient *Client
-	_, err = nilClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "作品"})
+	_, err = nilClient.SearchBooks(context.Background(), SearchRequest{Title: "作品"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 }
 
 // TestValidateSearchRequest_NormalizesTitleConditions は、等価なUnicode空白を同じタイトル条件へ整形する
 func TestValidateSearchRequest_NormalizesTitleConditions(t *testing.T) {
-	conditions, _, _, err := validateSearchRequest(SearchBooksRequest{Title: "  うる星\u3000復刻box\n"})
+	conditions, _, _, err := validateSearchRequest(SearchRequest{Title: "  うる星\u3000復刻box\n"})
 	if err != nil {
 		t.Fatalf("validateSearchRequest() error = %v", err)
 	}
@@ -408,7 +408,7 @@ func TestValidateSearchRequest_LimitBoundaries(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, limit, _, err := validateSearchRequest(SearchBooksRequest{
+			_, limit, _, err := validateSearchRequest(SearchRequest{
 				Title: "作品",
 				Limit: test.input,
 			})
@@ -449,19 +449,19 @@ func TestClient_SearchBooks_UsesCursor(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server.URL)
-	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{
-		Title:        "作品",
-		ExcludedText: "復刻版",
-		Limit:        1,
+	first, err := client.SearchBooks(context.Background(), SearchRequest{
+		Title:   "作品",
+		Exclude: "復刻版",
+		Limit:   1,
 	})
 	if err != nil {
 		t.Fatalf("first SearchBooks() error = %v", err)
 	}
-	second, err := client.SearchBooks(context.Background(), SearchBooksRequest{
-		Title:        "作品",
-		ExcludedText: " 復刻版 ",
-		Limit:        1,
-		Cursor:       first.NextCursor,
+	second, err := client.SearchBooks(context.Background(), SearchRequest{
+		Title:   "作品",
+		Exclude: " 復刻版 ",
+		Limit:   1,
+		Cursor:  first.NextCursor,
 	})
 	if err != nil {
 		t.Fatalf("second SearchBooks() error = %v", err)
@@ -504,7 +504,7 @@ func TestClient_SearchBooks_ClassifiesHTTPError(t *testing.T) {
 
 			_, err := newTestClient(t, server.URL).SearchBooks(
 				context.Background(),
-				SearchBooksRequest{Title: "作品"},
+				SearchRequest{Title: "作品"},
 			)
 			assertErrorKind(t, err, test.kind)
 
@@ -568,7 +568,7 @@ func TestClient_SearchBooks_InvalidResponse(t *testing.T) {
 
 			_, err := newTestClient(t, server.URL).SearchBooks(
 				context.Background(),
-				SearchBooksRequest{Title: "作品"},
+				SearchRequest{Title: "作品"},
 			)
 			assertErrorKind(t, err, ErrorKindInvalidResponse)
 		})
@@ -597,7 +597,7 @@ func TestClient_SearchBooks_PreservesContextError(t *testing.T) {
 
 			_, err = client.SearchBooks(
 				context.Background(),
-				SearchBooksRequest{Title: "作品"},
+				SearchRequest{Title: "作品"},
 			)
 			assertErrorKind(t, err, ErrorKindUnavailable)
 			if !errors.Is(err, test.cause) {

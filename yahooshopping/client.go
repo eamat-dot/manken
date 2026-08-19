@@ -61,6 +61,7 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
 	internalClient := *httpClient
+	// Client IDを含むqueryをredirect先へ転送しないため、呼び出し側のredirect設定は引き継がない
 	internalClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{httpClient: &internalClient, endpoint: config.endpoint, clientID: config.clientID}, nil
 }

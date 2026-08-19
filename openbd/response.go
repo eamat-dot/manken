@@ -6,8 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
+
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 // oneOrMany は、JSONの単一オブジェクトまたは配列を同じスライスで保持する
@@ -44,6 +48,24 @@ type responseOnix struct {
 	ProductIdentifier responseProductIdentifier `json:"ProductIdentifier"`
 	DescriptiveDetail responseDescriptiveDetail `json:"DescriptiveDetail"`
 	PublishingDetail  responsePublishingDetail  `json:"PublishingDetail"`
+	ProductSupply     responseProductSupply     `json:"ProductSupply"`
+}
+
+// responseProductSupply は、ONIXの供給詳細を保持する
+type responseProductSupply struct {
+	SupplyDetail oneOrMany[responseSupplyDetail] `json:"SupplyDetail"`
+}
+
+// responseSupplyDetail は、ONIXの供給価格を保持する
+type responseSupplyDetail struct {
+	Price oneOrMany[responsePrice] `json:"Price"`
+}
+
+// responsePrice は、ONIXの価格種別、通貨、金額を保持する
+type responsePrice struct {
+	PriceType    string `json:"PriceType"`
+	CurrencyCode string `json:"CurrencyCode"`
+	PriceAmount  string `json:"PriceAmount"`
 }
 
 // responseProductIdentifier は、ONIXの商品識別子を保持する
@@ -56,6 +78,12 @@ type responseProductIdentifier struct {
 type responseDescriptiveDetail struct {
 	TitleDetail responseTitleDetail            `json:"TitleDetail"`
 	Contributor oneOrMany[responseContributor] `json:"Contributor"`
+	Collection  oneOrMany[responseCollection]  `json:"Collection"`
+}
+
+// responseCollection は、ONIXのコレクション階層にある出版系列表示を保持する
+type responseCollection struct {
+	TitleDetail responseTitleDetail `json:"TitleDetail"`
 }
 
 // responseTitleDetail は、ONIXのタイトル種別と要素を保持する
@@ -120,18 +148,20 @@ type responseSummary struct {
 	Publisher string `json:"publisher"`
 	PubDate   string `json:"pubdate"`
 	Cover     string `json:"cover"`
+	Series    string `json:"series"`
 }
 
 // sourceBook は、openBD固有の主要値を共通モデルへ変換する前に保持する
 type sourceBook struct {
-	Title         string
-	TitleReading  string
-	Subtitle      string
-	Authors       []string
-	Contributors  []Contributor
-	Publishers    []string
-	PublishedDate string
-	Cover         string
+	Title             string
+	TitleReading      string
+	Subtitle          string
+	Authors           []string
+	Contributors      []Contributor
+	Publishers        []string
+	PublishedDate     string
+	Cover             string
+	PublicationSeries []string
 }
 
 // decodeResponse は、openBDのJSON配列を非公開レスポンス型へ変換する
@@ -239,35 +269,99 @@ func responseISBNValues(book responseBook) []string {
 func convertBook(response responseBook, isbn string) Book {
 	source := collectSourceBook(response)
 
-	dates := make([]BookDate, 0, 1)
-	if source.PublishedDate != "" {
-		dates = append(dates, BookDate{Type: BookDateTypePublished, Value: source.PublishedDate})
-	}
-
-	images := make([]Image, 0, 1)
-	if source.Cover != "" {
-		images = append(images, Image{URL: source.Cover, Purpose: "cover"})
-	}
-
-	return Book{
-		Normalized: NormalizedBook{
-			Title:        source.Title,
-			TitleReading: source.TitleReading,
-			Subtitle:     source.Subtitle,
-			Authors:      source.Authors,
-			Contributors: source.Contributors,
-			Publishers:   source.Publishers,
-			Identifiers: []Identifier{{
-				Type:  IdentifierTypeISBN13,
-				Value: isbn,
-			}},
-			Dates:  dates,
-			Images: images,
-		},
+	book := Book{
+		Title:             source.Title,
+		TitleReading:      source.TitleReading,
+		Subtitle:          source.Subtitle,
+		PublicationSeries: source.PublicationSeries,
+		Authors:           source.Authors,
+		Contributors:      source.Contributors,
+		Publishers:        source.Publishers,
+		ISBN13:            []string{isbn},
+		PublishedDate:     source.PublishedDate,
+		CoverURL:          source.Cover,
 		Sources: []BookSource{{
 			Source: SourceOpenBD,
 			ID:     isbn,
 		}},
+	}
+	applyTitleMetadata(&book)
+	book.ListPrice = listPrice(response.Onix.ProductSupply)
+	return book
+}
+
+// listPrice は、意味を判定できる唯一のONIX推奨小売価格を返す
+func listPrice(supply responseProductSupply) *Price {
+	type candidate struct {
+		amount      int64
+		taxIncluded bool
+	}
+	values := map[candidate]struct{}{}
+	for _, detail := range supply.SupplyDetail {
+		for _, value := range detail.Price {
+			taxIncluded, ok := priceTaxIncluded(value.PriceType)
+			if !ok || value.CurrencyCode != "JPY" || !isASCIIInteger(value.PriceAmount) {
+				continue
+			}
+			amount, err := strconv.ParseInt(value.PriceAmount, 10, 64)
+			if err != nil || amount < 0 {
+				continue
+			}
+			values[candidate{amount: amount, taxIncluded: taxIncluded}] = struct{}{}
+		}
+	}
+	if len(values) != 1 {
+		return nil
+	}
+	for value := range values {
+		taxIncluded := value.taxIncluded
+		return &Price{Amount: value.amount, Currency: "JPY", TaxIncluded: &taxIncluded, Source: SourceOpenBD}
+	}
+	return nil
+}
+
+// priceTaxIncluded は、対応するONIX PriceTypeの税込情報を返す
+func priceTaxIncluded(value string) (bool, bool) {
+	switch value {
+	case "01":
+		return false, true
+	case "02":
+		return true, true
+	default:
+		return false, false
+	}
+}
+
+// isASCIIInteger は、値が空でないASCII数字だけで構成されるか判定する
+func isASCIIInteger(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+var explicitVolumePattern = regexp.MustCompile(`(?:第)?[0-9０-９]+巻|#[0-9０-９]+`)
+
+// applyTitleMetadata は、並列タイトルの曖昧な末尾数値を除き安全な付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	metadata := titlemeta.Parse(book.Title)
+	if strings.Contains(book.Title, "=") && !explicitVolumePattern.MatchString(book.Title) {
+		metadata.Volume = Volume{}
+		metadata.IsFinalVolume = false
+	}
+	if book.Volume.Number == nil && book.Volume.Label == "" {
+		book.Volume = metadata.Volume
+	}
+	if len(book.Editions) == 0 {
+		book.Editions = metadata.Editions
+	}
+	if metadata.IsFinalVolume {
+		book.IsFinalVolume = true
 	}
 }
 
@@ -305,6 +399,16 @@ func collectSourceBook(response responseBook) sourceBook {
 
 	result.PublishedDate = selectPublishedDate(response)
 	result.Cover = response.Summary.Cover
+	for _, collection := range response.Onix.DescriptiveDetail.Collection {
+		for _, element := range collection.TitleDetail.TitleElement {
+			// Collection内でも商品階層のTitleElementが混在し得るため、Collection階層だけを出版系列として扱う
+			if element.TitleElementLevel != "02" {
+				continue
+			}
+			result.PublicationSeries = appendUnique(result.PublicationSeries, element.TitleText.Content)
+		}
+	}
+	result.PublicationSeries = appendUnique(result.PublicationSeries, response.Summary.Series)
 	return result
 }
 
@@ -351,9 +455,9 @@ func parseSequenceNumber(value string) (int, bool) {
 }
 
 // mapContributorRoles は、既知のONIX寄与者役割を重複なく共通役割へ変換する
-func mapContributorRoles(values []string) []ContributorRole {
-	roles := make([]ContributorRole, 0, len(values))
-	seen := make(map[ContributorRole]struct{}, len(values))
+func mapContributorRoles(values []string) []string {
+	roles := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
 		role, ok := mapContributorRole(value)
 		if !ok {
@@ -369,28 +473,28 @@ func mapContributorRoles(values []string) []ContributorRole {
 }
 
 // mapContributorRole は、対応済みのONIX寄与者役割を共通役割へ変換する
-func mapContributorRole(value string) (ContributorRole, bool) {
+func mapContributorRole(value string) (string, bool) {
 	switch value {
 	case "A01":
-		return ContributorRoleAuthor, true
+		return "著者", true
 	case "A03", "A14", "A45":
-		return ContributorRoleWriter, true
+		return "脚本", true
 	case "A07", "A12", "A35":
-		return ContributorRoleArtist, true
+		return "作画", true
 	case "B01":
-		return ContributorRoleEditor, true
+		return "編集", true
 	case "B06":
-		return ContributorRoleTranslator, true
+		return "翻訳", true
 	default:
 		return "", false
 	}
 }
 
 // containsAuthorRole は、Authorsへ含める主要な創作者役割があるか判定する
-func containsAuthorRole(roles []ContributorRole) bool {
+func containsAuthorRole(roles []string) bool {
 	for _, role := range roles {
 		switch role {
-		case ContributorRoleAuthor, ContributorRoleWriter, ContributorRoleArtist:
+		case "著者", "脚本", "作画":
 			return true
 		}
 	}

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eamat-dot/manken/api"
+	"github.com/eamat-dot/manken/model"
 )
 
 // TestNewClient_ValidatesOptions は、必須認証、任意認証、漫画区分、endpointを通信前に検証することを確認する
@@ -128,7 +128,7 @@ func TestSearchBooks_UsesComicGenreID(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient() error = %v", err)
 		}
-		if _, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"}); err != nil {
+		if _, err := client.SearchBooks(context.Background(), SearchRequest{Title: "title"}); err != nil {
 			t.Fatalf("SearchBooks(%q) error = %v", test.genre, err)
 		}
 	}
@@ -167,7 +167,7 @@ func TestSearchBooks_BuildsRequestAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	request := SearchBooksRequest{Title: "  動物のお医者さん  ", Author: "佐々木倫子", Publisher: " 白泉社 ", Limit: 1}
+	request := SearchRequest{Title: "  動物のお医者さん  ", Author: "佐々木倫子", Publisher: " 白泉社 ", Limit: 1}
 	first, err := client.SearchBooks(context.Background(), request)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -227,11 +227,11 @@ func TestSearchBooks_PublisherOnlyAndCursorMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "白泉社", Limit: 1})
+	first, err := client.SearchBooks(context.Background(), SearchRequest{Publisher: "白泉社", Limit: 1})
 	if err != nil || first.NextCursor == "" {
 		t.Fatalf("SearchBooks() = %#v, %v", first, err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	if requests != 1 {
 		t.Fatalf("requests = %d, want 1", requests)
@@ -282,21 +282,21 @@ func TestSearchBooks_RejectsUnsupportedOrInvalidInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	for _, request := range []SearchBooksRequest{
+	for _, request := range []SearchRequest{
 		{},
-		{FreeText: "keyword"},
-		{Title: "title", FreeText: "keyword"},
-		{Title: "title", ExcludedText: "excluded"},
+		{Query: "keyword"},
+		{Title: "title", Query: "keyword"},
+		{Title: "title", Exclude: "excluded"},
 		{Title: "title", Limit: 31},
 		{Title: "title", Cursor: "not-a-cursor"},
 	} {
 		_, err := client.SearchBooks(context.Background(), request)
 		assertErrorKind(t, err, ErrorKindInvalidArgument)
 	}
-	_, err = (*Client)(nil).SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = (*Client)(nil).SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	var nilContext context.Context
-	_, err = client.SearchBooks(nilContext, SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(nilContext, SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 }
 
@@ -312,7 +312,7 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "none"})
+	result, err := client.SearchBooks(context.Background(), SearchRequest{Title: "none"})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
@@ -328,15 +328,15 @@ func TestSearchBooks_DefaultLimitEmptyAndGenreCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient(TL) error = %v", err)
 	}
-	_, err = tlClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "title", Cursor: cursor})
+	_, err = tlClient.SearchBooks(context.Background(), SearchRequest{Title: "title", Cursor: cursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "different", Cursor: cursor})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "different", Cursor: cursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	sizeClient, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(BookSizeComic), WithEndpoint("http://127.0.0.1:1"))
 	if err != nil {
 		t.Fatalf("NewClient(size) error = %v", err)
 	}
-	_, err = sizeClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "title", Cursor: cursor})
+	_, err = sizeClient.SearchBooks(context.Background(), SearchRequest{Title: "title", Cursor: cursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 }
 
@@ -353,21 +353,21 @@ func TestSearchBooks_BookSizeIsOptionalAndCursorBound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient(All) error = %v", err)
 	}
-	if _, err := allClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "all"}); err != nil {
+	if _, err := allClient.SearchBooks(context.Background(), SearchRequest{Title: "all"}); err != nil {
 		t.Fatalf("SearchBooks(All) error = %v", err)
 	}
 	comicClient, err := NewClient(nil, WithApplicationID("app"), WithAccessKey("access"), WithBookSize(BookSizeComic), WithEndpoint(server.URL))
 	if err != nil {
 		t.Fatalf("NewClient(Comic) error = %v", err)
 	}
-	first, err := comicClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "comic"})
+	first, err := comicClient.SearchBooks(context.Background(), SearchRequest{Title: "comic"})
 	if err != nil {
 		t.Fatalf("SearchBooks(Comic) error = %v", err)
 	}
 	if queries[0].Has("size") || queries[1].Get("size") != "9" {
 		t.Fatalf("queries = %#v", queries)
 	}
-	if _, err := comicClient.SearchBooks(context.Background(), SearchBooksRequest{Title: "comic", Cursor: first.NextCursor}); err != nil {
+	if _, err := comicClient.SearchBooks(context.Background(), SearchRequest{Title: "comic", Cursor: first.NextCursor}); err != nil {
 		t.Fatalf("SearchBooks(same size cursor) error = %v", err)
 	}
 	if len(queries) != 3 || queries[2].Get("page") != "2" {
@@ -403,6 +403,7 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 		TitleKana:      "サクヒンイチ",
 		SubTitle:       "副題",
 		SeriesName:     "シリーズ",
+		SeriesNameKana: "シリーズヨミ",
 		Author:         "原作者/作画者",
 		AuthorKana:     "ゲンサクシャ/サクガシャ",
 		PublisherName:  "出版社",
@@ -418,35 +419,38 @@ func TestConvertItem_MapsSupportedFieldsOnly(t *testing.T) {
 		MediumImageURL: "https://example.invalid/m.jpg",
 		LargeImageURL:  "https://example.invalid/l.jpg",
 	}, observedAt)
-	if book.Normalized.Title != "作品 1" || book.Normalized.TitleReading != "サクヒンイチ" || book.Normalized.Subtitle != "副題" {
-		t.Fatalf("titles = %#v", book.Normalized)
+	if book.Title != "作品 1" || book.TitleReading != "サクヒンイチ" || book.Subtitle != "副題" {
+		t.Fatalf("titles = %#v", book)
 	}
-	if len(book.Normalized.Authors) != 2 || book.Normalized.Authors[0] != "原作者" || book.Normalized.Authors[1] != "作画者" {
-		t.Fatalf("authors = %#v", book.Normalized.Authors)
+	if book.Volume.Number == nil || *book.Volume.Number != 1 || book.Volume.Label != "1" {
+		t.Fatalf("volume = %#v", book.Volume)
 	}
-	if len(book.Normalized.Contributors) != 2 || book.Normalized.Contributors[0].Name != "原作者" || book.Normalized.Contributors[0].Reading != "ゲンサクシャ" || book.Normalized.Contributors[1].Name != "作画者" || book.Normalized.Contributors[1].Reading != "サクガシャ" || len(book.Normalized.Contributors[0].Roles) != 0 || len(book.Normalized.Contributors[1].Roles) != 0 {
-		t.Fatalf("contributors = %#v", book.Normalized.Contributors)
+	if len(book.Authors) != 2 || book.Authors[0] != "原作者" || book.Authors[1] != "作画者" {
+		t.Fatalf("authors = %#v", book.Authors)
 	}
-	if len(book.Normalized.Series) != 1 || book.Normalized.Series[0].Name != "シリーズ" || len(book.Normalized.Publishers) != 1 {
-		t.Fatalf("series/publishers = %#v / %#v", book.Normalized.Series, book.Normalized.Publishers)
+	if len(book.Contributors) != 2 || book.Contributors[0].Name != "原作者" || book.Contributors[0].Reading != "ゲンサクシャ" || book.Contributors[1].Name != "作画者" || book.Contributors[1].Reading != "サクガシャ" || len(book.Contributors[0].Roles) != 0 || len(book.Contributors[1].Roles) != 0 {
+		t.Fatalf("contributors = %#v", book.Contributors)
 	}
-	if len(book.Normalized.Identifiers) != 1 || book.Normalized.Identifiers[0].Type != IdentifierTypeISBN13 {
-		t.Fatalf("identifiers = %#v", book.Normalized.Identifiers)
+	if len(book.PublicationSeries) != 1 || book.PublicationSeries[0] != "シリーズ" || len(book.Publishers) != 1 {
+		t.Fatalf("publication series/publishers = %#v / %#v", book.PublicationSeries, book.Publishers)
 	}
-	if len(book.Normalized.Dates) != 1 || book.Normalized.Dates[0].Type != BookDateTypeReleased || book.Normalized.Dates[0].Value != "2026年8月上旬" {
-		t.Fatalf("dates = %#v", book.Normalized.Dates)
+	if len(book.ISBN10) != 0 || len(book.ISBN13) != 1 || book.ISBN13[0] != "9784088466361" {
+		t.Fatalf("ISBN = %#v / %#v", book.ISBN10, book.ISBN13)
 	}
-	if len(book.Normalized.Subjects) != 2 || book.Normalized.Subjects[0].Scheme != "rakuten_books" {
-		t.Fatalf("subjects = %#v", book.Normalized.Subjects)
+	if book.ReleaseDate != "2026年8月上旬" {
+		t.Fatalf("release date = %q", book.ReleaseDate)
 	}
-	if book.Normalized.Medium != PublicationMediumPrint || book.Normalized.PhysicalSize == nil || book.Normalized.PhysicalSize.Name != "コミック" {
-		t.Fatalf("medium/size = %q / %#v", book.Normalized.Medium, book.Normalized.PhysicalSize)
+	if len(book.Subjects) != 2 || book.Subjects[0].Scheme != "rakuten_books" {
+		t.Fatalf("subjects = %#v", book.Subjects)
 	}
-	if len(book.Normalized.Images) != 3 || len(book.Normalized.Prices) != 1 {
-		t.Fatalf("images/prices = %#v / %#v", book.Normalized.Images, book.Normalized.Prices)
+	if book.Medium != PublicationMediumPrint || book.Size != "コミック" {
+		t.Fatalf("medium/size = %q / %q", book.Medium, book.Size)
 	}
-	gotPrice := book.Normalized.Prices[0]
-	if gotPrice.Type != PriceTypeCurrent || gotPrice.Amount != 999 || gotPrice.Currency != "JPY" || gotPrice.TaxIncluded == nil || !*gotPrice.TaxIncluded || gotPrice.Source != SourceRakutenBooks || gotPrice.ObservedAt != observedAt {
+	if book.CoverURL != "https://example.invalid/l.jpg" || book.CurrentPrice == nil {
+		t.Fatalf("cover/current price = %q / %#v", book.CoverURL, book.CurrentPrice)
+	}
+	gotPrice := book.CurrentPrice
+	if gotPrice.Amount != 999 || gotPrice.Currency != "JPY" || gotPrice.TaxIncluded == nil || !*gotPrice.TaxIncluded || gotPrice.Source != SourceRakutenBooks || gotPrice.ObservedAt != observedAt {
 		t.Fatalf("price = %#v", gotPrice)
 	}
 	if len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].ID != "" || book.Sources[0].URL != "https://books.rakuten.co.jp/rb/123/" || book.Sources[0].AffiliateURL != "https://hb.afl.rakuten.co.jp/secret" {
@@ -494,11 +498,19 @@ func slicesEqual(left []string, right []string) bool {
 // TestConvertItem_MissingOptionalFields は、楽天Booksの任意項目欠落を正常な空値として扱うことを確認する
 func TestConvertItem_MissingOptionalFields(t *testing.T) {
 	book := convertItem(booksItem{Title: "title"}, "")
-	if book.Normalized.Title != "title" || book.Normalized.Authors != nil || book.Normalized.Series != nil || book.Normalized.Identifiers != nil || book.Normalized.Dates != nil || book.Normalized.PhysicalSize != nil || book.Normalized.Prices != nil {
+	if book.Title != "title" || book.Authors != nil || book.PublicationSeries != nil || book.ISBN10 != nil || book.ISBN13 != nil || book.ReleaseDate != "" || book.Size != "" || book.CurrentPrice != nil || book.CoverURL != "" {
 		t.Fatalf("book = %#v", book)
 	}
-	if book.Normalized.Medium != PublicationMediumPrint || len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].AffiliateURL != "" {
-		t.Fatalf("medium/sources = %q / %#v", book.Normalized.Medium, book.Sources)
+	if book.Medium != PublicationMediumPrint || len(book.Sources) != 1 || book.Sources[0].Source != SourceRakutenBooks || book.Sources[0].AffiliateURL != "" {
+		t.Fatalf("medium/sources = %q / %#v", book.Medium, book.Sources)
+	}
+}
+
+// TestConvertItem_OmitsSeriesNameKana は、楽天Booksの系列名だけを出版系列として保持する
+func TestConvertItem_OmitsSeriesNameKana(t *testing.T) {
+	book := convertItem(booksItem{Title: "title", SeriesName: "叢書", SeriesNameKana: "ソウショ"}, "")
+	if !slicesEqual(book.PublicationSeries, []string{"叢書"}) {
+		t.Fatalf("PublicationSeries = %#v", book.PublicationSeries)
 	}
 }
 
@@ -506,8 +518,46 @@ func TestConvertItem_MissingOptionalFields(t *testing.T) {
 func TestConvertItem_PreservesZeroPrice(t *testing.T) {
 	zero := int64(0)
 	book := convertItem(booksItem{Title: "free", ItemPrice: &zero}, "2026-08-08T02:00:00Z")
-	if len(book.Normalized.Prices) != 1 || book.Normalized.Prices[0].Amount != 0 || book.Normalized.Prices[0].Type != PriceTypeCurrent {
-		t.Fatalf("prices = %#v", book.Normalized.Prices)
+	if book.CurrentPrice == nil || book.CurrentPrice.Amount != 0 {
+		t.Fatalf("price = %#v", book.CurrentPrice)
+	}
+}
+
+// TestConvertItem_SelectsLargestAvailableCover は、楽天Booksの表紙候補から最大サイズを優先して選ぶ
+func TestConvertItem_SelectsLargestAvailableCover(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		item booksItem
+		want string
+	}{
+		{name: "large", item: booksItem{LargeImageURL: "large", MediumImageURL: "medium", SmallImageURL: "small"}, want: "large"},
+		{name: "medium fallback", item: booksItem{MediumImageURL: "medium", SmallImageURL: "small"}, want: "medium"},
+		{name: "small fallback", item: booksItem{SmallImageURL: "small"}, want: "small"},
+		{name: "no image", item: booksItem{}, want: ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := convertItem(test.item, "").CoverURL; got != test.want {
+				t.Fatalf("CoverURL = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+// TestISBN_SplitsValidatedValues は、楽天Booksの検証済みISBNを種類ごとに保持する
+func TestISBN_SplitsValidatedValues(t *testing.T) {
+	for _, test := range []struct {
+		isbn       string
+		wantISBN10 []string
+		wantISBN13 []string
+	}{
+		{isbn: "0306406152", wantISBN10: []string{"0306406152"}},
+		{isbn: "9784088466361", wantISBN13: []string{"9784088466361"}},
+		{isbn: "9784088466362"},
+	} {
+		gotISBN10, gotISBN13 := isbn(test.isbn)
+		if !slicesEqual(gotISBN10, test.wantISBN10) || !slicesEqual(gotISBN13, test.wantISBN13) {
+			t.Fatalf("isbn(%q) = %#v / %#v, want %#v / %#v", test.isbn, gotISBN10, gotISBN13, test.wantISBN10, test.wantISBN13)
+		}
 	}
 }
 
@@ -521,7 +571,7 @@ func TestRawResponseAndInvalidResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	server.Close()
 	if err != nil || len(result.Books) != 1 || !bytes.Equal(raw, valid) {
 		t.Fatalf("result/raw/error = %#v / %q / %v", result, raw, err)
@@ -536,7 +586,7 @@ func TestRawResponseAndInvalidResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, raw, err = client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	_, raw, err = client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if !bytes.Equal(raw, invalid) {
 		t.Fatalf("raw = %q, want %q", raw, invalid)
@@ -603,7 +653,7 @@ func TestHTTPAndTransportErrorsDoNotExposeSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	server.Close()
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	for _, secret := range []string{"app-secret", "access-secret", "affiliate-secret"} {
@@ -624,7 +674,7 @@ func TestHTTPAndTransportErrorsDoNotExposeSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	if !errors.Is(err, cause) {
 		t.Fatalf("errors.Is(err, cause) = false: %v", err)
@@ -672,7 +722,7 @@ func TestSearchBooks_DoesNotFollowRedirects(t *testing.T) {
 		t.Fatalf("caller HTTP client was modified: %#v", httpClient)
 	}
 
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUpstream)
 	var classified *Error
 	if !errors.As(err, &classified) || classified.StatusCode != http.StatusFound {
@@ -705,7 +755,7 @@ func TestHTTPStatusClassification(t *testing.T) {
 			server.Close()
 			t.Fatalf("NewClient() error = %v", err)
 		}
-		_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+		_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 		server.Close()
 		assertErrorKind(t, err, test.kind)
 	}
@@ -742,7 +792,7 @@ func TestSearchBooks_RejectsOversizedBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if raw != nil {
 		t.Fatalf("raw = %d bytes, want nil", len(raw))
@@ -762,7 +812,7 @@ func TestSearchBooks_OmitsAffiliateIDWhenUnset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	if _, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"}); err != nil {
+	if _, err := client.SearchBooks(context.Background(), SearchRequest{Title: "title"}); err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
 }
@@ -775,7 +825,7 @@ func TestContextErrorIsPreserved(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.SearchBooks(ctx, SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(ctx, SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("errors.Is(err, context.Canceled) = false: %v", err)
@@ -788,7 +838,7 @@ func assertErrorKind(t *testing.T, err error, want ErrorKind) {
 	if err == nil {
 		t.Fatalf("error = nil, want kind %q", want)
 	}
-	var classified *api.Error
+	var classified *model.Error
 	if !errors.As(err, &classified) || classified.Kind != want {
 		t.Fatalf("error = %v, want kind %q", err, want)
 	}

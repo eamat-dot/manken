@@ -18,7 +18,7 @@ func TestIntegrationNDL(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	result, raw, err := client.SearchBooksWithOptionsAndRawResponse(ctx, ndl.SearchBooksRequest{Title: "動物のお医者さん", Author: "佐々木倫子", Limit: 1}, ndl.SearchOptions{Description: "ハムテル"})
+	result, raw, err := client.SearchBooksWithOptionsAndRawResponse(ctx, ndl.SearchRequest{Title: "動物のお医者さん", Author: "佐々木倫子", Limit: 1}, ndl.SearchOptions{Description: "ハムテル"})
 	if err != nil || len(result.Books) == 0 || len(raw) == 0 {
 		t.Fatalf("SearchBooksWithOptionsAndRawResponse() result = %#v, raw = %d, error = %v", result, len(raw), err)
 	}
@@ -27,8 +27,32 @@ func TestIntegrationNDL(t *testing.T) {
 		t.Fatalf("LookupBooksByISBNWithRawResponse() result = %#v, raw = %d, error = %v", lookup, len(raw), err)
 	}
 	book := lookup.Items[0].Books[0]
-	if len(book.Sources) == 0 || book.Sources[0].Source != ndl.SourceNDL || book.Sources[0].ID != "033811835" || book.Normalized.Title != "動物のお医者さん" || !containsString(book.Normalized.Authors, "佐々木倫子") || !hasContributorRole(book.Normalized.Contributors, "佐々木倫子", ndl.ContributorRoleAuthor) || !containsString(book.Normalized.Publishers, "小学館") || book.Normalized.Volume.Label != "11" || !containsIdentifier(book.Normalized.Identifiers, "9784098627417") || book.Normalized.Medium != ndl.PublicationMediumPrint || !hasSubject(book.Normalized.Subjects, "NDLC", "Y84", "") || !hasSubject(book.Normalized.Subjects, "NDC", "726.1", "") || !hasSubject(book.Normalized.Subjects, "NDLGFT", "001347325", "漫画") {
-		t.Fatalf("LookupBooksByISBNWithRawResponse() book = %#v", book)
+	if len(book.Sources) == 0 || book.Sources[0].Source != ndl.SourceNDL || book.Sources[0].ID != "033811835" {
+		t.Errorf("Sources = %#v", book.Sources)
+	}
+	if book.Title != "動物のお医者さん" {
+		t.Errorf("Title = %q", book.Title)
+	}
+	if !containsString(book.Authors, "佐々木倫子") {
+		t.Errorf("Authors = %#v", book.Authors)
+	}
+	if !hasContributorRole(book.Contributors, "佐々木倫子", "著者") {
+		t.Errorf("Contributors = %#v", book.Contributors)
+	}
+	if !containsString(book.Publishers, "小学館") {
+		t.Errorf("Publishers = %#v", book.Publishers)
+	}
+	if book.Volume.Label != "11" {
+		t.Errorf("Volume = %#v", book.Volume)
+	}
+	if !containsString(book.ISBN13, "9784098627417") {
+		t.Errorf("ISBN13 = %#v", book.ISBN13)
+	}
+	if book.Medium != ndl.PublicationMediumPrint {
+		t.Errorf("Medium = %q", book.Medium)
+	}
+	if !hasSubject(book.Subjects, "NDLC", "Y84", "") || !hasSubject(book.Subjects, "NDC", "726.1", "") || !hasSubject(book.Subjects, "NDLGFT", "001347325", "漫画") {
+		t.Errorf("Subjects = %#v", book.Subjects)
 	}
 }
 
@@ -42,18 +66,8 @@ func containsString(values []string, want string) bool {
 	return false
 }
 
-// containsIdentifier は、識別子配列に指定値が含まれるか判定する
-func containsIdentifier(values []ndl.Identifier, want string) bool {
-	for _, value := range values {
-		if value.Value == want {
-			return true
-		}
-	}
-	return false
-}
-
 // hasContributorRole は、指定した表示名の寄与者に役割が含まれるか判定する
-func hasContributorRole(values []ndl.Contributor, name string, want ndl.ContributorRole) bool {
+func hasContributorRole(values []ndl.Contributor, name, want string) bool {
 	for _, value := range values {
 		if value.Name != name {
 			continue

@@ -16,18 +16,18 @@ const (
 )
 
 // SearchBooks は、Towerの紙書籍候補を商品キーワードで検索する
-func (client *Client) SearchBooks(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, error) {
+func (client *Client) SearchBooks(ctx context.Context, request SearchRequest) (SearchBooksResult, error) {
 	result, _, err := client.searchBooks(ctx, request)
 	return result, err
 }
 
 // SearchBooksWithRawResponse は、検索結果と受信した成功レスポンス本文を返す
-func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, []byte, error) {
+func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchRequest) (SearchBooksResult, []byte, error) {
 	return client.searchBooks(ctx, request)
 }
 
 // searchBooks は、検索条件を検証してYahoo!ショッピングへ問い合わせる
-func (client *Client) searchBooks(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, []byte, error) {
+func (client *Client) searchBooks(ctx context.Context, request SearchRequest) (SearchBooksResult, []byte, error) {
 	if client == nil || client.httpClient == nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, errors.New("client is not initialized"))
 	}
@@ -60,11 +60,14 @@ func (client *Client) searchBooks(ctx context.Context, request SearchBooksReques
 }
 
 // searchQuery は、共通検索条件をYahoo!ショッピングの商品キーワードへ変換する
-func searchQuery(request SearchBooksRequest) (string, error) {
-	if strings.TrimSpace(request.ExcludedText) != "" {
-		return "", errors.New("ExcludedText is not supported by Yahoo Shopping")
+func searchQuery(request SearchRequest) (string, error) {
+	if strings.TrimSpace(request.Exclude) != "" {
+		return "", errors.New("exclude is not supported by Yahoo Shopping")
 	}
-	fields := []string{strings.TrimSpace(request.Title), strings.TrimSpace(request.Author), strings.TrimSpace(request.Publisher), strings.TrimSpace(request.FreeText)}
+	if strings.TrimSpace(request.DateFrom) != "" || strings.TrimSpace(request.DateTo) != "" {
+		return "", errors.New("date range search is not supported by Yahoo Shopping")
+	}
+	fields := []string{strings.TrimSpace(request.Title), strings.TrimSpace(request.Author), strings.TrimSpace(request.Publisher), strings.TrimSpace(request.Query)}
 	parts := make([]string, 0, len(fields))
 	for _, field := range fields {
 		if field != "" {
@@ -72,7 +75,7 @@ func searchQuery(request SearchBooksRequest) (string, error) {
 		}
 	}
 	if len(parts) == 0 {
-		return "", errors.New("at least one of Title, Author, Publisher, or FreeText must be specified")
+		return "", errors.New("at least one of Title, Author, Publisher, or Query must be specified")
 	}
 	return strings.Join(parts, " "), nil
 }

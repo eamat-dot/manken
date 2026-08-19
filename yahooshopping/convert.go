@@ -3,53 +3,61 @@ package yahooshopping
 import (
 	"encoding/json"
 	"regexp"
-	"strconv"
 	"strings"
 
-	"github.com/eamat-dot/manken/api"
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 var (
-	brPattern                  = regexp.MustCompile(`(?i)<br\s*/?>`)
-	tagPattern                 = regexp.MustCompile(`<[^>]*>`)
-	volumePattern              = regexp.MustCompile(`^(\d+|#\d+|上|下)巻?$`)
-	parenthesizedVolumePattern = regexp.MustCompile(`\s*\((\d+)\)$`)
-	trailingNumberPattern      = regexp.MustCompile(`\s+(\d+)\s*$`)
-	wholeSetPattern            = regexp.MustCompile(`(?:全\d+巻|\d+\s*[-～]\s*\d+巻)セット`)
-	janPattern                 = regexp.MustCompile(`^[0-9]{8}(?:[0-9]{5})?$`)
+	brPattern       = regexp.MustCompile(`(?i)<br\s*/?>`)
+	tagPattern      = regexp.MustCompile(`<[^>]*>`)
+	wholeSetPattern = regexp.MustCompile(`(?:全\d+巻|\d+\s*[-～]\s*\d+巻)セット`)
+	janPattern      = regexp.MustCompile(`^[0-9]{8}(?:[0-9]{5})?$`)
 )
 
 // convertItem は、Tower商品の実測済み項目を共通書籍情報へ変換する
 func convertItem(value item, observedAt string) Book {
 	description := parseTowerDescription(value.Description)
 	labeledTitle := strings.TrimSpace(description.labels["タイトル"])
-	title, editions, volume := parseTowerTitle(labeledTitle, value.Name)
+	title := sourceTitle(labeledTitle, value.Name)
 	contributors := towerContributors(description.labels["アーティスト"], description.labels["アーティストカナ"])
-	book := Book{Normalized: NormalizedBook{Title: title, Authors: contributorNamesOnly(contributors), Contributors: contributors, Medium: PublicationMediumPrint, Images: images(value)}, Sources: []BookSource{{Source: SourceYahooShopping, ID: value.Code, URL: sourceURL(value.URL)}}}
-	if labeledTitle != "" && title == labeledTitle {
-		book.Normalized.TitleReading = description.labels["タイトルカナ"]
+	book := Book{Title: title, Authors: contributorNamesOnly(contributors), Contributors: contributors, Medium: PublicationMediumPrint, CoverURL: coverURL(value), Sources: []BookSource{{Source: SourceYahooShopping, ID: value.Code, URL: sourceURL(value.URL)}}}
+	if labeledTitle != "" {
+		book.TitleReading = description.labels["タイトルカナ"]
 	}
-	book.Normalized.EditionStatements = editions
 	if publisher := description.labels["レーベル"]; publisher != "" {
-		book.Normalized.Publishers = []string{publisher}
+		book.Publishers = []string{publisher}
 	}
 	if release := description.labels["発売日"]; release != "" {
-		book.Normalized.Dates = []BookDate{{Type: BookDateTypeReleased, Value: release}}
+		book.ReleaseDate = release
 	}
-	if volume != nil {
-		book.Normalized.Volume = *volume
-	}
-	if identifier, ok := itemIdentifier(value.JanCode); ok {
-		book.Normalized.Identifiers = []Identifier{identifier}
+	applyTitleMetadata(&book)
+	if isbn := canonicalItemISBN(strings.TrimSpace(value.JanCode)); isbn != "" {
+		book.ISBN13 = []string{isbn}
+	} else if jan := canonicalJAN(value.JanCode); jan != "" {
+		book.JAN = []string{jan}
 	}
 	if value.Price != nil {
 		var taxIncluded *bool
 		if value.PriceLabel != nil {
 			taxIncluded = value.PriceLabel.Taxable
 		}
-		book.Normalized.Prices = []Price{{Type: PriceTypeCurrent, Amount: *value.Price, Currency: "JPY", TaxIncluded: taxIncluded, Source: SourceYahooShopping, ObservedAt: observedAt}}
+		book.CurrentPrice = &Price{Amount: *value.Price, Currency: "JPY", TaxIncluded: taxIncluded, Source: SourceYahooShopping, ObservedAt: observedAt}
 	}
 	return book
+}
+
+// applyTitleMetadata は、Tower固有のタイトル選択後に安全な付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
+}
+
+// sourceTitle は、Towerの明示タイトルを優先して取得元の商品タイトルをそのまま返す
+func sourceTitle(labeledTitle, fallback string) string {
+	if labeledTitle != "" {
+		return labeledTitle
+	}
+	return strings.TrimSpace(fallback)
 }
 
 type parsedDescription struct {
@@ -75,49 +83,6 @@ func parseTowerDescription(description string) parsedDescription {
 		}
 	}
 	return result
-}
-
-// parseTowerTitle は、明示タイトルから安全に巻数と版表示を分離する
-func parseTowerTitle(labeledTitle, fallback string) (string, []string, *api.Volume) {
-	title := strings.TrimSpace(labeledTitle)
-	if title == "" {
-		return strings.TrimSpace(strings.TrimPrefix(fallback, "〔予約〕")), nil, nil
-	}
-	volume, title := towerTrailingVolume(title)
-	if volume == nil {
-		return title, nil, nil
-	}
-	for _, edition := range []string{"完全版", "新装版", "特装版", "愛蔵版"} {
-		if strings.HasPrefix(title, edition+" ") {
-			trimmed := strings.TrimSpace(strings.TrimPrefix(title, edition))
-			if trimmed != "" {
-				return trimmed, []string{edition}, volume
-			}
-		}
-	}
-	return title, nil, volume
-}
-
-// towerTrailingVolume は、タイトル末尾の明確な巻表示を分離する
-func towerTrailingVolume(title string) (*api.Volume, string) {
-	if matches := parenthesizedVolumePattern.FindStringSubmatchIndex(title); len(matches) != 0 {
-		withoutParentheses := strings.TrimSpace(title[:matches[0]])
-		if volume, stripped := towerTrailingVolume(withoutParentheses); volume != nil {
-			return volume, stripped
-		}
-		number, _ := strconv.Atoi(title[matches[2]:matches[3]])
-		return &api.Volume{Number: &number, Label: strconv.Itoa(number)}, withoutParentheses
-	}
-	if fields := strings.Fields(title); len(fields) >= 2 {
-		if volume, ok := parseVolume(fields[len(fields)-1]); ok {
-			return &volume, strings.TrimSpace(strings.TrimSuffix(title, fields[len(fields)-1]))
-		}
-	}
-	if matches := trailingNumberPattern.FindStringSubmatchIndex(title); len(matches) != 0 {
-		number, _ := strconv.Atoi(title[matches[2]:matches[3]])
-		return &api.Volume{Number: &number, Label: strconv.Itoa(number)}, strings.TrimSpace(title[:matches[0]])
-	}
-	return nil, title
 }
 
 // towerContributors は、Towerの寄与者表示を役割を推測せずに変換する
@@ -165,44 +130,37 @@ func contributorNamesOnly(contributors []Contributor) []string {
 	return authors
 }
 
-// parseVolume は、実測済みの巻表示を共通巻情報へ変換する
-func parseVolume(value string) (api.Volume, bool) {
+// canonicalJAN は、有効なJANコードを空白を除いて返す
+func canonicalJAN(value string) string {
 	value = strings.TrimSpace(value)
-	if !volumePattern.MatchString(value) {
-		return api.Volume{}, false
+	if !janPattern.MatchString(value) || !isValidJAN(value) {
+		return ""
 	}
-	numberText := strings.TrimSuffix(strings.TrimPrefix(value, "#"), "巻")
-	if number, err := strconv.Atoi(numberText); err == nil {
-		return api.Volume{Number: &number, Label: strconv.Itoa(number)}, true
-	}
-	return api.Volume{Label: strings.TrimSuffix(value, "巻")}, true
+	return value
 }
 
-// itemIdentifier は、JANまたはISBN-13を種類付き識別子へ変換する
-func itemIdentifier(value string) (Identifier, bool) {
-	value = strings.TrimSpace(value)
-	if canonicalItemISBN(value) != "" {
-		return Identifier{Type: IdentifierTypeISBN13, Value: value}, true
-	}
-	if janPattern.MatchString(value) {
-		return Identifier{Type: IdentifierTypeJAN, Value: value}, true
-	}
-	return Identifier{}, false
-}
-
-// images は、small、medium、取得できたexImageを共通画像情報へ変換する
-func images(value item) []Image {
-	values := []struct {
-		purpose, url  string
-		width, height *int
-	}{{"small", value.Image.Small, nil, nil}, {"medium", value.Image.Medium, nil, nil}, {"exImage", value.ExImage.URL, value.ExImage.Width, value.ExImage.Height}}
-	result := make([]Image, 0, len(values))
-	for _, image := range values {
-		if sourceURL(image.url) != "" {
-			result = append(result, Image{URL: image.url, Purpose: image.purpose, Width: image.width, Height: image.height})
+// isValidJAN は、8桁または13桁のJANチェックディジットを検証する
+func isValidJAN(value string) bool {
+	sum := 0
+	for index := len(value) - 2; index >= 0; index-- {
+		digit := int(value[index] - '0')
+		if (len(value)-2-index)%2 == 0 {
+			sum += digit * 3
+		} else {
+			sum += digit
 		}
 	}
-	return result
+	return (10-sum%10)%10 == int(value[len(value)-1]-'0')
+}
+
+// coverURL は、600pxで要求するexImageを優先し、欠落時はmedium、smallの順に返す
+func coverURL(value item) string {
+	for _, candidate := range []string{value.ExImage.URL, value.Image.Medium, value.Image.Small} {
+		if url := sourceURL(candidate); url != "" {
+			return url
+		}
+	}
+	return ""
 }
 
 // sourceURL は、HTTPまたはHTTPSの取得元URLだけを返す

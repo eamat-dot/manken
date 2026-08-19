@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eamat-dot/manken/api"
+	"github.com/eamat-dot/manken/model"
 )
 
 // TestNewClient_ValidatesOptions は、APIキー、Option、endpointを外部通信前に検証することを確認する
@@ -89,7 +89,7 @@ func TestSearchBooks_BuildsSafeRequestAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	request := SearchBooksRequest{Title: `a intitle:evil`, Author: "b\"c\\d", Publisher: "c inpublisher:evil\"d", FreeText: "d e", ExcludedText: `f -g`, Limit: 1}
+	request := SearchRequest{Title: `a intitle:evil`, Author: "b\"c\\d", Publisher: "c inpublisher:evil\"d", Query: "d e", Exclude: `f -g`, Limit: 1}
 	first, err := client.SearchBooks(context.Background(), request)
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -134,11 +134,11 @@ func TestSearchBooks_PublisherOnlyAndCursorMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	first, err := client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "白泉社", Limit: 1})
+	first, err := client.SearchBooks(context.Background(), SearchRequest{Publisher: "白泉社", Limit: 1})
 	if err != nil || first.NextCursor == "" {
 		t.Fatalf("SearchBooks() = %#v, %v", first, err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Publisher: "集英社", Limit: 1, Cursor: first.NextCursor})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	if requests != 1 {
 		t.Fatalf("requests = %d, want 1", requests)
@@ -151,16 +151,16 @@ func TestSearchBooks_RejectsUnsupportedOrInvalidInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	for _, request := range []SearchBooksRequest{
-		{}, {ExcludedText: "excluded"}, {Title: "title", Limit: 41}, {Title: "title", Cursor: "not a cursor"},
+	for _, request := range []SearchRequest{
+		{}, {Exclude: "excluded"}, {Title: "title", Limit: 41}, {Title: "title", Cursor: "not a cursor"},
 	} {
 		_, err := client.SearchBooks(context.Background(), request)
 		assertErrorKind(t, err, ErrorKindInvalidArgument)
 	}
-	_, err = (*Client)(nil).SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = (*Client)(nil).SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 	var nilContext context.Context
-	_, err = client.SearchBooks(nilContext, SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(nilContext, SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
 }
 
@@ -177,7 +177,7 @@ func TestSearchBooks_UsesDefaultLimitAndReturnsEmptyResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{FreeText: "keyword"})
+	result, err := client.SearchBooks(context.Background(), SearchRequest{Query: "keyword"})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
@@ -197,7 +197,7 @@ func TestSearchBooks_RejectsNonAdvancingEmptyPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 }
 
@@ -212,7 +212,7 @@ func TestSearchBooksWithRawResponse_PreservesSuccessBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if !bytes.Equal(raw, body) {
 		t.Fatalf("raw = %q, want %q", raw, body)
@@ -231,7 +231,7 @@ func TestSearchBooksWithRawResponse_ReturnsUnchangedSuccessBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	result, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	if err != nil {
 		t.Fatalf("SearchBooksWithRawResponse() error = %v", err)
 	}
@@ -253,14 +253,14 @@ func TestSearchBooks_MapsCurrentSalePriceWithObservedAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	result, err := client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	result, err := client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
 	if len(result.Books) != 1 {
 		t.Fatalf("Books = %#v, want one book", result.Books)
 	}
-	assertCurrentPriceObservedAt(t, result.Books[0].Normalized.Prices)
+	assertCurrentPriceObservedAt(t, result.Books[0].CurrentPrice)
 }
 
 // TestSearchBooksWithRawResponse_DoesNotReturnOversizedBody は、本文上限超過時にraw本文を返さないことを確認する
@@ -274,7 +274,7 @@ func TestSearchBooksWithRawResponse_DoesNotReturnOversizedBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchBooksRequest{Title: "title"})
+	_, raw, err := client.SearchBooksWithRawResponse(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindInvalidResponse)
 	if raw != nil {
 		t.Fatalf("raw = %d bytes, want nil", len(raw))
@@ -293,7 +293,7 @@ func TestSearchBooks_ClassifiesHTTPErrorWithoutKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	if strings.Contains(err.Error(), "top-secret") {
 		t.Fatalf("error exposes API key or response body: %v", err)
@@ -314,7 +314,7 @@ func TestSearchBooks_TransportErrorDoesNotExposeKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	if strings.Contains(err.Error(), "top-secret") {
 		t.Fatalf("error exposes API key: %v", err)
@@ -360,7 +360,7 @@ func TestSearchBooks_DoesNotFollowRedirects(t *testing.T) {
 		t.Fatalf("Client HTTP settings = %#v, want copied timeout and transport", client.httpClient)
 	}
 
-	_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUpstream)
 	var classified *Error
 	if !errors.As(err, &classified) || classified.StatusCode != http.StatusFound {
@@ -396,7 +396,7 @@ func TestSearchBooks_ClassifiesHTTPStatuses(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewClient() error = %v", err)
 			}
-			_, err = client.SearchBooks(context.Background(), SearchBooksRequest{Title: "title"})
+			_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "title"})
 			assertErrorKind(t, err, test.kind)
 		})
 	}
@@ -412,7 +412,7 @@ func TestSearchBooks_PreservesContextError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.SearchBooks(ctx, SearchBooksRequest{Title: "title"})
+	_, err = client.SearchBooks(ctx, SearchRequest{Title: "title"})
 	assertErrorKind(t, err, ErrorKindUnavailable)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("errors.Is(err, context.Canceled) = false: %v", err)
@@ -424,7 +424,7 @@ func TestConvertVolume_MapsSupportedFieldsOnly(t *testing.T) {
 	pageCount := 0
 	book, err := convertVolume(volume{ID: "volume-id", VolumeInfo: volumeInfo{
 		Title: "Title 1", Subtitle: "Subtitle", Authors: []string{"Author", ""}, Publisher: "Publisher", PublishedDate: "2026-08",
-		IndustryIdentifiers: []industryIdentifier{{Type: "ISBN_10", Identifier: "4088466365"}, {Type: "ISBN_13", Identifier: "invalid"}},
+		IndustryIdentifiers: []industryIdentifier{{Type: "ISBN_10", Identifier: "4088466365"}, {Type: "ISBN_13", Identifier: "9784088466361"}, {Type: "OTHER", Identifier: "unknown"}},
 		Description:         "<p>description</p>", Language: "ja", Categories: []string{"Manga", ""}, PageCount: &pageCount,
 		CanonicalVolumeLink: "not a URL", InfoLink: "https://books.google.example/info",
 		ImageLinks: imageLinks{Thumbnail: "https://images.example/thumbnail", Large: "https://images.example/large"},
@@ -433,16 +433,59 @@ func TestConvertVolume_MapsSupportedFieldsOnly(t *testing.T) {
 		t.Fatalf("convertVolume() error = %v", err)
 	}
 	if book.Sources[0].Source != SourceGoogleBooks || book.Sources[0].URL != "https://books.google.example/info" ||
-		book.Normalized.Title != "Title 1" || book.Normalized.PageCount != nil {
+		book.Title != "Title 1" || book.PageCount != nil || book.Subtitle != "Subtitle" || book.PublishedDate != "2026-08" ||
+		book.CoverURL != "https://images.example/large" {
 		t.Fatalf("book = %#v", book)
 	}
-	if len(book.Normalized.Contributors) != 1 || len(book.Normalized.Contributors[0].Roles) != 0 ||
-		len(book.Normalized.Identifiers) != 1 || len(book.Normalized.Images) != 2 || book.Normalized.Volume.Label != "" || book.Normalized.Medium != "" {
-		t.Fatalf("normalized = %#v", book.Normalized)
+	if len(book.Contributors) != 1 || len(book.Contributors[0].Roles) != 0 || len(book.ISBN10) != 1 ||
+		len(book.ISBN13) != 1 || book.Volume.Number == nil || *book.Volume.Number != 1 || book.Volume.Label != "1" || book.Medium != "" {
+		t.Fatalf("book = %#v", book)
 	}
 	_, err = convertVolume(volume{}, "")
 	if err == nil {
 		t.Fatal("convertVolume() error = nil, want missing ID error")
+	}
+}
+
+// TestConvertVolume_DoesNotUseSearchSnippet は、検索結果だけのtextSnippetを書誌Descriptionへ使わないことを確認する
+func TestConvertVolume_DoesNotUseSearchSnippet(t *testing.T) {
+	response, err := decodeVolumesResponse([]byte(`{
+		"totalItems": 1,
+		"items": [{
+			"id": "volume-id",
+			"volumeInfo": {"title": "書誌説明なし"},
+			"searchInfo": {"textSnippet": "検索語に依存する断片"}
+		}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	book, err := convertVolume(response.Items[0], "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if book.Description != "" {
+		t.Fatalf("Description = %q", book.Description)
+	}
+}
+
+// TestCoverURL は、Google Books画像候補から利用可能な最大サイズを選ぶことを確認する
+func TestCoverURL(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		links imageLinks
+		want  string
+	}{
+		{name: "prefer extra large", links: imageLinks{Thumbnail: "thumbnail", Large: "large", ExtraLarge: "extra-large"}, want: "extra-large"},
+		{name: "fall back to large", links: imageLinks{Thumbnail: "thumbnail", Large: "large"}, want: "large"},
+		{name: "fall back to small thumbnail", links: imageLinks{SmallThumbnail: "small-thumbnail"}, want: "small-thumbnail"},
+		{name: "omit missing images"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := coverURL(test.links); got != test.want {
+				t.Fatalf("coverURL() = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
@@ -467,8 +510,8 @@ func TestConvertVolume_MapsEbookMedium(t *testing.T) {
 			if err != nil {
 				t.Fatalf("convertVolume() error = %v", err)
 			}
-			if book.Normalized.Medium != test.want {
-				t.Fatalf("Medium = %q, want %q", book.Normalized.Medium, test.want)
+			if book.Medium != test.want {
+				t.Fatalf("Medium = %q, want %q", book.Medium, test.want)
 			}
 		})
 	}
@@ -485,9 +528,9 @@ func TestConvertVolume_MapsSalePrices(t *testing.T) {
 	overflowAmount := json.Number("9223372036854775808")
 	observedAt := "2026-08-10T01:02:03.456789Z"
 	tests := []struct {
-		name string
-		sale saleInfo
-		want []Price
+		name                  string
+		sale                  saleInfo
+		wantList, wantCurrent *Price
 	}{
 		{
 			name: "JP JPY integer list and retail",
@@ -496,15 +539,13 @@ func TestConvertVolume_MapsSalePrices(t *testing.T) {
 				ListPrice:   price{Amount: &listAmount, CurrencyCode: "jpy"},
 				RetailPrice: price{Amount: &retailAmount, CurrencyCode: "JPY"},
 			},
-			want: []Price{
-				{Type: PriceTypeList, Amount: 900, Currency: "JPY", Source: SourceGoogleBooks},
-				{Type: PriceTypeCurrent, Amount: 800, Currency: "JPY", Source: SourceGoogleBooks, ObservedAt: observedAt},
-			},
+			wantList:    &Price{Amount: 900, Currency: "JPY", Source: SourceGoogleBooks},
+			wantCurrent: &Price{Amount: 800, Currency: "JPY", Source: SourceGoogleBooks, ObservedAt: observedAt},
 		},
 		{
-			name: "explicit zero",
-			sale: saleInfo{Country: "JP", ListPrice: price{Amount: &zeroAmount, CurrencyCode: "JPY"}},
-			want: []Price{{Type: PriceTypeList, Amount: 0, Currency: "JPY", Source: SourceGoogleBooks}},
+			name:     "explicit zero",
+			sale:     saleInfo{Country: "JP", ListPrice: price{Amount: &zeroAmount, CurrencyCode: "JPY"}},
+			wantList: &Price{Amount: 0, Currency: "JPY", Source: SourceGoogleBooks},
 		},
 		{
 			name: "fractional amount",
@@ -515,9 +556,9 @@ func TestConvertVolume_MapsSalePrices(t *testing.T) {
 			sale: saleInfo{Country: "JP", ListPrice: price{Amount: &negativeAmount, CurrencyCode: "JPY"}},
 		},
 		{
-			name: "int64 maximum",
-			sale: saleInfo{Country: "JP", ListPrice: price{Amount: &maxInt64Amount, CurrencyCode: "JPY"}},
-			want: []Price{{Type: PriceTypeList, Amount: 9223372036854775807, Currency: "JPY", Source: SourceGoogleBooks}},
+			name:     "int64 maximum",
+			sale:     saleInfo{Country: "JP", ListPrice: price{Amount: &maxInt64Amount, CurrencyCode: "JPY"}},
+			wantList: &Price{Amount: 9223372036854775807, Currency: "JPY", Source: SourceGoogleBooks},
 		},
 		{
 			name: "amount exceeds int64",
@@ -546,8 +587,8 @@ func TestConvertVolume_MapsSalePrices(t *testing.T) {
 			if err != nil {
 				t.Fatalf("convertVolume() error = %v", err)
 			}
-			if !reflect.DeepEqual(book.Normalized.Prices, test.want) {
-				t.Fatalf("Prices = %#v, want %#v", book.Normalized.Prices, test.want)
+			if !reflect.DeepEqual(book.ListPrice, test.wantList) || !reflect.DeepEqual(book.CurrentPrice, test.wantCurrent) {
+				t.Fatalf("ListPrice = %#v, CurrentPrice = %#v; want %#v, %#v", book.ListPrice, book.CurrentPrice, test.wantList, test.wantCurrent)
 			}
 		})
 	}
@@ -563,9 +604,9 @@ func TestDecodeVolumesResponse_PreservesLargePriceAmount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convertVolume() error = %v", err)
 	}
-	want := []Price{{Type: PriceTypeList, Amount: 9007199254740993, Currency: "JPY", Source: SourceGoogleBooks}}
-	if !reflect.DeepEqual(book.Normalized.Prices, want) {
-		t.Fatalf("Prices = %#v, want %#v", book.Normalized.Prices, want)
+	want := &Price{Amount: 9007199254740993, Currency: "JPY", Source: SourceGoogleBooks}
+	if !reflect.DeepEqual(book.ListPrice, want) || book.CurrentPrice != nil {
+		t.Fatalf("ListPrice = %#v, CurrentPrice = %#v; want %#v, nil", book.ListPrice, book.CurrentPrice, want)
 	}
 }
 
@@ -643,7 +684,7 @@ func TestLookupBooksByISBN_UsesSingleRequest(t *testing.T) {
 	if result.Items[0].Books[0].Sources[0].ID != "match" {
 		t.Fatalf("book = %#v", result.Items[0].Books[0])
 	}
-	assertCurrentPriceObservedAt(t, result.Items[0].Books[0].Normalized.Prices)
+	assertCurrentPriceObservedAt(t, result.Items[0].Books[0].CurrentPrice)
 
 	_, err = client.LookupBooksByISBN(context.Background(), []string{"4088466365", "9784088466361"})
 	assertErrorKind(t, err, ErrorKindInvalidArgument)
@@ -722,22 +763,22 @@ func sampleVolumeWithRetailPrice(id string, isbn string) string {
 }
 
 // assertCurrentPriceObservedAt は、現在価格とRFC3339Nano形式の応答時刻を検証する
-func assertCurrentPriceObservedAt(t *testing.T, prices []Price) {
+func assertCurrentPriceObservedAt(t *testing.T, currentPrice *Price) {
 	t.Helper()
-	if len(prices) != 1 || prices[0].Type != PriceTypeCurrent || prices[0].Source != SourceGoogleBooks || prices[0].ObservedAt == "" {
-		t.Fatalf("Prices = %#v, want one current Google Books price with ObservedAt", prices)
+	if currentPrice == nil || currentPrice.Source != SourceGoogleBooks || currentPrice.ObservedAt == "" {
+		t.Fatalf("CurrentPrice = %#v, want one current Google Books price with ObservedAt", currentPrice)
 	}
-	if _, err := time.Parse(time.RFC3339Nano, prices[0].ObservedAt); err != nil {
-		t.Fatalf("ObservedAt = %q, want RFC3339Nano: %v", prices[0].ObservedAt, err)
+	if _, err := time.Parse(time.RFC3339Nano, currentPrice.ObservedAt); err != nil {
+		t.Fatalf("ObservedAt = %q, want RFC3339Nano: %v", currentPrice.ObservedAt, err)
 	}
 }
 
 // assertErrorKind は、エラーが指定された分類のErrorか検証する
 func assertErrorKind(t *testing.T, err error, want ErrorKind) {
 	t.Helper()
-	var classified *api.Error
+	var classified *model.Error
 	if !errors.As(err, &classified) {
-		t.Fatalf("error = %v, want *api.Error", err)
+		t.Fatalf("error = %v, want *model.Error", err)
 	}
 	if classified.Kind != want {
 		t.Fatalf("Error.Kind = %q, want %q", classified.Kind, want)

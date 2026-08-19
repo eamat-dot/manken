@@ -24,12 +24,14 @@ type cursorPayload struct {
 
 // cursorSearchConditions は、ISBN検索分離前の検索条件ハッシュ表現を維持する
 type cursorSearchConditions struct {
-	Title        string   `json:"title"`
-	ISBNs        []string `json:"isbns"`
-	Author       string   `json:"author"`
-	Publisher    string   `json:"publisher,omitempty"`
-	FreeText     string   `json:"free_text"`
-	ExcludedText string   `json:"excluded_text"`
+	Title     string   `json:"title"`
+	ISBNs     []string `json:"isbns"`
+	Author    string   `json:"author"`
+	Publisher string   `json:"publisher,omitempty"`
+	Query     string   `json:"free_text"`
+	Exclude   string   `json:"excluded_text"`
+	DateFrom  string   `json:"date_from,omitempty"`
+	DateTo    string   `json:"date_to,omitempty"`
 }
 
 // encodeCursor は、次ページの情報を不透明なカーソルへ変換する
@@ -106,11 +108,13 @@ func ensureJSONEnd(decoder *json.Decoder) error {
 // hashSearchConditions は、正規化済み検索条件をSHA-256の16進文字列へ変換する
 func hashSearchConditions(conditions searchConditions) (string, error) {
 	data, err := json.Marshal(cursorSearchConditions{
-		Title:        conditions.Title,
-		Author:       conditions.Author,
-		Publisher:    conditions.Publisher,
-		FreeText:     conditions.FreeText,
-		ExcludedText: conditions.ExcludedText,
+		Title:     conditions.Title,
+		Author:    conditions.Author,
+		Publisher: conditions.Publisher,
+		Query:     conditions.Query,
+		Exclude:   conditions.Exclude,
+		DateFrom:  conditions.DateFrom,
+		DateTo:    conditions.DateTo,
 	})
 	if err != nil {
 		return "", fmt.Errorf("encode search conditions: %w", err)

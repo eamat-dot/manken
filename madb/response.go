@@ -11,7 +11,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/eamat-dot/manken/internal/authorrole"
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 // sparqlResponse は、SPARQL Results JSONの結果を保持する
@@ -340,62 +342,54 @@ func (accumulator *sourceBookAccumulator) finish() sourceBook {
 func convertBook(source sourceBook) Book {
 	authors, contributors := convertCreators(source)
 
-	identifiers := make([]Identifier, 0, len(source.ISBNs))
+	isbn10 := make([]string, 0, len(source.ISBNs))
+	isbn13 := make([]string, 0, len(source.ISBNs))
 	for _, value := range source.ISBNs {
 		normalized := normalizeISBN(value)
 		switch {
 		case internalisbn.IsValidISBN10(normalized):
-			identifiers = append(identifiers, Identifier{
-				Type:  IdentifierTypeISBN10,
-				Value: normalized,
-			})
+			isbn10 = append(isbn10, normalized)
 		case internalisbn.IsValidISBN13(normalized):
-			identifiers = append(identifiers, Identifier{
-				Type:  IdentifierTypeISBN13,
-				Value: normalized,
-			})
+			isbn13 = append(isbn13, normalized)
 		}
 	}
 
-	dates := make([]BookDate, 0, 1)
-	if source.PublishedDate != "" {
-		dates = append(dates, BookDate{
-			Type:  BookDateTypePublished,
-			Value: source.PublishedDate,
-		})
-	}
-
 	pageCount := normalizePageCount(source.PageCount)
-	physicalSize := normalizePhysicalSize(source.Size)
 	medium := PublicationMediumUnknown
-	if physicalSize != nil {
+	if hasStructuredPhysicalSize(source.Size) {
 		medium = PublicationMediumPrint
 	}
 
-	return Book{
-		Normalized: NormalizedBook{
-			Title:             firstValue(source.Titles),
-			TitleReading:      normalizeTitleKana(source.TitleKana),
-			Subtitle:          firstValue(source.Subtitles),
-			Series:            convertSeries(source),
-			Volume:            normalizeVolume(source.VolumeNumber),
-			EditionStatements: source.Versions,
-			Authors:           authors,
-			Contributors:      contributors,
-			Publishers:        normalizePublishers(source.Publishers),
-			Imprints:          source.Brands,
-			Identifiers:       identifiers,
-			Dates:             dates,
-			PageCount:         pageCount,
-			Medium:            medium,
-			PhysicalSize:      physicalSize,
-		},
+	book := Book{
+		Title:             firstValue(source.Titles),
+		TitleReading:      normalizeTitleKana(source.TitleKana),
+		Subtitle:          firstValue(source.Subtitles),
+		BookSeries:        convertBookSeries(source),
+		PublicationSeries: source.Brands,
+		Volume:            normalizeVolume(source.VolumeNumber),
+		Editions:          source.Versions,
+		Authors:           authors,
+		Contributors:      contributors,
+		Publishers:        normalizePublishers(source.Publishers),
+		ISBN10:            isbn10,
+		ISBN13:            isbn13,
+		PublishedDate:     source.PublishedDate,
+		PageCount:         pageCount,
+		Medium:            medium,
+		Size:              source.Size,
 		Sources: []BookSource{{
 			Source: SourceMADB,
 			ID:     source.ID,
 			URL:    source.ResourceURI,
 		}},
 	}
+	applyTitleMetadata(&book)
+	return book
+}
+
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
 }
 
 // convertCreators は、MADBのcreator文字列とAgent名を共通の著者と寄与者へ変換する
@@ -417,7 +411,7 @@ func convertCreators(source sourceBook) ([]string, []Contributor) {
 		if !usable {
 			continue
 		}
-		if !hasRole || containsAuthorRole(roles) {
+		if !hasRole || authorrole.Contains(roles) {
 			authors = appendUniqueString(authors, authorNames, name)
 		}
 		contributors = mergeContributor(contributors, contributorIndexes, name, roles)
@@ -426,7 +420,7 @@ func convertCreators(source sourceBook) ([]string, []Contributor) {
 }
 
 // parseCreator は、creator文字列から人物名、確定済みの共通役割、役割表記の有無を取り出す
-func parseCreator(value string) (string, []ContributorRole, bool, bool) {
+func parseCreator(value string) (string, []string, bool, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return "", nil, false, false
@@ -454,10 +448,10 @@ func parseCreator(value string) (string, []ContributorRole, bool, bool) {
 }
 
 // mapCreatorRoles は、MADBの単一または複合役割を共通役割へ変換する
-func mapCreatorRoles(value string) ([]ContributorRole, bool) {
+func mapCreatorRoles(value string) ([]string, bool) {
 	parts := strings.Split(value, "・")
-	roles := make([]ContributorRole, 0, len(parts))
-	seen := make(map[ContributorRole]struct{}, len(parts))
+	roles := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
 		role, ok := mapCreatorRole(part)
 		if !ok {
@@ -473,31 +467,31 @@ func mapCreatorRoles(value string) ([]ContributorRole, bool) {
 }
 
 // mapCreatorRole は、MADBの単一役割を共通役割へ変換する
-func mapCreatorRole(value string) (ContributorRole, bool) {
+func mapCreatorRole(value string) (string, bool) {
 	switch value {
 	case "著", "著者", "作", "共著", "ほか著", "他著":
-		return ContributorRoleAuthor, true
+		return "著者", true
 	case "原作", "原案", "共原作":
-		return ContributorRoleOriginalCreator, true
+		return "原作", true
 	case "脚本", "シナリオ", "構成", "脚色", "文", "ストーリー", "ライター":
-		return ContributorRoleWriter, true
+		return "脚本", true
 	case "漫画", "作画", "画", "劇画", "まんが", "絵",
 		"comic", "Comic", "COMIC", "comics", "コミック", "マンガ", "アーティスト":
-		return ContributorRoleArtist, true
+		return "作画", true
 	case "キャラクター原案":
-		return ContributorRoleCharacterCreator, true
+		return "キャラクター原案", true
 	case "キャラクターデザイン":
-		return ContributorRoleCharacterDesigner, true
+		return "キャラクターデザイン", true
 	case "編", "編集":
-		return ContributorRoleEditor, true
+		return "編集", true
 	case "訳":
-		return ContributorRoleTranslator, true
+		return "翻訳", true
 	case "監修":
-		return ContributorRoleSupervisor, true
+		return "監修", true
 	case "解説":
-		return ContributorRoleCommentator, true
+		return "解説", true
 	case "カバーデザイン", "装丁", "装幀", "デザイン":
-		return ContributorRoleDesigner, true
+		return "デザイン", true
 	default:
 		return "", false
 	}
@@ -517,22 +511,6 @@ func parseCreatorName(value string) (string, bool) {
 	return value, value != ""
 }
 
-// containsAuthorRole は、役割にAuthorsへ含める主要な創作者があるか判定する
-func containsAuthorRole(roles []ContributorRole) bool {
-	for _, role := range roles {
-		switch role {
-		case ContributorRoleAuthor,
-			ContributorRoleOriginalCreator,
-			ContributorRoleWriter,
-			ContributorRoleArtist,
-			ContributorRoleCharacterCreator,
-			ContributorRoleCharacterDesigner:
-			return true
-		}
-	}
-	return false
-}
-
 // appendUniqueString は、未追加の文字列だけを順序を変えずに追加する
 func appendUniqueString(values []string, seen map[string]struct{}, value string) []string {
 	if _, exists := seen[value]; exists {
@@ -547,7 +525,7 @@ func mergeContributor(
 	contributors []Contributor,
 	indexes map[string]int,
 	name string,
-	roles []ContributorRole,
+	roles []string,
 ) []Contributor {
 	index, exists := indexes[name]
 	if !exists {
@@ -555,7 +533,7 @@ func mergeContributor(
 		return append(contributors, Contributor{Name: name, Roles: roles})
 	}
 
-	seen := make(map[ContributorRole]struct{}, len(contributors[index].Roles))
+	seen := make(map[string]struct{}, len(contributors[index].Roles))
 	for _, role := range contributors[index].Roles {
 		seen[role] = struct{}{}
 	}
@@ -639,6 +617,10 @@ func isKatakanaReading(value string) bool {
 
 var pageCountPattern = regexp.MustCompile(`^([0-9０-９]+)[pPｐＰ]?$`)
 
+var physicalSizePattern = regexp.MustCompile(
+	`(?i)^([0-9０-９]+(?:[.．][0-9０-９]+)?)cm(?:[×xX＊*]([0-9０-９]+(?:[.．][0-9０-９]+)?)cm)?$`,
+)
+
 // normalizePageCount は、MADBのページ数表記を整数へ変換する
 func normalizePageCount(value string) *int {
 	value = removeUnicodeSpaces(value)
@@ -657,31 +639,9 @@ func normalizePageCount(value string) *int {
 	return &pageCount
 }
 
-var physicalSizePattern = regexp.MustCompile(
-	`(?i)^([0-9０-９]+(?:[.．][0-9０-９])?)cm(?:[×xX＊*]([0-9０-９]+(?:[.．][0-9０-９])?)cm)?$`,
-)
-
-// normalizePhysicalSize は、MADBのセンチメートル表記をミリメートル単位へ変換する
-func normalizePhysicalSize(value string) *PhysicalSize {
-	value = removeUnicodeSpaces(value)
-	matches := physicalSizePattern.FindStringSubmatch(value)
-	if matches == nil {
-		return nil
-	}
-	height, ok := centimetersToMillimeters(matches[1])
-	if !ok {
-		return nil
-	}
-	result := &PhysicalSize{HeightMM: &height}
-	if matches[2] == "" {
-		return result
-	}
-	width, ok := centimetersToMillimeters(matches[2])
-	if !ok {
-		return nil
-	}
-	result.WidthMM = &width
-	return result
+// hasStructuredPhysicalSize は、既存の紙書籍判定に使う寸法表記か判定する
+func hasStructuredPhysicalSize(value string) bool {
+	return physicalSizePattern.MatchString(removeUnicodeSpaces(value))
 }
 
 // removeUnicodeSpaces は、文字列からUnicode空白文字を取り除く
@@ -694,33 +654,6 @@ func removeUnicodeSpaces(value string) string {
 	}, value)
 }
 
-// centimetersToMillimeters は、整数または小数第1位までのセンチメートル値をミリメートルへ変換する
-func centimetersToMillimeters(value string) (int, bool) {
-	value = strings.ReplaceAll(value, "．", ".")
-	parts := strings.Split(value, ".")
-	integerDigits, ok := normalizeDigits(parts[0])
-	if !ok {
-		return 0, false
-	}
-	integerPart, err := strconv.Atoi(integerDigits)
-	if err != nil {
-		return 0, false
-	}
-	millimeters := integerPart * 10
-	if len(parts) == 1 {
-		return millimeters, true
-	}
-	decimalDigits, ok := normalizeDigits(parts[1])
-	if !ok || len(decimalDigits) != 1 {
-		return 0, false
-	}
-	decimalPart, err := strconv.Atoi(decimalDigits)
-	if err != nil {
-		return 0, false
-	}
-	return millimeters + decimalPart, true
-}
-
 // firstValue は、文字列スライスの先頭または空文字列を返す
 func firstValue(values []string) string {
 	if len(values) == 0 {
@@ -729,17 +662,17 @@ func firstValue(values []string) string {
 	return values[0]
 }
 
-// convertSeries は、MADBの直接指定と参照先のシリーズを共通モデルへ変換する
-func convertSeries(source sourceBook) []Series {
-	series := make([]Series, 0, len(source.SeriesNames)+len(source.RelatedSeriesNames))
+// convertBookSeries は、MADBの直接指定と参照先の作品系列を共通モデルへ変換する
+func convertBookSeries(source sourceBook) []BookSeries {
+	series := make([]BookSeries, 0, len(source.SeriesNames)+len(source.RelatedSeriesNames))
 	indexes := make(map[string]int)
 
 	for _, name := range source.SeriesNames {
 		indexes[name] = len(series)
-		series = append(series, Series{Name: name})
+		series = append(series, BookSeries{Name: name})
 	}
 	for _, name := range source.RelatedSeriesNames {
-		value := Series{
+		value := BookSeries{
 			Name:   name,
 			ID:     source.SeriesID,
 			URL:    source.SeriesResourceURI,

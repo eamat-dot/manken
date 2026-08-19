@@ -1,10 +1,12 @@
 # DMMパッケージ仕様
 
+`SearchSeriesRequest.DateFrom` と `DateTo` は、DMM商品 `date` の時期を `gte_date` と `lte_date` で絞り込む。開始は指定期間の `00:00:00`、終了は期間終端の `23:59:59` とし、タイムゾーン変換は行わない。FreeTextは引き続き必須で、日付条件はCursor照合に含める。
+
 `dmm` はDMM.com Webサービス v3を使い、一般向けDMMブックス電子コミックのシリーズを探し、指定したシリーズに属する個別商品を取得する。import pathは `github.com/eamat-dot/manken/dmm` であり、FANZAは対象にしない。
 
 ## 公開APIとClient
 
-`dmm` は `Client`、`Option`、`Book`、`BookSeries`、`Source`、`PublicationMedium`、`ErrorKind`、`Error` など、通常利用に必要な `api` の型をエイリアスとして公開する。`SeriesSearchItem` はDMM固有のシリーズ候補型である。`SourceDMM` はDMM.com Webサービス v3 ItemListを、`PublicationMediumDigital` は電子書籍を表す。
+`dmm` は `Client`、`Option`、`Book`、`BookSeries`、`Source`、`PublicationMedium`、`ErrorKind`、`Error` など、通常利用に必要な `model` の型をエイリアスとして公開する。`SeriesSearchItem` はDMM固有のシリーズ候補型である。`SourceDMM` はDMM.com Webサービス v3 ItemListを、`PublicationMediumDigital` は電子書籍を表す。
 
 `NewClient(httpClient, dmm.WithAPIID(...), dmm.WithAffiliateID(...))` はAPI IDとAffiliate IDの両方を必要とする。ライブラリ本体は環境変数を読まない。認証値が空白だけ、または制御文字を含む場合は `invalid_argument` となる。`httpClient` がnilの場合は60秒のTimeoutを使い、呼び出し側から渡されたHTTPクライアントは変更しない。リダイレクトは自動追従しない。
 
@@ -39,9 +41,11 @@ keyword応答itemは商品ではなく、そのitemが明示する唯一の `ite
 
 空または空白だけの `SeriesID` は `invalid_argument` となる。返却itemは、要求したIDと一致する唯一の `iteminfo.series` を持つ必要がある。seriesの欠落、複数、ID・名称の欠落、要求IDとの不一致は `invalid_response` となる。
 
-個別Bookはitem固有の `title`、`content_id`、通常URL、アフィリエイトURL、author、manufacturer、genre、imageURL、電子媒体を保持する。`content_id` は `BookSource.ID`、`URL` と `affiliateURL` はそれぞれ通常URLとアフィリエイトURLとして、有効なHTTP(S) URLだけを保持する。`Normalized.BookSeries` には検証済みのDMM series ID、名称、`SourceDMM` を1件設定する。既存の `Normalized.Series` は設定しない。
+シリーズ内BookはDMMが返したitem順を維持する。古い順または巻数昇順を安全に指定できる取得元sortを確認できておらず、`number` の意味も巻数に限定できないため、ライブラリ側でreverseや巻数sortを行わない。これによりRaw responseのitem順と変換済みBooksの順序を一致させる。
 
-authorは返却順でAuthorsと役割なしContributorsへ入れる。manufacturerの空でないnameは返却順でPublishersへ入れ、manufacturer IDは保持しない。genreの数値IDは文字列表現で `Scheme=dmm` のSubjectにする。`imageURL` オブジェクトの有効なHTTP(S) URLは、`large`、`list`、`small` の順で確認し、最初の1件だけをImagesへ保持する。purposeと寸法はDMM ItemListが明示しないため設定しない。`number` は巻、号、話などが混在するためVolumeへ変換しない。`volume`、`date`、`prices.price`、ISBNも変換しない。ISBN参照APIと `cid` による単一商品参照APIは提供しない。
+個別Bookはitem固有の `title`、`content_id`、通常URL、アフィリエイトURL、author、manufacturer、genre、imageURL、電子媒体を保持する。`content_id` は `BookSource.ID`、`URL` と `affiliateURL` はそれぞれ通常URLとアフィリエイトURLとして、有効なHTTP(S) URLだけを保持する。`BookSeries` には検証済みのDMM series ID、名称、`SourceDMM` を1件設定する。`PublicationSeries` は設定しない。
+
+authorは返却順でAuthorsと役割なしContributorsへ入れる。manufacturerの空でないnameは返却順でPublishersへ入れ、manufacturer IDは保持しない。genreの数値IDは文字列表現で `Scheme=dmm` のSubjectにする。`imageURL` オブジェクトの有効なHTTP(S) URLは、`large`、`list`、`small` の順で確認し、最初の1件だけを `CoverURL` へ保持する。titleは非破壊で保持し、安全なタイトル構文からVolume、Editions、IsFinalVolumeを補う場合がある。`number` は巻、号、話などが混在するためVolumeへ変換しない。`volume`、`date`、`prices.price` は、現行調査で共通 `Volume`、日付フィールド、`Price` と同じ意味だと安全に確定できていないため変換しない。ISBNも変換しない。ISBN参照APIと `cid` による単一商品参照APIは提供しない。
 
 ## Cursorとページング
 

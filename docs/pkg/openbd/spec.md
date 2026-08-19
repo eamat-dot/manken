@@ -3,7 +3,7 @@
 ## 1. 目的
 
 `openbd` パッケージは、複数のISBNからopenBDの書誌情報を1回で参照し、
-`api` パッケージで定義する共通書籍モデルへ変換する。
+`model` パッケージで定義する共通書籍モデルへ変換する。
 
 本仕様書は、openBD固有のISBN参照、項目対応、HTTP処理、エラー分類を定義する。
 共通モデルの仕様は [manken API仕様](../../spec.md)、パッケージの責務境界は
@@ -49,7 +49,7 @@ func (client *Client) LookupBooksByISBNWithRawResponse(
 ) (openbd.ISBNLookupResult, []byte, error)
 ```
 
-共通型と共通エラーの実体は `api` パッケージに定義する。`openbd` は通常利用に
+共通型と共通エラーの実体は `model` パッケージに定義する。`openbd` は通常利用に
 必要な型と定数をエイリアスとして公開し、利用側は `openbd` だけをimportして
 ISBN参照、結果の参照、分類済みエラーの判定を行える。
 
@@ -95,17 +95,21 @@ ISBN-10と対応するISBN-13、同じISBNの重複入力は問い合わせ時�
 openBD応答は非公開型へ変換してから `Book` を組み立てる。未知のJSON項目は無視し、
 欠落した任意項目は有効な応答として扱う。
 
-| openBDの取得元                                                       | `openbd.Book`                                   |
-| -------------------------------------------------------------------- | ----------------------------------------------- |
-| 検証済みISBN-13                                                      | `Sources[0].ID`、`Normalized.Identifiers`       |
-| ONIXの商品階層 `TitleText.content`、`summary.title`                  | `Normalized.Title`                              |
-| `Normalized.Title` に採用した同一ONIX要素の `TitleText.collationkey` | `Normalized.TitleReading`                       |
-| ONIXのSubtitle                                                       | `Normalized.Subtitle`                           |
-| ONIXのContributor                                                    | `Normalized.Authors`、`Normalized.Contributors` |
-| ONIXのImprint、Publisher、`summary.publisher`                        | `Normalized.Publishers`                         |
-| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate`       | `Normalized.Dates`                              |
-| `summary.cover`                                                      | `Normalized.Images`                             |
-| 固定値                                                               | `Sources[0].Source`                             |
+| openBDの取得元                                                 | `openbd.Book`             |
+| -------------------------------------------------------------- | ------------------------- |
+| 検証済みISBN-13                                                | `Sources[0].ID`、`ISBN13` |
+| ONIXの商品階層 `TitleText.content`、`summary.title`            | `Title`                   |
+| `Title` に採用した同一ONIX要素の `TitleText.collationkey`      | `TitleReading`            |
+| ONIXのSubtitle                                                 | `Subtitle`                |
+| ONIXのContributor                                              | `Authors`、`Contributors` |
+| ONIXのImprint、Publisher、`summary.publisher`                  | `Publishers`              |
+| Collection階層の `TitleText.content`、`summary.series`         | `PublicationSeries[]`     |
+| 同じCollection `TitleText` の `collationkey`                   | 共通Bookへ変換しない      |
+| ONIXのPublishingDate、`hanmoto.dateshuppan`、`summary.pubdate` | `PublishedDate`           |
+| `summary.cover`                                                | `CoverURL`                |
+| 固定値                                                         | `Sources[0].Source`       |
+
+`PriceType`が`01`または`02`、`CurrencyCode`が`JPY`、`PriceAmount`が非負のASCII整数である価格だけを変換する。`01`は税別、`02`は税込として`TaxIncluded`へ設定する。対応できる候補が同一の価格・税込情報だけなら重複を除いて採用し、異なる候補が複数ある場合は`ListPrice`を設定しない。`Source`は`openbd`、`ObservedAt`は空とし、`CurrentPrice`には設定しない。
 
 `Sources[0].ID` は検証済みISBN-13とする。openBDは応答に書籍ごとの参照ページURLを
 返さないため、`Sources[0].URL` は空にする。
@@ -130,12 +134,13 @@ openBD応答は非公開型へ変換してから `Book` を組み立てる。未
 ### 5.2 タイトル、巻数、Collection
 
 商品階層タイトルの `TitleText.content` は、区切り記号や末尾表記を解釈せず、全体を
-`Normalized.Title` に設定する。同じ `TitleElement` の `TitleText.collationkey` がある場合は、
-全体を `Normalized.TitleReading` に設定する。`ParallelTitles` と `Volume` は設定しない。
+`Title` に設定する。同じ `TitleElement` の `TitleText.collationkey` がある場合は、
+全体を `TitleReading` に設定する。Titleは非破壊で保持したまま、安全なタイトル構文からVolume、Editions、IsFinalVolumeを補う場合がある。`=`を含む並列タイトルでは曖昧な独立末尾数値をVolumeへ使わず、明示的な巻表記だけを扱う。
 
-ONIXのCollectionと `summary.series` は、作品シリーズ、出版コレクション、レーベルを
-区別できないため、`Series` と `Imprints` のどちらにも設定しない。Collection階層の
-`PartNumber`、CollectionSequence、`summary.volume` も作品巻数として使用しない。
+ONIXのCollectionと `summary.series` は、`PublicationSeries` として名称を保持する。Collectionの
+`TitleText.collationkey` は共通Bookへ変換しない。同じ名称は完全一致で重複除去し、作品系列またはレーベルへ推測分類しない。Collection階層の
+`PartNumber` とCollectionSequenceも作品巻数として使用しない。`summary.volume` はCollection階層の
+刊行番号を返して作品巻数と一致しない実例があるため、名前だけを根拠に `Volume` へ変換しない。
 
 ### 5.3 寄与者
 
@@ -168,8 +173,8 @@ ONIXの寄与者がない場合、空でない `summary.author` を分割せず1
 ISBN、タイトル、タイトル読み、サブタイトル、寄与者、出版社、出版日、表紙画像を
 共通モデルへ設定する。
 
-並列タイトル、巻数、シリーズ、レーベル、説明、主題、言語、ページ数、判型、物理寸法、
-価格、ONIX Collection、CollectionSequence、商品階層 `PartNumber`、SupportingResource、
+並列タイトル、巻数、作品系列、レーベル、説明、主題、言語、ページ数、判型、物理寸法、
+CollectionSequence、商品階層 `PartNumber`、SupportingResource、
 版表示は共通モデルへ設定しない。これらはRaw responseから確認できる。
 
 ## 6. Raw response

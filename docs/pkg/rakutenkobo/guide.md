@@ -46,7 +46,7 @@ RAKUTEN_AFFILIATE_ID  # 任意
 ```go
 result, err := client.SearchBooks(
     context.Background(),
-    rakutenkobo.SearchBooksRequest{Title: "ふつつかな悪女ではございますが"},
+    rakutenkobo.SearchRequest{Title: "ふつつかな悪女ではございますが"},
 )
 ```
 

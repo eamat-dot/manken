@@ -143,10 +143,10 @@ func TestBuildSearchQuery_AuthorConditions(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_FreeTextConditions は、フリーワードの対象フィールドと他条件とのAND結合を検証する
-func TestBuildSearchQuery_FreeTextConditions(t *testing.T) {
+// TestBuildSearchQuery_QueryConditions は、フリーワードの対象フィールドと他条件とのAND結合を検証する
+func TestBuildSearchQuery_QueryConditions(t *testing.T) {
 	freeText := "うる星 高橋留美子 新装版 a\"b\\c"
-	query := buildSearchQuery(searchConditions{FreeText: freeText}, 20, "")
+	query := buildSearchQuery(searchConditions{Query: freeText}, 20, "")
 
 	wantQuery := `neptune-fts:config neptune-fts:query "` +
 		escapeSPARQLString(buildFullTextQuery(freeText)) + `" .`
@@ -161,9 +161,9 @@ func TestBuildSearchQuery_FreeTextConditions(t *testing.T) {
 	}
 
 	combined := buildSearchQuery(searchConditions{
-		Title:    "うる星",
-		Author:   "高橋留美子",
-		FreeText: freeText,
+		Title:  "うる星",
+		Author: "高橋留美子",
+		Query:  freeText,
 	}, 20, "")
 	if strings.Count(combined, `SERVICE neptune-fts:search`) != 4 {
 		t.Fatalf("full-text service count = %d, want 4:\n%s", strings.Count(combined, `SERVICE neptune-fts:search`), combined)
@@ -220,12 +220,12 @@ func TestBuildSearchQuery_FullTextServicesUseEntityIDSort(t *testing.T) {
 		},
 		{
 			name:         "free text",
-			conditions:   searchConditions{FreeText: "動物のお医者さん"},
+			conditions:   searchConditions{Query: "動物のお医者さん"},
 			wantServices: 1,
 		},
 		{
 			name:         "excluded text without free text",
-			conditions:   searchConditions{ExcludedText: "愛蔵版"},
+			conditions:   searchConditions{Exclude: "愛蔵版"},
 			wantServices: 1,
 		},
 	}
@@ -262,11 +262,11 @@ func TestBuildSearchQuery_DoesNotSetFullTextBatchSize(t *testing.T) {
 		},
 		{
 			name:       "publisher and free text",
-			conditions: searchConditions{Publisher: "小学館", FreeText: "動物のお医者さん"},
+			conditions: searchConditions{Publisher: "小学館", Query: "動物のお医者さん"},
 		},
 		{
 			name:       "publisher and excluded text",
-			conditions: searchConditions{Publisher: "小学館", ExcludedText: "愛蔵版"},
+			conditions: searchConditions{Publisher: "小学館", Exclude: "愛蔵版"},
 		},
 		{
 			name:       "publisher only",
@@ -287,9 +287,9 @@ func TestBuildSearchQuery_DoesNotSetFullTextBatchSize(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_FreeTextDoesNotUseImplicitFields は、対象省略やワイルドカードへ戻さないことを検証する
-func TestBuildSearchQuery_FreeTextDoesNotUseImplicitFields(t *testing.T) {
-	query := buildSearchQuery(searchConditions{FreeText: "作品"}, 20, "")
+// TestBuildSearchQuery_QueryDoesNotUseImplicitFields は、対象省略やワイルドカードへ戻さないことを検証する
+func TestBuildSearchQuery_QueryDoesNotUseImplicitFields(t *testing.T) {
+	query := buildSearchQuery(searchConditions{Query: "作品"}, 20, "")
 	fields := freeTextSearchFields()
 	if strings.Contains(query, `neptune-fts:field "*"`) ||
 		strings.Count(query, `neptune-fts:field`) != len(fields) {
@@ -297,17 +297,17 @@ func TestBuildSearchQuery_FreeTextDoesNotUseImplicitFields(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_ExcludedTextWithFreeText は、フリーワード式へ除外語をAND NOTで追加する
-func TestBuildSearchQuery_ExcludedTextWithFreeText(t *testing.T) {
+// TestBuildSearchQuery_ExcludeWithQuery は、フリーワード式へ除外語をAND NOTで追加する
+func TestBuildSearchQuery_ExcludeWithQuery(t *testing.T) {
 	conditions := searchConditions{
-		FreeText:     "うる星 a\"b\\c",
-		ExcludedText: `復刻box NOT`,
+		Query:   "うる星 a\"b\\c",
+		Exclude: `復刻box NOT`,
 	}
 	query := buildSearchQuery(conditions, 20, "")
 	wantQuery := `neptune-fts:config neptune-fts:query "` +
 		escapeSPARQLString(buildFullTextQueryWithExclusions(
-			conditions.FreeText,
-			conditions.ExcludedText,
+			conditions.Query,
+			conditions.Exclude,
 		)) + `" .`
 	if !strings.Contains(query, wantQuery) {
 		t.Fatalf("query does not contain escaped exclusion expression %q:\n%s", wantQuery, query)
@@ -322,8 +322,8 @@ func TestBuildSearchQuery_ExcludedTextWithFreeText(t *testing.T) {
 	}
 }
 
-// TestBuildSearchQuery_ExcludedTextWithoutFreeText は、各正条件へ12項目のMINUS除外を結合する
-func TestBuildSearchQuery_ExcludedTextWithoutFreeText(t *testing.T) {
+// TestBuildSearchQuery_ExcludeWithoutQuery は、各正条件へ12項目のMINUS除外を結合する
+func TestBuildSearchQuery_ExcludeWithoutQuery(t *testing.T) {
 	tests := []struct {
 		name       string
 		conditions searchConditions
@@ -334,10 +334,10 @@ func TestBuildSearchQuery_ExcludedTextWithoutFreeText(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			test.conditions.ExcludedText = `復刻box NOT a"b\c`
+			test.conditions.Exclude = `復刻box NOT a"b\c`
 			query := buildSearchQuery(test.conditions, 20, "")
 			wantQuery := `neptune-fts:config neptune-fts:query "` +
-				escapeSPARQLString(buildExcludedFullTextQuery(test.conditions.ExcludedText)) + `" .`
+				escapeSPARQLString(buildExcludedFullTextQuery(test.conditions.Exclude)) + `" .`
 			if strings.Count(query, "MINUS {") != 1 || !strings.Contains(query, wantQuery) {
 				t.Fatalf("query does not contain one MINUS exclusion %q:\n%s", wantQuery, query)
 			}

@@ -13,11 +13,14 @@ const (
 
 // searchConditions は、検証と正規化を終えたMADB検索条件を保持する
 type searchConditions struct {
-	Title        string `json:"title"`
-	Author       string `json:"author"`
-	Publisher    string `json:"publisher"`
-	FreeText     string `json:"free_text"`
-	ExcludedText string `json:"excluded_text"`
+	Title         string `json:"title"`
+	Author        string `json:"author"`
+	Publisher     string `json:"publisher"`
+	Query         string `json:"query"`
+	Exclude       string `json:"exclude"`
+	DateFrom      string `json:"date_from"`
+	DateTo        string `json:"date_to"`
+	DatePrecision int    `json:"-"`
 }
 
 // buildISBNLookupQuery は、複数のISBN候補を1回で参照するSPARQLクエリを生成する
@@ -81,6 +84,7 @@ ORDER BY ?resource ?matchedISBN`, strings.Join(values, " "))
 // buildSearchQuery は、検索条件からMADB向けSPARQLクエリを生成する
 func buildSearchQuery(conditions searchConditions, limit int, after string) string {
 	conditionPatterns := buildSearchConditionPatterns(conditions)
+	// OFFSETは検索中のデータ追加で位置がずれるため使わず、resource URIを継続位置として比較する
 	cursorFilter := ""
 	if after != "" {
 		cursorFilter = fmt.Sprintf(
@@ -148,7 +152,7 @@ ORDER BY ?resource`,
 
 // buildSearchConditionPatterns は、指定された正条件をAND結合するSPARQLパターンを生成する
 func buildSearchConditionPatterns(conditions searchConditions) string {
-	patterns := make([]string, 0, 5)
+	patterns := make([]string, 0, 6)
 	if conditions.Title != "" {
 		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
 		neptune-fts:config neptune-fts:endpoint "%s" .
@@ -198,7 +202,7 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
 	if conditions.Publisher != "" {
 		patterns = append(patterns, buildPublisherFilterPatterns(conditions.Publisher))
 	}
-	if conditions.FreeText != "" {
+	if conditions.Query != "" {
 		patterns = append(patterns, fmt.Sprintf(`      SERVICE neptune-fts:search {
         neptune-fts:config neptune-fts:endpoint "%s" .
 %s
@@ -209,14 +213,14 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
       }`,
 			fullTextEndpoint,
 			buildFullTextSortPatterns("        "),
-			buildFreeTextFieldPatterns("        "),
+			buildQueryFieldPatterns("        "),
 			escapeSPARQLString(buildFullTextQueryWithExclusions(
-				conditions.FreeText,
-				conditions.ExcludedText,
+				conditions.Query,
+				conditions.Exclude,
 			)),
 		))
 	}
-	if conditions.ExcludedText != "" && conditions.FreeText == "" {
+	if conditions.Exclude != "" && conditions.Query == "" {
 		patterns = append(patterns, fmt.Sprintf(`      MINUS {
         SERVICE neptune-fts:search {
           neptune-fts:config neptune-fts:endpoint "%s" .
@@ -229,23 +233,43 @@ func buildSearchConditionPatterns(conditions searchConditions) string {
       }`,
 			fullTextEndpoint,
 			buildFullTextSortPatterns("          "),
-			buildFreeTextFieldPatterns("          "),
-			escapeSPARQLString(buildExcludedFullTextQuery(conditions.ExcludedText)),
+			buildQueryFieldPatterns("          "),
+			escapeSPARQLString(buildExcludedFullTextQuery(conditions.Exclude)),
 		))
+	}
+	if conditions.DateFrom != "" || conditions.DateTo != "" {
+		patterns = append(patterns, buildDateRangePatterns(conditions.DateFrom, conditions.DateTo, conditions.DatePrecision))
 	}
 	return strings.Join(patterns, "\n")
 }
 
-// buildFullTextSortPatterns は、FTS候補をentity ID昇順にする設定行を生成する
-// ?resource を返すFTSではresource URI、?searchAgent を返すFTSではAgent URIに対応する
+// buildDateRangePatterns は、MADB側で出版時期を半開区間として絞り込むパターンを生成する
+func buildDateRangePatterns(from, to string, precision int) string {
+	patterns := []string{"      ?resource schema:datePublished ?searchPublishedDate ."}
+	if precision > 0 {
+		patterns = append(patterns, fmt.Sprintf("      FILTER (STRLEN(STR(?searchPublishedDate)) >= %d)", precision))
+	}
+	if from != "" {
+		patterns = append(patterns, fmt.Sprintf("      FILTER (STR(?searchPublishedDate) >= \"%s\")", escapeSPARQLString(from)))
+	}
+	if to != "" {
+		patterns = append(patterns, fmt.Sprintf("      FILTER (STR(?searchPublishedDate) < \"%s\")", escapeSPARQLString(to)))
+	}
+	return strings.Join(patterns, "\n")
+}
+
+// buildFullTextSortPatterns は、FTS候補の順序をentity ID昇順で安定化する
+// resource候補ではCursor順と一致し、Agent候補ではAgent URI順の再現性を確保する
 func buildFullTextSortPatterns(indent string) string {
+	// batchSizeとmaxResultsは固定値でもresult window超過を解消しないため追加しない
 	return strings.Join([]string{
 		indent + "neptune-fts:config neptune-fts:sortBy 'Neptune#fts.entity_id' .",
 		indent + "neptune-fts:config neptune-fts:sortOrder 'ASC' .",
 	}, "\n")
 }
 
-// buildPublisherFilterPatterns は、出版社の各検索語に一致するRDF値フィルタを生成する
+// buildPublisherFilterPatterns は、出版社FTSの候補windowに依存しないようRDF値フィルタを生成する
+// 各語は別のpublisher値で満たせるAND条件として評価する
 func buildPublisherFilterPatterns(publisher string) string {
 	terms := strings.Fields(publisher)
 	patterns := make([]string, 0, len(terms))
@@ -258,8 +282,8 @@ func buildPublisherFilterPatterns(publisher string) string {
 	return strings.Join(patterns, "\n")
 }
 
-// buildFreeTextFieldPatterns は、フリーワード対象フィールドの設定行を生成する
-func buildFreeTextFieldPatterns(indent string) string {
+// buildQueryFieldPatterns は、フリーワード対象フィールドの設定行を生成する
+func buildQueryFieldPatterns(indent string) string {
 	fields := freeTextSearchFields()
 	patterns := make([]string, 0, len(fields))
 	for _, field := range fields {

@@ -7,10 +7,6 @@ import (
 
 // SearchOptions は、NDLサーチ固有の検索条件を表す
 type SearchOptions struct {
-	// From は、出版年月日の開始をYYYY、YYYY-MM、YYYY-MM-DDで指定する
-	From string
-	// Until は、出版年月日の終了をYYYY、YYYY-MM、YYYY-MM-DDで指定する
-	Until string
 	// Subject は、件名に含める検索語を指定する
 	Subject string
 	// Description は、内容記述に含める検索語を指定する
@@ -18,29 +14,29 @@ type SearchOptions struct {
 }
 
 // SearchBooks は、指定条件に一致する国立国会図書館サーチの書誌を検索する
-func (client *Client) SearchBooks(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, error) {
+func (client *Client) SearchBooks(ctx context.Context, request SearchRequest) (SearchBooksResult, error) {
 	result, _, err := client.searchBooks(ctx, request, SearchOptions{})
 	return result, err
 }
 
 // SearchBooksWithRawResponse は、検索結果と受信した成功レスポンスXMLを返す
-func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchBooksRequest) (SearchBooksResult, []byte, error) {
+func (client *Client) SearchBooksWithRawResponse(ctx context.Context, request SearchRequest) (SearchBooksResult, []byte, error) {
 	return client.searchBooks(ctx, request, SearchOptions{})
 }
 
 // SearchBooksWithOptions は、共通検索条件とNDL固有検索条件で書誌を検索する
-func (client *Client) SearchBooksWithOptions(ctx context.Context, request SearchBooksRequest, options SearchOptions) (SearchBooksResult, error) {
+func (client *Client) SearchBooksWithOptions(ctx context.Context, request SearchRequest, options SearchOptions) (SearchBooksResult, error) {
 	result, _, err := client.searchBooks(ctx, request, options)
 	return result, err
 }
 
 // SearchBooksWithOptionsAndRawResponse は、検索結果と受信した成功レスポンスXMLを返す
-func (client *Client) SearchBooksWithOptionsAndRawResponse(ctx context.Context, request SearchBooksRequest, options SearchOptions) (SearchBooksResult, []byte, error) {
+func (client *Client) SearchBooksWithOptionsAndRawResponse(ctx context.Context, request SearchRequest, options SearchOptions) (SearchBooksResult, []byte, error) {
 	return client.searchBooks(ctx, request, options)
 }
 
 // searchBooks は、検索を実行して成功本文を併せて返す
-func (client *Client) searchBooks(ctx context.Context, request SearchBooksRequest, options SearchOptions) (SearchBooksResult, []byte, error) {
+func (client *Client) searchBooks(ctx context.Context, request SearchRequest, options SearchOptions) (SearchBooksResult, []byte, error) {
 	if client == nil || client.httpClient == nil {
 		return SearchBooksResult{}, nil, newError(operationSearchBooks, ErrorKindInvalidArgument, errors.New("client is not initialized"))
 	}

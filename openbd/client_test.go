@@ -92,33 +92,36 @@ func TestClient_LookupBooksByISBN_RequestAndRaw(t *testing.T) {
 	}
 
 	book := result.Items[0].Books[0]
-	if book.Normalized.Title != "好きって言わせる方法 4" {
-		t.Fatalf("Title = %q", book.Normalized.Title)
+	if book.Title != "好きって言わせる方法 4" {
+		t.Fatalf("Title = %q", book.Title)
 	}
-	if book.Normalized.TitleReading != "スキッテイワセルホウホウ 4" {
-		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
+	if book.TitleReading != "スキッテイワセルホウホウ 4" {
+		t.Fatalf("TitleReading = %q", book.TitleReading)
 	}
-	if len(book.Normalized.ParallelTitles) != 0 || book.Normalized.Volume.Number != nil || book.Normalized.Volume.Label != "" ||
-		len(book.Normalized.Series) != 0 || len(book.Normalized.Imprints) != 0 {
-		t.Fatalf("unexpected inferred fields: %#v", book.Normalized)
+	if book.Volume.Number == nil || *book.Volume.Number != 4 || book.Volume.Label != "4" ||
+		len(book.PublicationSeries) != 1 || book.PublicationSeries[0] != "マーガレットコミックス" {
+		t.Fatalf("unexpected inferred fields: %#v", book)
 	}
-	assertStrings(t, book.Normalized.Authors, []string{"原作者", "作画者"})
-	assertStrings(t, book.Normalized.Publishers, []string{"発行社", "発売社"})
-	if len(book.Normalized.Contributors) != 2 ||
-		book.Normalized.Contributors[0].Name != "原作者" || len(book.Normalized.Contributors[0].Roles) != 1 ||
-		book.Normalized.Contributors[0].Roles[0] != ContributorRoleWriter ||
-		book.Normalized.Contributors[1].Name != "作画者" || len(book.Normalized.Contributors[1].Roles) != 1 ||
-		book.Normalized.Contributors[1].Roles[0] != ContributorRoleArtist {
-		t.Fatalf("Contributors = %#v", book.Normalized.Contributors)
+	assertStrings(t, book.Authors, []string{"原作者", "作画者"})
+	assertStrings(t, book.Publishers, []string{"発行社", "発売社"})
+	if len(book.Contributors) != 2 ||
+		book.Contributors[0].Name != "原作者" || len(book.Contributors[0].Roles) != 1 ||
+		book.Contributors[0].Roles[0] != "脚本" ||
+		book.Contributors[1].Name != "作画者" || len(book.Contributors[1].Roles) != 1 ||
+		book.Contributors[1].Roles[0] != "作画" {
+		t.Fatalf("Contributors = %#v", book.Contributors)
 	}
-	if len(book.Normalized.Dates) != 1 || book.Normalized.Dates[0].Value != "2011-03" {
-		t.Fatalf("Dates = %#v", book.Normalized.Dates)
+	if book.PublishedDate != "2011-03" {
+		t.Fatalf("PublishedDate = %q", book.PublishedDate)
+	}
+	if len(book.ISBN13) != 1 || book.ISBN13[0] != "9784088466361" || book.CoverURL != "https://example.test/cover.jpg" {
+		t.Fatalf("ISBN13 = %#v, CoverURL = %q", book.ISBN13, book.CoverURL)
 	}
 	encoded, err := json.Marshal(book)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	for _, field := range []string{"parallel_titles", "volume", "series", "imprints"} {
+	for _, field := range []string{"parallel_titles", "series"} {
 		if strings.Contains(string(encoded), `"`+field+`"`) {
 			t.Fatalf("JSON contains inferred field %q: %s", field, encoded)
 		}

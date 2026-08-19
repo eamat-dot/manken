@@ -18,7 +18,7 @@ func TestIntegration_SearchBooksJapaneseTitle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "動物のおしゃべり",
 		Limit: 5,
 	})
@@ -37,7 +37,7 @@ func TestIntegration_SearchBooksEmpty(t *testing.T) {
 	defer cancel()
 
 	title := fmt.Sprintf("manken-no-result-%d", time.Now().UnixNano())
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{Title: title})
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{Title: title})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
 	}
@@ -52,7 +52,7 @@ func TestIntegration_SearchBooksPagination(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	first, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	first, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "動物のおしゃべり",
 		Limit: 1,
 	})
@@ -63,7 +63,7 @@ func TestIntegration_SearchBooksPagination(t *testing.T) {
 		t.Fatalf("first result = %#v, want one book and cursor", first)
 	}
 
-	second, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	second, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title:  "動物のおしゃべり",
 		Limit:  1,
 		Cursor: first.NextCursor,
@@ -92,7 +92,7 @@ func TestIntegration_SearchBooksCursorPaginationRegression(t *testing.T) {
 	client := newIntegrationClient(t)
 
 	t.Run("title all pages", func(t *testing.T) {
-		books := collectSearchBooksPages(t, client, madb.SearchBooksRequest{
+		books := collectSearchBooksPages(t, client, madb.SearchRequest{
 			Title: "動物のお医者さん",
 			Limit: 20,
 		})
@@ -105,7 +105,7 @@ func TestIntegration_SearchBooksCursorPaginationRegression(t *testing.T) {
 	})
 
 	t.Run("publisher and title all pages", func(t *testing.T) {
-		books := collectSearchBooksPages(t, client, madb.SearchBooksRequest{
+		books := collectSearchBooksPages(t, client, madb.SearchRequest{
 			Title:     "動物のお医者さん",
 			Publisher: "小学館",
 			Limit:     3,
@@ -121,19 +121,19 @@ func TestIntegration_SearchBooksCursorPaginationRegression(t *testing.T) {
 
 	for _, test := range []struct {
 		name              string
-		request           madb.SearchBooksRequest
+		request           madb.SearchRequest
 		minimumBookCount  int
 		wantSourceBookIDs []string
 	}{
 		{
 			name:              "author",
-			request:           madb.SearchBooksRequest{Author: "佐々木倫子", Limit: 50},
+			request:           madb.SearchRequest{Author: "佐々木倫子", Limit: 50},
 			minimumBookCount:  105,
 			wantSourceBookIDs: []string{"M1034511", "M292132", "M973074"},
 		},
 		{
 			name:              "free text",
-			request:           madb.SearchBooksRequest{FreeText: "うる星", Limit: 100},
+			request:           madb.SearchRequest{Query: "うる星", Limit: 100},
 			minimumBookCount:  238,
 			wantSourceBookIDs: []string{"M211689", "M962888"},
 		},
@@ -141,10 +141,10 @@ func TestIntegration_SearchBooksCursorPaginationRegression(t *testing.T) {
 			name:              "excluded text",
 			minimumBookCount:  234,
 			wantSourceBookIDs: []string{"M211689", "M962888"},
-			request: madb.SearchBooksRequest{
-				Title:        "うる星",
-				ExcludedText: "復刻box",
-				Limit:        50,
+			request: madb.SearchRequest{
+				Title:   "うる星",
+				Exclude: "復刻box",
+				Limit:   50,
 			},
 		},
 	} {
@@ -189,7 +189,7 @@ func sourceIDFromURL(t *testing.T, sourceURL string) string {
 }
 
 // collectSearchBooksPages は、Cursorがなくなるまで同一検索条件のページを集める
-func collectSearchBooksPages(t *testing.T, client *madb.Client, request madb.SearchBooksRequest) []madb.Book {
+func collectSearchBooksPages(t *testing.T, client *madb.Client, request madb.SearchRequest) []madb.Book {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -238,7 +238,7 @@ func TestIntegration_SearchBooksMultipleTerms(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	first, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	first, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "うる星 復刻box",
 		Limit: 2,
 	})
@@ -249,7 +249,7 @@ func TestIntegration_SearchBooksMultipleTerms(t *testing.T) {
 		t.Fatalf("first result = %#v, want two books and cursor", first)
 	}
 
-	second, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	second, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title:  "うる星 復刻box",
 		Limit:  2,
 		Cursor: first.NextCursor,
@@ -265,9 +265,9 @@ func TestIntegration_SearchBooksMultipleTerms(t *testing.T) {
 	seen := make(map[string]struct{}, len(books))
 	lastURL := ""
 	for _, book := range books {
-		title := strings.ToLower(book.Normalized.Title)
+		title := strings.ToLower(book.Title)
 		if !strings.Contains(title, "うる星") || !strings.Contains(title, "復刻box") {
-			t.Fatalf("title = %q, want both search terms", book.Normalized.Title)
+			t.Fatalf("title = %q, want both search terms", book.Title)
 		}
 		url := book.Sources[0].URL
 		if _, exists := seen[url]; exists {
@@ -281,37 +281,37 @@ func TestIntegration_SearchBooksMultipleTerms(t *testing.T) {
 	}
 }
 
-// TestIntegration_SearchBooksExcludedText は、各正条件と除外語の組み合わせを実サービスで確認する
-func TestIntegration_SearchBooksExcludedText(t *testing.T) {
+// TestIntegration_SearchBooksExclude は、各正条件と除外語の組み合わせを実サービスで確認する
+func TestIntegration_SearchBooksExclude(t *testing.T) {
 	client := newIntegrationClient(t)
 	tests := []struct {
 		name   string
-		input  madb.SearchBooksRequest
+		input  madb.SearchRequest
 		bookID string
 	}{
 		{
 			name: "title",
-			input: madb.SearchBooksRequest{
-				Title:        "うる星",
-				ExcludedText: "復刻box",
-				Limit:        20,
+			input: madb.SearchRequest{
+				Title:   "うる星",
+				Exclude: "復刻box",
+				Limit:   20,
 			},
 		},
 		{
 			name: "author",
-			input: madb.SearchBooksRequest{
-				Author:       "佐々木倫子",
-				ExcludedText: "復刻box",
-				Limit:        20,
+			input: madb.SearchRequest{
+				Author:  "佐々木倫子",
+				Exclude: "復刻box",
+				Limit:   20,
 			},
 			bookID: "M292132",
 		},
 		{
 			name: "free text",
-			input: madb.SearchBooksRequest{
-				FreeText:     "うる星",
-				ExcludedText: "復刻box",
-				Limit:        20,
+			input: madb.SearchRequest{
+				Query:   "うる星",
+				Exclude: "復刻box",
+				Limit:   20,
 			},
 		},
 	}
@@ -334,25 +334,25 @@ func TestIntegration_SearchBooksExcludedText(t *testing.T) {
 				t.Fatalf("%s was not found: %#v", test.bookID, result)
 			}
 			for _, book := range result.Books {
-				if strings.Contains(strings.ToLower(book.Normalized.Title), "復刻box") {
-					t.Fatalf("excluded title was returned: %q", book.Normalized.Title)
+				if strings.Contains(strings.ToLower(book.Title), "復刻box") {
+					t.Fatalf("excluded title was returned: %q", book.Title)
 				}
 			}
-			t.Logf("ExcludedText with %s elapsed time: %s", test.name, elapsed)
+			t.Logf("Exclude with %s elapsed time: %s", test.name, elapsed)
 		})
 	}
 }
 
-// TestIntegration_SearchBooksExcludedTextPagination は、除外条件をページ間で維持する
-func TestIntegration_SearchBooksExcludedTextPagination(t *testing.T) {
+// TestIntegration_SearchBooksExcludePagination は、除外条件をページ間で維持する
+func TestIntegration_SearchBooksExcludePagination(t *testing.T) {
 	client := newIntegrationClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	request := madb.SearchBooksRequest{
-		FreeText:     "うる星",
-		ExcludedText: "復刻box",
-		Limit:        2,
+	request := madb.SearchRequest{
+		Query:   "うる星",
+		Exclude: "復刻box",
+		Limit:   2,
 	}
 	first, err := client.SearchBooks(ctx, request)
 	if err != nil {
@@ -375,8 +375,8 @@ func TestIntegration_SearchBooksExcludedTextPagination(t *testing.T) {
 	seen := make(map[string]struct{}, len(books))
 	lastURL := ""
 	for _, book := range books {
-		if strings.Contains(strings.ToLower(book.Normalized.Title), "復刻box") {
-			t.Fatalf("excluded title was returned: %q", book.Normalized.Title)
+		if strings.Contains(strings.ToLower(book.Title), "復刻box") {
+			t.Fatalf("excluded title was returned: %q", book.Title)
 		}
 		url := book.Sources[0].URL
 		if _, exists := seen[url]; exists {
@@ -447,7 +447,7 @@ func TestIntegration_SearchBooksAuthor(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
-			result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+			result, err := client.SearchBooks(ctx, madb.SearchRequest{
 				Author: test.author,
 				Limit:  100,
 			})
@@ -467,7 +467,7 @@ func TestIntegration_SearchBooksTitleAndAuthor(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title:  "動物のお医者さん",
 		Author: "佐々木倫子",
 		Limit:  20,
@@ -480,8 +480,8 @@ func TestIntegration_SearchBooksTitleAndAuthor(t *testing.T) {
 	}
 }
 
-// TestIntegration_SearchBooksFreeText は、単行本の複数フィールドを横断するAND検索と応答時間を確認する
-func TestIntegration_SearchBooksFreeText(t *testing.T) {
+// TestIntegration_SearchBooksQuery は、単行本の複数フィールドを横断するAND検索と応答時間を確認する
+func TestIntegration_SearchBooksQuery(t *testing.T) {
 	client := newIntegrationClient(t)
 	tests := []struct {
 		name     string
@@ -499,9 +499,9 @@ func TestIntegration_SearchBooksFreeText(t *testing.T) {
 			defer cancel()
 
 			startedAt := time.Now()
-			result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
-				FreeText: test.freeText,
-				Limit:    20,
+			result, err := client.SearchBooks(ctx, madb.SearchRequest{
+				Query: test.freeText,
+				Limit: 20,
 			})
 			elapsed := time.Since(startedAt)
 			if err != nil {
@@ -510,13 +510,13 @@ func TestIntegration_SearchBooksFreeText(t *testing.T) {
 			if len(result.Books) == 0 {
 				t.Fatal("SearchBooks() returned no books")
 			}
-			t.Logf("FreeText %q elapsed time: %s", test.freeText, elapsed)
+			t.Logf("Query %q elapsed time: %s", test.freeText, elapsed)
 		})
 	}
 }
 
-// TestIntegration_SearchBooksFreeTextFields は、主要な対象フィールドの代表値を検索する
-func TestIntegration_SearchBooksFreeTextFields(t *testing.T) {
+// TestIntegration_SearchBooksQueryFields は、主要な対象フィールドの代表値を検索する
+func TestIntegration_SearchBooksQueryFields(t *testing.T) {
 	client := newIntegrationClient(t)
 	tests := []struct {
 		name     string
@@ -537,34 +537,34 @@ func TestIntegration_SearchBooksFreeTextFields(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
-			result, rawResponse, err := client.SearchBooksWithRawResponse(ctx, madb.SearchBooksRequest{
-				FreeText: test.freeText,
-				Limit:    100,
+			result, rawResponse, err := client.SearchBooksWithRawResponse(ctx, madb.SearchRequest{
+				Query: test.freeText,
+				Limit: 100,
 			})
 			if err != nil {
 				t.Fatalf("SearchBooks() error = %v", err)
 			}
 			if len(result.Books) == 0 {
-				t.Fatalf("FreeText %q returned no books", test.freeText)
+				t.Fatalf("Query %q returned no books", test.freeText)
 			}
 			if !strings.Contains(string(rawResponse), test.freeText) {
-				t.Fatalf("Raw response does not contain FreeText %q", test.freeText)
+				t.Fatalf("Raw response does not contain Query %q", test.freeText)
 			}
 		})
 	}
 }
 
-// TestIntegration_SearchBooksTitleAuthorAndFreeText は、専用条件とフリーワードのAND検索を確認する
-func TestIntegration_SearchBooksTitleAuthorAndFreeText(t *testing.T) {
+// TestIntegration_SearchBooksTitleAuthorAndQuery は、専用条件とフリーワードのAND検索を確認する
+func TestIntegration_SearchBooksTitleAuthorAndQuery(t *testing.T) {
 	client := newIntegrationClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
-		Title:    "うる星",
-		Author:   "高橋留美子",
-		FreeText: "新装版",
-		Limit:    20,
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
+		Title:  "うる星",
+		Author: "高橋留美子",
+		Query:  "新装版",
+		Limit:  20,
 	})
 	if err != nil {
 		t.Fatalf("SearchBooks() error = %v", err)
@@ -580,7 +580,7 @@ func TestIntegration_SearchBooksEditionAndSeries(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "プロジェクトX挑戦者たち",
 		Limit: 20,
 	})
@@ -592,20 +592,20 @@ func TestIntegration_SearchBooksEditionAndSeries(t *testing.T) {
 	if book == nil {
 		t.Fatal("M335551 was not found")
 	}
-	assertIntegrationStrings(t, book.Normalized.EditionStatements, []string{"コミック版", "第2版"})
-	series := findSeriesByID(book.Normalized.Series, "C323814")
+	assertIntegrationStrings(t, book.Editions, []string{"コミック版", "第2版"})
+	series := findSeriesByID(book.BookSeries, "C323814")
 	if series == nil || series.URL != "https://mediaarts-db.artmuseums.go.jp/id/C323814" {
 		t.Fatalf("series fields = %#v", book)
 	}
 }
 
-// TestIntegration_SearchBooksDoesNotMixSeriesBrand は、シリーズのレーベルを単行本へ混入しないことを確認する
-func TestIntegration_SearchBooksDoesNotMixSeriesBrand(t *testing.T) {
+// TestIntegration_SearchBooksKeepsPublicationSeriesSeparateFromBookSeries は、出版側表示と作品系列を別項目へ保持することを確認する
+func TestIntegration_SearchBooksKeepsPublicationSeriesSeparateFromBookSeries(t *testing.T) {
 	client := newIntegrationClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "スリーＺメン",
 		Limit: 5,
 	})
@@ -617,9 +617,9 @@ func TestIntegration_SearchBooksDoesNotMixSeriesBrand(t *testing.T) {
 	if book == nil {
 		t.Fatal("M1079781 was not found")
 	}
-	assertIntegrationStrings(t, book.Normalized.Imprints, []string{"藤子不二雄全集"})
-	if findSeriesByID(book.Normalized.Series, "C306332") == nil {
-		t.Fatalf("Series = %#v, want C306332", book.Normalized.Series)
+	assertIntegrationStrings(t, book.PublicationSeries, []string{"藤子不二雄全集"})
+	if findSeriesByID(book.BookSeries, "C306332") == nil {
+		t.Fatalf("BookSeries = %#v, want C306332", book.BookSeries)
 	}
 }
 
@@ -629,7 +629,7 @@ func TestIntegration_SearchBooksAdditionalFields(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "動物のお医者さん",
 		Limit: 20,
 	})
@@ -641,19 +641,15 @@ func TestIntegration_SearchBooksAdditionalFields(t *testing.T) {
 	if book == nil {
 		t.Fatal("M292141 was not found")
 	}
-	if book.Normalized.TitleReading != "ドウブツノオイシャサン" {
-		t.Fatalf("TitleReading = %q", book.Normalized.TitleReading)
+	if book.TitleReading != "ドウブツノオイシャサン" {
+		t.Fatalf("TitleReading = %q", book.TitleReading)
 	}
-	assertIntegrationStrings(t, book.Normalized.Publishers, []string{"白泉社"})
-	if book.Normalized.PageCount == nil || *book.Normalized.PageCount != 197 {
-		t.Fatalf("PageCount = %#v", book.Normalized.PageCount)
+	assertIntegrationStrings(t, book.Publishers, []string{"白泉社"})
+	if book.PageCount == nil || *book.PageCount != 197 {
+		t.Fatalf("PageCount = %#v", book.PageCount)
 	}
-	if book.Normalized.PhysicalSize == nil ||
-		book.Normalized.PhysicalSize.HeightMM == nil ||
-		*book.Normalized.PhysicalSize.HeightMM != 173 ||
-		book.Normalized.PhysicalSize.WidthMM == nil ||
-		*book.Normalized.PhysicalSize.WidthMM != 106 {
-		t.Fatalf("PhysicalSize = %#v", book.Normalized.PhysicalSize)
+	if book.Size != "17.3cm　×　10.6cm" {
+		t.Fatalf("Size = %q, want raw MADB size", book.Size)
 	}
 }
 
@@ -663,7 +659,7 @@ func TestIntegration_SearchBooksContributorRoles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, err := client.SearchBooks(ctx, madb.SearchBooksRequest{
+	result, err := client.SearchBooks(ctx, madb.SearchRequest{
 		Title: "動物のお医者さん",
 		Limit: 20,
 	})
@@ -675,10 +671,10 @@ func TestIntegration_SearchBooksContributorRoles(t *testing.T) {
 	if book == nil {
 		t.Fatal("M292132 was not found")
 	}
-	assertIntegrationStrings(t, book.Normalized.Authors, []string{"佐々木倫子"})
-	assertIntegrationContributors(t, book.Normalized.Contributors, []madb.Contributor{
-		{Name: "佐々木倫子", Roles: []madb.ContributorRole{madb.ContributorRoleAuthor}},
-		{Name: "藤原新也", Roles: []madb.ContributorRole{madb.ContributorRoleCommentator}},
+	assertIntegrationStrings(t, book.Authors, []string{"佐々木倫子"})
+	assertIntegrationContributors(t, book.Contributors, []madb.Contributor{
+		{Name: "佐々木倫子", Roles: []string{"著者"}},
+		{Name: "藤原新也", Roles: []string{"解説"}},
 	})
 }
 
@@ -688,7 +684,7 @@ func TestIntegration_SearchBooksResponseSize(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	result, rawResponse, err := client.SearchBooksWithRawResponse(ctx, madb.SearchBooksRequest{
+	result, rawResponse, err := client.SearchBooksWithRawResponse(ctx, madb.SearchRequest{
 		Title: "動物のおしゃべり",
 		Limit: 100,
 	})
@@ -714,7 +710,7 @@ func findBookByID(books []madb.Book, id string) *madb.Book {
 }
 
 // findSeriesByID は、指定したMADB IDのシリーズを検索結果から探す
-func findSeriesByID(series []madb.Series, id string) *madb.Series {
+func findSeriesByID(series []madb.BookSeries, id string) *madb.BookSeries {
 	for index := range series {
 		if series[index].ID == id {
 			return &series[index]

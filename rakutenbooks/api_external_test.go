@@ -10,7 +10,7 @@ import (
 
 // requireRawSearchSignature は、SearchBooksWithRawResponseの公開シグネチャをコンパイル時に確認する
 func requireRawSearchSignature(
-	func(context.Context, rakutenbooks.SearchBooksRequest) (rakutenbooks.SearchBooksResult, []byte, error),
+	func(context.Context, rakutenbooks.SearchRequest) (rakutenbooks.SearchBooksResult, []byte, error),
 ) {
 }
 
@@ -37,10 +37,7 @@ func TestPublicAPI(t *testing.T) {
 	if rakutenbooks.SourceRakutenBooks != "rakutenbooks" {
 		t.Fatalf("SourceRakutenBooks = %q", rakutenbooks.SourceRakutenBooks)
 	}
-	if rakutenbooks.PriceTypeCurrent != "current" {
-		t.Fatalf("PriceTypeCurrent = %q", rakutenbooks.PriceTypeCurrent)
-	}
-	_ = rakutenbooks.Price{Type: rakutenbooks.PriceTypeCurrent, Source: rakutenbooks.SourceRakutenBooks}
+	_ = rakutenbooks.Book{Title: "Title", ISBN13: []string{"9784088466361"}, CurrentPrice: &rakutenbooks.Price{Amount: 0, Source: rakutenbooks.SourceRakutenBooks}}
 	requireRawSearchSignature(client.SearchBooksWithRawResponse)
 	requireRawLookupSignature(client.LookupBooksByISBNWithRawResponse)
 }

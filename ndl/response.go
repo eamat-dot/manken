@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/eamat-dot/manken/internal/authorrole"
 	internalisbn "github.com/eamat-dot/manken/internal/isbn"
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 const (
@@ -24,7 +26,11 @@ const (
 	isbnDatatype     = "http://ndl.go.jp/dcndl/terms/ISBN"
 )
 
-var pageCountPattern = regexp.MustCompile(`^([0-9]+)p(?:\s|$)`)
+var (
+	pageCountPattern = regexp.MustCompile(`^([0-9]+)\s*p(?:\s|$)`)
+	sizePattern      = regexp.MustCompile(`(?:^|;)\s*([0-9]+\s*cm)\s*(?:\+|$)`)
+	pricePattern     = regexp.MustCompile(`^([0-9]+)\s*円\z`)
+)
 
 // xmlNode は、名前空間を保持してXML要素を扱う内部表現である
 type xmlNode struct {
@@ -231,40 +237,48 @@ func convertRecord(record *xmlNode) (Book, error) {
 	}
 	book := Book{Sources: []BookSource{{Source: SourceNDL, ID: id, URL: "https://ndlsearch.ndl.go.jp/books/R100000002-I" + id}}}
 	if title := structuredTitle(record); title != "" {
-		book.Normalized.Title = title
+		book.Title = title
 	} else if title := firstChild(record, nsDCTerms, "title"); title != nil {
-		book.Normalized.Title = nodeText(title)
+		book.Title = nodeText(title)
 	}
-	book.Normalized.TitleReading = structuredTitleReading(record)
+	book.TitleReading = structuredTitleReading(record)
 	if volume := structuredValue(record, nsDCNDL, "volume"); volume != "" {
-		book.Normalized.Volume.Label = volume
+		book.Volume.Label = volume
 		if isASCIIInteger(volume) {
 			if number, err := strconv.Atoi(volume); err == nil {
-				book.Normalized.Volume.Number = &number
+				book.Volume.Number = &number
 			}
 		}
 	}
-	book.Normalized.Series = series(record)
-	book.Normalized.EditionStatements = directTexts(record, nsDCNDL, "edition")
-	book.Normalized.Authors, book.Normalized.Contributors = creators(record)
-	book.Normalized.Publishers = agents(record, nsDCTerms, "publisher", true)
-	book.Normalized.Identifiers = identifiers(record)
+	book.PublicationSeries = publicationSeries(record)
+	book.Editions = directTexts(record, nsDCNDL, "edition")
+	book.Authors, book.Contributors = creators(record)
+	book.Publishers = agents(record, nsDCTerms, "publisher", true)
+	book.ISBN10, book.ISBN13 = identifiers(record)
 	date := firstDirectText(record, nsDCTerms, "date")
 	if date == "" {
 		date = firstDirectText(record, nsDCTerms, "issued")
 	}
 	if date != "" {
-		book.Normalized.Dates = []BookDate{{Type: BookDateTypePublished, Value: date}}
+		book.PublishedDate = date
 	}
-	book.Normalized.Languages = directTexts(record, nsDCTerms, "language")
-	book.Normalized.Subjects = subjects(record)
+	book.Languages = directTexts(record, nsDCTerms, "language")
+	book.Subjects = subjects(record)
 	if extent := firstDirectText(record, nsDCTerms, "extent"); extent != "" {
-		book.Normalized.PageCount = pageCount(extent)
+		book.PageCount = pageCount(extent)
+		book.Size = size(extent)
 	}
+	book.ListPrice = listPrice(record)
 	if materialTypeIsBook(record) {
-		book.Normalized.Medium = PublicationMediumPrint
+		book.Medium = PublicationMediumPrint
 	}
+	applyTitleMetadata(&book)
 	return book, nil
+}
+
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
 }
 
 // creators は、表示用dc:creatorを優先して著者と寄与者へ変換し、利用できない場合は典拠形へfallbackする
@@ -279,7 +293,7 @@ func creators(record *xmlNode) ([]string, []Contributor) {
 			continue
 		}
 		creators = mergeCreator(creators, indexes, name, roles)
-		if containsAuthorRole(roles) {
+		if authorrole.Contains(roles) {
 			if _, exists := authorNames[name]; !exists {
 				authorNames[name] = struct{}{}
 				authors = append(authors, name)
@@ -293,7 +307,7 @@ func creators(record *xmlNode) ([]string, []Contributor) {
 }
 
 // parseCreatorLiteral は、末尾の既知roleを持つdc:creatorリテラルから表示名と役割を取り出す
-func parseCreatorLiteral(value string) (string, []ContributorRole, bool) {
+func parseCreatorLiteral(value string) (string, []string, bool) {
 	value = strings.TrimSpace(value)
 	fields := strings.Fields(value)
 	if len(fields) < 2 {
@@ -322,10 +336,10 @@ func parseCreatorLiteral(value string) (string, []ContributorRole, bool) {
 }
 
 // mapCreatorRoles は、中黒で連結された既知roleだけを共通役割へ変換する
-func mapCreatorRoles(value string) ([]ContributorRole, bool) {
+func mapCreatorRoles(value string) ([]string, bool) {
 	parts := strings.Split(value, "・")
-	roles := make([]ContributorRole, 0, len(parts))
-	seen := map[ContributorRole]struct{}{}
+	roles := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
 	for _, part := range parts {
 		role, ok := mapCreatorRole(part)
 		if !ok {
@@ -340,54 +354,43 @@ func mapCreatorRoles(value string) ([]ContributorRole, bool) {
 }
 
 // mapCreatorRole は、NDLで確認した表示用の役割語を共通役割へ変換する
-func mapCreatorRole(value string) (ContributorRole, bool) {
+func mapCreatorRole(value string) (string, bool) {
 	switch value {
 	case "著", "著者", "作", "共著", "編著":
-		return ContributorRoleAuthor, true
+		return "著者", true
 	case "原作", "原案":
-		return ContributorRoleOriginalCreator, true
+		return "原作", true
 	case "脚本", "シナリオ", "構成", "文":
-		return ContributorRoleWriter, true
+		return "脚本", true
 	case "作画", "画", "絵", "漫画":
-		return ContributorRoleArtist, true
+		return "作画", true
 	case "キャラクター原作", "キャラクター原案":
-		return ContributorRoleCharacterCreator, true
+		return "キャラクター原案", true
 	case "キャラクターデザイン":
-		return ContributorRoleCharacterDesigner, true
+		return "キャラクターデザイン", true
 	case "監修", "キャラクター監修":
-		return ContributorRoleSupervisor, true
+		return "監修", true
 	case "編", "編集":
-		return ContributorRoleEditor, true
+		return "編集", true
 	case "訳":
-		return ContributorRoleTranslator, true
+		return "翻訳", true
 	case "解説":
-		return ContributorRoleCommentator, true
+		return "解説", true
 	case "装丁", "装幀", "デザイン":
-		return ContributorRoleDesigner, true
+		return "デザイン", true
 	default:
 		return "", false
 	}
 }
 
-// containsAuthorRole は、著者表示に含める役割が一つ以上あるか判定する
-func containsAuthorRole(roles []ContributorRole) bool {
-	for _, role := range roles {
-		switch role {
-		case ContributorRoleAuthor, ContributorRoleOriginalCreator, ContributorRoleWriter, ContributorRoleArtist, ContributorRoleCharacterCreator, ContributorRoleCharacterDesigner:
-			return true
-		}
-	}
-	return false
-}
-
 // mergeCreator は、同じ表示名の寄与者を応答順のまままとめ、未追加の役割を加える
-func mergeCreator(creators []Contributor, indexes map[string]int, name string, roles []ContributorRole) []Contributor {
+func mergeCreator(creators []Contributor, indexes map[string]int, name string, roles []string) []Contributor {
 	index, exists := indexes[name]
 	if !exists {
 		indexes[name] = len(creators)
 		return append(creators, Contributor{Name: name, Roles: roles})
 	}
-	seen := make(map[ContributorRole]struct{}, len(creators[index].Roles))
+	seen := make(map[string]struct{}, len(creators[index].Roles))
 	for _, role := range creators[index].Roles {
 		seen[role] = struct{}{}
 	}
@@ -476,15 +479,19 @@ func isASCIIInteger(value string) bool {
 	return true
 }
 
-// series は、DC-NDLの構造化シリーズ名を共通Seriesへ変換する
-func series(record *xmlNode) []Series {
-	result := []Series{}
+// publicationSeries は、DC-NDLの構造化シリーズ名を共通モデルへ変換する
+func publicationSeries(record *xmlNode) []string {
+	result := []string{}
 	for _, node := range children(record, nsDCNDL, "seriesTitle") {
-		if name := descriptionValue(node); name != "" {
-			result = append(result, Series{Name: name})
+		for _, description := range children(node, nsRDF, "Description") {
+			nameNode := firstChild(description, nsRDF, "value")
+			if nameNode == nil || nodeText(nameNode) == "" {
+				continue
+			}
+			result = append(result, nodeText(nameNode))
 		}
 	}
-	return result
+	return unique(result)
 }
 
 // agents は、構造化Agentの名前を返し、出版者では明示的な非出版関係を除外する
@@ -521,9 +528,10 @@ func isPublisherRelation(agent *xmlNode) bool {
 	return false
 }
 
-// identifiers は、typed dcterms:identifierから取得元にあるISBNだけを共通識別子へ変換する
-func identifiers(record *xmlNode) []Identifier {
-	result := []Identifier{}
+// identifiers は、typed dcterms:identifierから取得元にあるISBNを種類別に変換する
+func identifiers(record *xmlNode) ([]string, []string) {
+	isbn10 := []string{}
+	isbn13 := []string{}
 	for _, identifier := range children(record, nsDCTerms, "identifier") {
 		if attribute(identifier, nsRDF, "datatype") != isbnDatatype {
 			continue
@@ -531,12 +539,12 @@ func identifiers(record *xmlNode) []Identifier {
 		value := strings.ReplaceAll(strings.TrimSpace(nodeText(identifier)), "-", "")
 		switch {
 		case internalisbn.IsValidISBN10(value):
-			result = append(result, Identifier{Type: IdentifierTypeISBN10, Value: value})
+			isbn10 = append(isbn10, value)
 		case internalisbn.IsValidISBN13(value):
-			result = append(result, Identifier{Type: IdentifierTypeISBN13, Value: value})
+			isbn13 = append(isbn13, value)
 		}
 	}
-	return uniqueIdentifiers(result)
+	return unique(isbn10), unique(isbn13)
 }
 
 // subjects は、DC-NDLの分類・典拠URIを安全に共通Subjectへ変換する
@@ -614,25 +622,47 @@ func pageCount(value string) *int {
 	return &count
 }
 
+// size は、extentのセミコロン以降にある単純なcm表記を取得元表記のまま返す
+func size(value string) string {
+	matches := sizePattern.FindStringSubmatch(value)
+	if matches == nil {
+		return ""
+	}
+	return strings.TrimSpace(matches[1])
+}
+
+// listPrice は、同じ単純なdcndl:priceだけを書誌に記録された販売価格として返す
+func listPrice(record *xmlNode) *Price {
+	var amount *int64
+	for _, node := range children(record, nsDCNDL, "price") {
+		matches := pricePattern.FindStringSubmatch(strings.TrimSpace(nodeText(node)))
+		if matches == nil {
+			continue
+		}
+		parsed, err := strconv.ParseInt(matches[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		if amount == nil {
+			amount = &parsed
+			continue
+		}
+		if *amount != parsed {
+			return nil
+		}
+	}
+	if amount == nil {
+		return nil
+	}
+	return &Price{Amount: *amount, Currency: "JPY", Source: SourceNDL}
+}
+
 // unique は、空文字列を除き最初の出現順で値を重複排除する
 func unique(values []string) []string {
 	result := []string{}
 	seen := map[string]struct{}{}
 	for _, value := range values {
 		if _, ok := seen[value]; value != "" && !ok {
-			seen[value] = struct{}{}
-			result = append(result, value)
-		}
-	}
-	return result
-}
-
-// uniqueIdentifiers は、種類と値が同じ識別子を最初の出現順で重複排除する
-func uniqueIdentifiers(values []Identifier) []Identifier {
-	result := []Identifier{}
-	seen := map[Identifier]struct{}{}
-	for _, value := range values {
-		if _, ok := seen[value]; !ok {
 			seen[value] = struct{}{}
 			result = append(result, value)
 		}

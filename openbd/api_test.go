@@ -10,12 +10,7 @@ import (
 // TestPublicAPI は、openbdだけのimportで共通結果とエラーを参照できることを検証する
 func TestPublicAPI(t *testing.T) {
 	book := openbd.Book{
-		Normalized: openbd.NormalizedBook{
-			Identifiers: []openbd.Identifier{{
-				Type:  openbd.IdentifierTypeISBN13,
-				Value: "9784088466361",
-			}},
-		},
+		ISBN13:  []string{"9784088466361"},
 		Sources: []openbd.BookSource{{Source: openbd.SourceOpenBD}},
 	}
 	result := openbd.ISBNLookupResult{Items: []openbd.ISBNLookupItem{{Books: []openbd.Book{book}}}}

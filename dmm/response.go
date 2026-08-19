@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
 type response struct {
@@ -220,16 +222,22 @@ func bookSeriesFromItem(v item) (BookSeries, error) {
 
 // convertItem はDMMの個別商品情報を共通書籍モデルへ限定的に変換する
 func convertItem(v item, series BookSeries) Book {
-	b := Book{Normalized: NormalizedBook{Title: v.Title, Medium: PublicationMediumDigital}, Sources: sourcesFromItem(v)}
-	b.Normalized.Authors = authorsFromItem(v)
-	b.Normalized.Publishers = publishersFromItem(v)
-	for _, author := range b.Normalized.Authors {
-		b.Normalized.Contributors = append(b.Normalized.Contributors, Contributor{Name: author})
+	b := Book{Title: v.Title, Medium: PublicationMediumDigital, Sources: sourcesFromItem(v)}
+	b.Authors = authorsFromItem(v)
+	b.Publishers = publishersFromItem(v)
+	for _, author := range b.Authors {
+		b.Contributors = append(b.Contributors, Contributor{Name: author})
 	}
-	b.Normalized.BookSeries = []BookSeries{series}
-	b.Normalized.Subjects = subjectsFromItem(v)
-	b.Normalized.Images = imagesFromItem(v)
+	b.BookSeries = []BookSeries{series}
+	b.Subjects = subjectsFromItem(v)
+	b.CoverURL = coverURLFromItem(v)
+	applyTitleMetadata(&b)
 	return b
+}
+
+// applyTitleMetadata は、タイトルから安全に抽出できた付加情報だけを未設定のBook項目へ補う
+func applyTitleMetadata(book *Book) {
+	titlemeta.Apply(book)
 }
 
 // authorsFromItem は、DMM itemの著者名を返却順で変換する
@@ -268,12 +276,20 @@ func subjectsFromItem(v item) []Subject {
 
 // imagesFromItem は、DMM itemの画像をlarge、list、smallの順で1件だけ変換する
 func imagesFromItem(v item) []Image {
-	for _, imageURL := range []string{v.ImageURL.Large, v.ImageURL.List, v.ImageURL.Small} {
-		if u := validURL(imageURL); u != "" {
-			return []Image{{URL: u}}
-		}
+	if coverURL := coverURLFromItem(v); coverURL != "" {
+		return []Image{{URL: coverURL}}
 	}
 	return []Image{}
+}
+
+// coverURLFromItem は、DMM itemの最大サイズの有効な画像URLを返す
+func coverURLFromItem(v item) string {
+	for _, imageURL := range []string{v.ImageURL.Large, v.ImageURL.List, v.ImageURL.Small} {
+		if u := validURL(imageURL); u != "" {
+			return u
+		}
+	}
+	return ""
 }
 
 // sourcesFromItem は、DMM itemの商品参照先を取得元情報として変換する

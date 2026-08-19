@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/eamat-dot/manken/internal/daterange"
 )
 
 const (
@@ -20,6 +22,8 @@ const (
 	successBodyMax       = 4 * 1024 * 1024
 	errorBodyMax         = 64 * 1024
 	maxRetryAfterSeconds = int64((1<<63 - 1) / time.Second)
+	yearPrecision        = 4
+	monthPrecision       = 7
 
 	operationNewClient   = "madb.NewClient"
 	operationSearchBooks = "madb.SearchBooks"
@@ -86,7 +90,7 @@ func WithEndpoint(endpoint string) Option {
 // SearchBooks は、指定条件に一致する漫画本をMADBから検索する
 func (client *Client) SearchBooks(
 	ctx context.Context,
-	request SearchBooksRequest,
+	request SearchRequest,
 ) (SearchBooksResult, error) {
 	result, _, err := client.searchBooks(ctx, request)
 	return result, err
@@ -96,7 +100,7 @@ func (client *Client) SearchBooks(
 // 変換失敗時も読み込み済み本文の所有権を呼び出し元へ移す
 func (client *Client) SearchBooksWithRawResponse(
 	ctx context.Context,
-	request SearchBooksRequest,
+	request SearchRequest,
 ) (SearchBooksResult, []byte, error) {
 	return client.searchBooks(ctx, request)
 }
@@ -104,7 +108,7 @@ func (client *Client) SearchBooksWithRawResponse(
 // searchBooks は、MADBを検索して変換済み結果と成功レスポンス本文を返す
 func (client *Client) searchBooks(
 	ctx context.Context,
-	request SearchBooksRequest,
+	request SearchRequest,
 ) (SearchBooksResult, []byte, error) {
 	if client == nil || client.httpClient == nil {
 		return SearchBooksResult{}, nil, newError(
@@ -207,16 +211,25 @@ func validateEndpoint(endpoint string) error {
 
 // validateSearchRequest は、検索条件を検証して実際に使用する値へ変換する
 func validateSearchRequest(
-	request SearchBooksRequest,
+	request SearchRequest,
 ) (searchConditions, int, cursorPayload, error) {
 	conditions := searchConditions{
-		Title:        strings.Join(strings.Fields(request.Title), " "),
-		Author:       strings.Join(strings.Fields(request.Author), " "),
-		Publisher:    strings.Join(strings.Fields(request.Publisher), " "),
-		FreeText:     strings.Join(strings.Fields(request.FreeText), " "),
-		ExcludedText: strings.Join(strings.Fields(request.ExcludedText), " "),
+		Title:     strings.Join(strings.Fields(request.Title), " "),
+		Author:    strings.Join(strings.Fields(request.Author), " "),
+		Publisher: strings.Join(strings.Fields(request.Publisher), " "),
+		Query:     strings.Join(strings.Fields(request.Query), " "),
+		Exclude:   strings.Join(strings.Fields(request.Exclude), " "),
 	}
-	if conditions.Title == "" && conditions.Author == "" && conditions.Publisher == "" && conditions.FreeText == "" {
+	dateRange, err := daterange.Parse(request.DateFrom, request.DateTo)
+	if err != nil {
+		return searchConditions{}, 0, cursorPayload{}, newError(operationSearchBooks, ErrorKindInvalidArgument, err)
+	}
+	conditions.DateFrom = dateRange.From
+	conditions.DatePrecision = dateRange.Precision
+	if !dateRange.ToExclusive().IsZero() {
+		conditions.DateTo = formatDateExclusive(dateRange)
+	}
+	if conditions.Title == "" && conditions.Author == "" && conditions.Publisher == "" && conditions.Query == "" && conditions.DateFrom == "" && conditions.DateTo == "" {
 		return searchConditions{}, 0, cursorPayload{}, newError(
 			operationSearchBooks,
 			ErrorKindInvalidArgument,
@@ -245,6 +258,18 @@ func validateSearchRequest(
 		)
 	}
 	return conditions, limit, cursor, nil
+}
+
+// formatDateExclusive は、MADBの文字列比較に使う指定精度の半開区間終端を返す
+func formatDateExclusive(dateRange daterange.Range) string {
+	switch dateRange.Precision {
+	case yearPrecision:
+		return dateRange.ToExclusive().Format("2006")
+	case monthPrecision:
+		return dateRange.ToExclusive().Format("2006-01")
+	default:
+		return dateRange.ToExclusive().Format("2006-01-02")
+	}
 }
 
 // readLimitedBody は、上限を超えないレスポンス本文を読み込む

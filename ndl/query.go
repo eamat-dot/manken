@@ -6,7 +6,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/eamat-dot/manken/internal/daterange"
 )
 
 const (
@@ -16,35 +17,28 @@ const (
 )
 
 // buildSearchQuery は、共通検索条件をNDLサーチ用CQLへ変換する
-func buildSearchQuery(request SearchBooksRequest, mangaNDCFilter, mangaNDLCFilter bool) (string, error) {
+func buildSearchQuery(request SearchRequest, mangaNDCFilter, mangaNDLCFilter bool) (string, error) {
 	return buildSearchQueryWithOptions(request, SearchOptions{}, mangaNDCFilter, mangaNDLCFilter)
 }
 
 // buildSearchQueryWithOptions は、共通検索条件とNDL固有検索条件をNDLサーチ用CQLへ変換する
-func buildSearchQueryWithOptions(request SearchBooksRequest, options SearchOptions, mangaNDCFilter, mangaNDLCFilter bool) (string, error) {
-	if request.ExcludedText != "" {
-		return "", errors.New("ExcludedText is not supported")
+func buildSearchQueryWithOptions(request SearchRequest, options SearchOptions, mangaNDCFilter, mangaNDLCFilter bool) (string, error) {
+	if request.Exclude != "" {
+		return "", errors.New("exclude is not supported")
 	}
 	terms := fixedCQLTerms()
 	userConditionCount := 0
-	for _, pair := range []struct{ index, value string }{{"title", request.Title}, {"creator", request.Author}, {"publisher", request.Publisher}, {"anywhere", request.FreeText}} {
+	for _, pair := range []struct{ index, value string }{{"title", request.Title}, {"creator", request.Author}, {"publisher", request.Publisher}, {"anywhere", request.Query}} {
 		if strings.TrimSpace(pair.value) != "" {
 			terms = append(terms, pair.index+" = "+quoteCQL(pair.value))
 			userConditionCount++
 		}
 	}
-	from, fromPrecision, err := validateSearchDate(options.From, "From")
+	dateRange, err := daterange.Parse(request.DateFrom, request.DateTo)
 	if err != nil {
 		return "", err
 	}
-	until, untilPrecision, err := validateSearchDate(options.Until, "Until")
-	if err != nil {
-		return "", err
-	}
-	if fromPrecision != 0 && untilPrecision != 0 && fromPrecision != untilPrecision {
-		return "", errors.New("from and until must use the same date precision")
-	}
-	for _, pair := range []struct{ index, value string }{{"from", from}, {"until", until}, {"subject", options.Subject}, {"description", options.Description}} {
+	for _, pair := range []struct{ index, value string }{{"from", dateRange.From}, {"until", dateRange.To}, {"subject", options.Subject}, {"description", options.Description}} {
 		if strings.TrimSpace(pair.value) != "" {
 			terms = append(terms, pair.index+" = "+quoteCQL(pair.value))
 			userConditionCount++
@@ -60,26 +54,6 @@ func buildSearchQueryWithOptions(request SearchBooksRequest, options SearchOptio
 		terms = append(terms, `ndlc = "Y84"`)
 	}
 	return strings.Join(append(terms, defaultSortCQLTerm), " AND "), nil
-}
-
-// validateSearchDate は、NDLのfromまたはuntilに使える日付を検証して精度を返す
-func validateSearchDate(value, name string) (string, int, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", 0, nil
-	}
-	for _, format := range []struct {
-		precision int
-		layout    string
-	}{{4, "2006"}, {7, "2006-01"}, {10, "2006-01-02"}} {
-		if len(trimmed) != format.precision {
-			continue
-		}
-		if _, err := time.Parse(format.layout, trimmed); err == nil {
-			return trimmed, format.precision, nil
-		}
-	}
-	return "", 0, fmt.Errorf("%s must use YYYY, YYYY-MM, or YYYY-MM-DD with a valid calendar date", name)
 }
 
 // fixedCQLTerms は、すべてのNDLサーチ要求へ付与する固定検索条件を返す
