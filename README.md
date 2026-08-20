@@ -108,8 +108,52 @@ go get github.com/eamat-dot/manken/ndl
 ```
 
 使用するデータ取得元のパッケージを利用側のGoモジュールへ追加する。
+登録済みproviderを明示して共通操作を呼ぶ場合は、ルートパッケージも追加する。
+
+```text
+go get github.com/eamat-dot/manken
+```
 
 ## Quick Start
+
+providerを一つ選んで共通の入口から呼び出す場合は、provider Clientを利用側で生成して
+`manken.NewClient` へ登録する。ルートは検索条件や結果を変更せず、指定した取得元へだけ委譲する。
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+
+    "github.com/eamat-dot/manken"
+    "github.com/eamat-dot/manken/madb"
+)
+
+func main() {
+    provider, err := madb.NewClient(nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    client, err := manken.NewClient(manken.WithMADBClient(provider))
+    if err != nil {
+        log.Fatal(err)
+    }
+    result, err := client.SearchBooks(
+        context.Background(),
+        manken.SourceMADB,
+        manken.SearchRequest{Title: "動物のおしゃべり"},
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("%d books found", len(result.Books))
+}
+```
+
+この形では、必要なproviderパッケージもあわせてimportする。NDL固有の検索条件やDMMの
+シリーズ探索などは、従来どおりproviderパッケージを直接利用する。次の例のように
+providerを直接利用することもできる。
 
 ```go
 package main

@@ -31,9 +31,10 @@ github.com/eamat-dot/manken
 
 最低Goバージョンは1.26.0とし、外部モジュールへ依存しない。
 
-提供するパッケージは次の9つである。
+提供するパッケージは次の10個である。
 
 ```text
+github.com/eamat-dot/manken
 github.com/eamat-dot/manken/model
 github.com/eamat-dot/manken/madb
 github.com/eamat-dot/manken/openbd
@@ -44,6 +45,10 @@ github.com/eamat-dot/manken/ndl
 github.com/eamat-dot/manken/yahooshopping
 github.com/eamat-dot/manken/dmm
 ```
+
+- `manken`
+  - 利用側で生成したprovider Clientを登録し、明示した `Source` の検索またはISBN参照へそのまま委譲する
+  - `model` の通常利用に必要な共通型、エラー型、定数をエイリアスまたは定数として公開する
 
 - `model`
   - データ取得元に依存しない検索条件、検索結果、書籍モデル、エラー分類を定義する
@@ -71,17 +76,14 @@ github.com/eamat-dot/manken/dmm
   - DMMブックス電子コミックのシリーズ探索と、指定シリーズ内の個別商品を共通モデルへ限定的に変換する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 
-ルートパッケージと、取得元パッケージをまとめるファサードは提供しない。
-
 ### 3.1 取得元パッケージとの境界
 
 `model` パッケージは、取得元に依存しない公開型と、その型が満たす仕様だけを
 定義する。取得元固有のレスポンス型、項目名、役割、欠落規則を扱わない。
 
-利用側は `madb` などの取得元パッケージを直接呼び出す。取得元パッケージは
+利用側は `manken` のルートClientへprovider Clientを登録して共通操作を呼び出すか、`madb` などの取得元パッケージを直接呼び出す。取得元パッケージは
 通常利用に必要な共通型と定数をエイリアスとして公開するため、利用側が
-`model` を直接importする必要はない。取得元パッケージを呼び出す共通Clientや
-ファサードは提供しない。
+`model` を直接importする必要はない。ルートClientはprovider Clientを生成せず、認証情報やprovider固有設定を保持しない。
 
 各取得元パッケージは、外部サービスのレスポンスを固有の非公開型へ読み込み、
 そのパッケージ内で `model.Book` へ変換してから返す。
@@ -123,6 +125,10 @@ MADB固有の役割表記を処理した後、`model.Book.Authors` へ設定す�
 
 複数取得元をまたぐ検索・重複統合、汎用CLI、MCPサーバーは公開APIとして
 提供しない。将来の実装候補は [Backlog](backlog.md) で管理する。
+
+ルート `manken.Client` は、`WithMADBClient`、`WithOpenBDClient`、`WithGoogleBooksClient`、`WithRakutenBooksClient`、`WithRakutenKoboClient`、`WithNDLClient`、`WithYahooShoppingClient` で完成済みprovider Clientを1つ以上登録して生成する。provider Clientを指定しない場合は `ErrorKindInvalidArgument` となる。同じOptionを複数指定した場合は後のClientを使用する。検索はMADB、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピング、ISBN参照はMADB、openBD、Google Books、楽天Books、NDL、Yahoo!ショッピングに対応する。
+
+`SearchBooks`、`SearchBooksWithRawResponse`、`LookupBooksByISBN`、`LookupBooksByISBNWithRawResponse` は、`Source` を引数で受け取る。選択したproviderの結果、Raw response、エラーを変更せず返し、fallback、追加通信、再試行、並行実行、並べ替え、統合、重複除去、ローカル絞り込みを行わない。未初期化Client、nil設定、nil provider Client、未知または未登録Source、非対応操作は `ErrorKindInvalidArgument` の `*Error` として返す。
 
 現行ライブラリはキャッシュ、自動再試行、クライアント側のレート制限を提供しない。
 必要な場合は、呼び出し側が `http.Client` やその周辺処理で制御する。

@@ -21,12 +21,16 @@ openBDをISBNで参照する `openbd`、Google Booksを検索・ISBN参照する
 楽天Booksを検索・ISBN参照する `rakutenbooks`、楽天Koboを検索する `rakutenkobo`、国立国会図書館サーチを検索・ISBN参照する `ndl` を提供する。
 Yahoo!ショッピングのTower紙書籍を検索・ISBN参照する `yahooshopping` も提供する。
 DMMブックス電子コミックのシリーズを探索し、シリーズ内の個別商品を取得する `dmm` も提供する。
-ルートパッケージ、複数の取得元をまとめるファサード、MCPサーバーは提供しない。
+ルート `manken` は利用側が生成したprovider Clientを登録し、明示Sourceの共通検索またはISBN参照だけへ委譲する。複数の取得元をまとめる検索とMCPサーバーは提供しない。
 
 ## 構成と依存方向
 
 ```text
 利用側・examples
+       |
+       +------> manken -----> madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping -----> model
+       |           |
+       |           `------> model
        |
        +------> madb -----> model
        |          |
@@ -83,6 +87,9 @@ madb/ndl
 - `model`
   - 取得元に依存しない書籍モデル、検索条件、検索結果、エラー分類を定義する
   - 外部サービスのレスポンス型や通信処理へ依存しない
+- `manken`
+  - provider Clientの生成、認証、provider固有検索条件を扱わず、登録済みClientを明示Sourceのroleへ委譲する
+  - providerから `manken` への依存を持たず、結果、Raw response、provider由来のエラーを変更しない
 - `madb`
   - 入力検証、SPARQL生成、HTTP通信、レスポンス解析、共通モデルへの変換を担当する
   - 通常利用に必要な `model` の型と定数を型エイリアスとして公開する
