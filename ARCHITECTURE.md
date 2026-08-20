@@ -78,6 +78,10 @@ DMMブックス電子コミックのシリーズを探索し、シリーズ内�
 
 madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
        `------> internal/titlemeta
+madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
+       `------> internal/httpresponse
+madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
+       `------> internal/httpendpoint
 madb/ndl/dmm
        `------> internal/daterange
 madb/ndl
@@ -121,8 +125,14 @@ madb/ndl
   - DMMブックス電子コミックのシリーズ探索、シリーズ内個別商品取得、HTTP通信、Cursor、共通モデルへの限定的な変換を担当する
   - API ID、Affiliate ID、DMM固有レスポンス型、`prices.price`・`number`・`date` 等の未共通化項目は公開しない
 - `internal/isbn`
-  - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換を担当する
+  - ISBNの整形、チェックディジット検証、ISBN-10とISBN-13の相互変換、および問い合わせ用ISBN-13への正準化を担当する
   - 取得元パッケージ間で再利用できるが、モジュール外へ公開しない
+- `internal/httpresponse`
+  - 上限付きHTTPレスポンス本文の読み込みと`Retry-After`の安全な待機時間への変換を担当する
+  - すべてのproviderから再利用し、取得元、認証情報、`model.Error`へ依存せず、モジュール外へ公開しない
+- `internal/httpendpoint`
+  - HTTP endpointの共通構造検証と、必要なprovider向けのHTTPSまたはloopback HTTP制約を担当する
+  - すべてのproviderから再利用し、取得元、認証情報、`model`へ依存せず、モジュール外へ公開しない
 - `internal/titlemeta`
   - 取得元タイトルを変更せず、安全に判断できる巻表示、版表示、完結表示を補助フィールドへ抽出する
   - MADB、openBD、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピング、DMMから再利用し、モジュール外へ公開しない

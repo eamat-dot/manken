@@ -58,25 +58,11 @@ func validateISBNLookupInput(isbns []string) (isbnLookupInput, error) {
 	if len(isbns) != maxISBNLookupCount {
 		return isbnLookupInput{}, newError(operationISBNLookup, ErrorKindInvalidArgument, fmt.Errorf("isbn count must be exactly %d", maxISBNLookupCount))
 	}
-	canonical, err := canonicalISBN13(isbns[0])
+	canonical, err := internalisbn.Canonical13(isbns[0])
 	if err != nil {
 		return isbnLookupInput{}, newError(operationISBNLookup, ErrorKindInvalidArgument, err)
 	}
 	return isbnLookupInput{requested: isbns[0], canonical: canonical}, nil
-}
-
-// canonicalISBN13 は、有効なISBNを問い合わせ用のISBN-13へ変換する
-func canonicalISBN13(value string) (string, error) {
-	candidates, err := internalisbn.Normalize(value)
-	if err != nil {
-		return "", err
-	}
-	for _, candidate := range candidates {
-		if internalisbn.IsValidISBN13(candidate) {
-			return candidate, nil
-		}
-	}
-	return "", errors.New("isbn cannot be represented as ISBN-13")
 }
 
 // lookupISBN は、1件のISBNをGoogle Booksへ問い合わせて一致するVolumeだけを返す
@@ -121,7 +107,7 @@ func volumeHasISBN(value volume, expected string) bool {
 		if identifier.Type != "ISBN_10" && identifier.Type != "ISBN_13" {
 			continue
 		}
-		canonical, err := canonicalISBN13(identifier.Identifier)
+		canonical, err := internalisbn.Canonical13(identifier.Identifier)
 		if err == nil && canonical == expected {
 			return true
 		}

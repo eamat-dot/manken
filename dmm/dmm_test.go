@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 )
 
 // TestSearchSeries_SendsKeywordAndSanitizesRawResponse は、シリーズ検索のquery、変換、認証情報の秘匿を検証する
@@ -419,16 +418,6 @@ func TestSanitizeRawString_DoesNotRedactEmptyQueryValue(t *testing.T) {
 	}
 }
 
-// TestParseRetryAfter_RejectsOverflow は、Retry-After秒数のDuration overflowを拒否することを検証する
-func TestParseRetryAfter_RejectsOverflow(t *testing.T) {
-	if got := parseRetryAfter("9223372036854775807", time.Now()); got != 0 {
-		t.Fatalf("overflow Retry-After = %v", got)
-	}
-	if got := parseRetryAfter("1", time.Now()); got != time.Second {
-		t.Fatalf("Retry-After = %v", got)
-	}
-}
-
 // TestExecute_HandlesResponseBodyCleanupAndLimits は、本文cleanup失敗と本文上限をinvalid_responseへ分類することを検証する
 func TestExecute_HandlesResponseBodyCleanupAndLimits(t *testing.T) {
 	closeFailure := errors.New("close failed")
@@ -454,9 +443,6 @@ func TestExecute_HandlesResponseBodyCleanupAndLimits(t *testing.T) {
 				t.Fatalf("error = %v", err)
 			}
 		})
-	}
-	if _, err := readLimitedBody(strings.NewReader(strings.Repeat("x", int(successBodyMax)+1)), successBodyMax); err == nil {
-		t.Fatal("oversized response body accepted")
 	}
 }
 

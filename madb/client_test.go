@@ -522,30 +522,6 @@ func TestClient_SearchBooks_ClassifiesHTTPError(t *testing.T) {
 	}
 }
 
-// TestParseRetryAfter は、秒数形式、HTTP-date形式、不正値の解析を検証する
-func TestParseRetryAfter(t *testing.T) {
-	now := time.Date(2026, time.July, 29, 0, 0, 0, 0, time.UTC)
-	value := now.Add(30 * time.Second).Format(http.TimeFormat)
-	if got := parseRetryAfter(value, now); got != 30*time.Second {
-		t.Fatalf("parseRetryAfter() = %s, want 30s", got)
-	}
-	maxSeconds := strconv.FormatInt(maxRetryAfterSeconds, 10)
-	maxDuration := time.Duration(maxRetryAfterSeconds) * time.Second
-	if got := parseRetryAfter(maxSeconds, now); got != maxDuration {
-		t.Fatalf("parseRetryAfter(max seconds) = %s, want %s", got, maxDuration)
-	}
-	overflowSeconds := strconv.FormatInt(maxRetryAfterSeconds+1, 10)
-	if got := parseRetryAfter(overflowSeconds, now); got != 0 {
-		t.Fatalf("parseRetryAfter(overflow seconds) = %s, want 0", got)
-	}
-	if got := parseRetryAfter("invalid", now); got != 0 {
-		t.Fatalf("parseRetryAfter(invalid) = %s, want 0", got)
-	}
-	if got := parseRetryAfter("-1", now); got != 0 {
-		t.Fatalf("parseRetryAfter(-1) = %s, want 0", got)
-	}
-}
-
 // TestClient_SearchBooks_InvalidResponse は、不正JSONと本文上限超過を分類する
 func TestClient_SearchBooks_InvalidResponse(t *testing.T) {
 	tests := []struct {
@@ -678,8 +654,8 @@ func assertErrorKind(t *testing.T, err error, want ErrorKind) {
 // TestValidateEndpoint_AcceptsHTTPAndHTTPS は、有効なHTTP URLを受け付けることを検証する
 func TestValidateEndpoint_AcceptsHTTPAndHTTPS(t *testing.T) {
 	for _, endpoint := range []string{"http://example.test", "https://example.test/sparql"} {
-		if err := validateEndpoint(endpoint); err != nil {
-			t.Fatalf("validateEndpoint(%q) error = %v", endpoint, err)
+		if _, err := NewClient(nil, WithEndpoint(endpoint)); err != nil {
+			t.Fatalf("NewClient(nil, WithEndpoint(%q)) error = %v", endpoint, err)
 		}
 	}
 }

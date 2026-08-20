@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	internalisbn "github.com/eamat-dot/manken/internal/isbn"
 	"github.com/eamat-dot/manken/internal/titlemeta"
 )
 
@@ -240,7 +241,7 @@ func validateResponseISBN(book responseBook, expected string) error {
 		if value == "" {
 			continue
 		}
-		canonical, err := canonicalISBN13(value)
+		canonical, err := internalisbn.Canonical13(value)
 		if err != nil {
 			return fmt.Errorf("response contains invalid ISBN %q", value)
 		}

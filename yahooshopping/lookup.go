@@ -33,7 +33,7 @@ func (client *Client) lookupBooksByISBN(ctx context.Context, isbns []string) (IS
 	if len(isbns) != 1 {
 		return ISBNLookupResult{}, nil, newError(operationISBNLookup, ErrorKindInvalidArgument, fmt.Errorf("isbn count must be exactly 1"))
 	}
-	canonical, err := canonicalISBN13(isbns[0])
+	canonical, err := internalisbn.Canonical13(isbns[0])
 	if err != nil {
 		return ISBNLookupResult{}, nil, newError(operationISBNLookup, ErrorKindInvalidArgument, err)
 	}
@@ -54,20 +54,6 @@ func (client *Client) lookupBooksByISBN(ctx context.Context, isbns []string) (IS
 		}
 	}
 	return ISBNLookupResult{Items: []ISBNLookupItem{{RequestedISBN: isbns[0], Books: books}}}, body, nil
-}
-
-// canonicalISBN13 は、ISBN入力を問い合わせ用のISBN-13へ正規化する
-func canonicalISBN13(value string) (string, error) {
-	candidates, err := internalisbn.Normalize(value)
-	if err != nil {
-		return "", err
-	}
-	for _, candidate := range candidates {
-		if internalisbn.IsValidISBN13(candidate) {
-			return candidate, nil
-		}
-	}
-	return "", errors.New("isbn cannot be represented as ISBN-13")
 }
 
 // canonicalItemISBN は、有効なISBN-13だけを返す

@@ -9,10 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/eamat-dot/manken/model"
 )
@@ -214,14 +212,6 @@ func TestBuildSearchResult_DoesNotCreateUnusableCursor(t *testing.T) {
 	response := searchResponse{TotalResultsAvailable: 1000, TotalResultsReturned: 100, FirstResultsPosition: 801, Hits: make([]item, 100)}
 	if got := buildSearchResult(response, "x", 100, "").NextCursor; got != "" {
 		t.Fatalf("NextCursor=%q", got)
-	}
-}
-
-// TestParseRetryAfter_RejectsOverflow は、durationを超えるRetry-After秒数を拒否することを確認する
-func TestParseRetryAfter_RejectsOverflow(t *testing.T) {
-	now := time.Now()
-	if got := parseRetryAfter(strconv.FormatInt(maxRetryAfterSeconds+1, 10), now); got != 0 {
-		t.Fatalf("RetryAfter=%s", got)
 	}
 }
 
@@ -488,16 +478,5 @@ func TestClient_DoesNotFollowRedirects(t *testing.T) {
 	_, err = client.SearchBooks(context.Background(), SearchRequest{Title: "x"})
 	if err == nil || redirectTargetCalled || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("err=%v redirectTargetCalled=%t", err, redirectTargetCalled)
-	}
-}
-
-// TestParseRetryAfter_ParsesSecondsAndDate は、正常な秒数とHTTP日付を待機時間へ変換する
-func TestParseRetryAfter_ParsesSecondsAndDate(t *testing.T) {
-	now := time.Date(2026, time.August, 13, 0, 0, 0, 0, time.UTC)
-	if got := parseRetryAfter("30", now); got != 30*time.Second {
-		t.Fatalf("seconds RetryAfter=%s", got)
-	}
-	if got := parseRetryAfter(now.Add(2*time.Minute).Format(http.TimeFormat), now); got != 2*time.Minute {
-		t.Fatalf("date RetryAfter=%s", got)
 	}
 }

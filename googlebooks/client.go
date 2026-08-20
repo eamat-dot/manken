@@ -5,19 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/eamat-dot/manken/internal/httpendpoint"
+	"github.com/eamat-dot/manken/internal/httpresponse"
 )
 
 const (
-	defaultEndpoint      = "https://www.googleapis.com/books/v1/volumes"
-	successBodyMax       = 16 * 1024 * 1024
-	errorBodyMax         = 64 * 1024
-	maxRetryAfterSeconds = int64((1<<63 - 1) / time.Second)
+	defaultEndpoint = "https://www.googleapis.com/books/v1/volumes"
+	successBodyMax  = 16 * 1024 * 1024
+	errorBodyMax    = 64 * 1024
 
 	operationNewClient   = "googlebooks.NewClient"
 	operationSearchBooks = "googlebooks.SearchBooks"
@@ -89,38 +89,12 @@ func WithAPIKey(apiKey string) Option {
 // WithEndpoint は、Google Booksへの問い合わせに使用するエンドポイントを設定する
 func WithEndpoint(endpoint string) Option {
 	return optionFunc(func(options *clientOptions) error {
-		if err := validateEndpoint(endpoint); err != nil {
+		if err := httpendpoint.ValidateHTTPSOrLoopback(endpoint); err != nil {
 			return err
 		}
 		options.endpoint = endpoint
 		return nil
 	})
-}
-
-// validateEndpoint は、Google Booksエンドポイントとして使用できる絶対URLか検証する
-func validateEndpoint(endpoint string) error {
-	parsed, err := url.Parse(endpoint)
-	if err != nil {
-		return fmt.Errorf("endpoint must be an absolute HTTP URL: %w", err)
-	}
-	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return errors.New("endpoint must use http or https and include a host")
-	}
-	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
-		return errors.New("endpoint must use https unless its host is loopback")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
-		return errors.New("endpoint must not include user information, query, or fragment")
-	}
-	return nil
-}
-
-// isLoopbackHost は、名前解決をせずにhostがlocalhostまたはloopback IPか判定する
-func isLoopbackHost(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	return net.ParseIP(host).IsLoopback()
 }
 
 // execute は、Google Booksリクエストを送信して成功レスポンス本文を読み込む
@@ -147,7 +121,7 @@ func (client *Client) execute(ctx context.Context, operation string, query url.V
 		closeErr := response.Body.Close()
 		return nil, newHTTPError(operation, response, errors.Join(copyErr, closeErr))
 	}
-	body, err := readLimitedBody(response.Body, successBodyMax)
+	body, err := httpresponse.ReadLimitedBody(response.Body, successBodyMax)
 	closeErr := response.Body.Close()
 	if err != nil {
 		return nil, newError(operation, ErrorKindInvalidResponse, err)
@@ -167,18 +141,6 @@ func sanitizeTransportError(err error) error {
 	return err
 }
 
-// readLimitedBody は、上限を超えないレスポンス本文を読み込む
-func readLimitedBody(reader io.Reader, limit int64) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-	if int64(len(body)) > limit {
-		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
-	}
-	return body, nil
-}
-
 // newHTTPError は、HTTPステータスとRetry-Afterから分類済みエラーを生成する
 func newHTTPError(operation string, response *http.Response, cleanupErr error) error {
 	kind := ErrorKindUpstream
@@ -189,19 +151,7 @@ func newHTTPError(operation string, response *http.Response, cleanupErr error) e
 	if cleanupErr != nil {
 		cause = fmt.Errorf("%w: clean up response body: %v", cause, cleanupErr)
 	}
-	return &Error{Kind: kind, Operation: operation, StatusCode: response.StatusCode, RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()), Err: cause}
-}
-
-// parseRetryAfter は、Retry-Afterを待機時間へ変換する
-func parseRetryAfter(value string, now time.Time) time.Duration {
-	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil && seconds >= 0 && seconds <= maxRetryAfterSeconds {
-		return time.Duration(seconds) * time.Second
-	}
-	date, err := http.ParseTime(value)
-	if err != nil || !date.After(now) {
-		return 0
-	}
-	return date.Sub(now)
+	return &Error{Kind: kind, Operation: operation, StatusCode: response.StatusCode, RetryAfter: httpresponse.ParseRetryAfter(response.Header.Get("Retry-After"), time.Now()), Err: cause}
 }
 
 // newError は、操作と分類を設定したErrorを生成する

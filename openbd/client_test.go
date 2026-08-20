@@ -290,14 +290,6 @@ func expiredContext() context.Context {
 	return ctx
 }
 
-// TestReadLimitedBody は、本文上限を超える入力を拒否する
-func TestReadLimitedBody(t *testing.T) {
-	_, err := readLimitedBody(strings.NewReader("123"), 2)
-	if err == nil {
-		t.Fatal("readLimitedBody() error = nil")
-	}
-}
-
 // newTestClient は、テスト用エンドポイントを使用するClientを生成する
 func newTestClient(t *testing.T, endpoint string) *Client {
 	t.Helper()

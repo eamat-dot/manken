@@ -5,20 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/eamat-dot/manken/internal/httpendpoint"
+	"github.com/eamat-dot/manken/internal/httpresponse"
 )
 
 const (
 	defaultEndpoint                    = "https://api.dmm.com/affiliate/v3/ItemList"
 	successBodyMax               int64 = 16 * 1024 * 1024
 	errorBodyMax                 int64 = 64 * 1024
-	maxRetryAfterSeconds               = int64((1<<63 - 1) / time.Second)
 	operationNewClient                 = "dmm.NewClient"
 	operationSearchSeries              = "dmm.SearchSeries"
 	operationSearchBooksBySeries       = "dmm.SearchBooksBySeries"
@@ -98,35 +98,12 @@ func WithAffiliateID(value string) Option {
 // WithEndpoint は、DMMへの問い合わせに使用するエンドポイントを設定する
 func WithEndpoint(value string) Option {
 	return optionFunc(func(options *clientOptions) error {
-		if err := validateEndpoint(value); err != nil {
+		if err := httpendpoint.ValidateHTTPSOrLoopback(value); err != nil {
 			return err
 		}
 		options.endpoint = value
 		return nil
 	})
-}
-
-// validateEndpoint は、DMMエンドポイントとして安全なURLか検証する
-func validateEndpoint(value string) error {
-	parsed, err := url.Parse(value)
-	if err != nil {
-		return fmt.Errorf("endpoint must be an absolute HTTP URL: %w", err)
-	}
-	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return errors.New("endpoint must use http or https and include a host")
-	}
-	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
-		return errors.New("endpoint must use https unless its host is loopback")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
-		return errors.New("endpoint must not include user information, query, or fragment")
-	}
-	return nil
-}
-
-// isLoopbackHost は、名前解決をせずにhostがlocalhostまたはloopback IPか判定する
-func isLoopbackHost(host string) bool {
-	return strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback()
 }
 
 // execute は、DMMリクエストを送信して成功レスポンス本文を読み込む
@@ -152,25 +129,13 @@ func (client *Client) execute(ctx context.Context, operation string, query url.V
 		closeErr := response.Body.Close()
 		return nil, newHTTPError(operation, response, sanitizeCredentialError(errors.Join(copyErr, closeErr), client.apiID, client.affiliateID))
 	}
-	body, err := readLimitedBody(response.Body, successBodyMax)
+	body, err := httpresponse.ReadLimitedBody(response.Body, successBodyMax)
 	closeErr := response.Body.Close()
 	if err != nil {
 		return nil, newError(operation, ErrorKindInvalidResponse, sanitizeCredentialError(err, client.apiID, client.affiliateID))
 	}
 	if closeErr != nil {
 		return body, newError(operation, ErrorKindInvalidResponse, fmt.Errorf("close response body: %w", sanitizeCredentialError(closeErr, client.apiID, client.affiliateID)))
-	}
-	return body, nil
-}
-
-// readLimitedBody は、上限を超えないレスポンス本文を読み込む
-func readLimitedBody(reader io.Reader, limit int64) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-	if int64(len(body)) > limit {
-		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
 	}
 	return body, nil
 }
@@ -185,7 +150,7 @@ func newHTTPError(operation string, response *http.Response, cleanupErr error) e
 	if cleanupErr != nil {
 		cause = fmt.Errorf("%w: clean up response body: %v", cause, cleanupErr)
 	}
-	return &Error{Kind: kind, Operation: operation, StatusCode: response.StatusCode, RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()), Err: cause}
+	return &Error{Kind: kind, Operation: operation, StatusCode: response.StatusCode, RetryAfter: httpresponse.ParseRetryAfter(response.Header.Get("Retry-After"), time.Now()), Err: cause}
 }
 
 // sanitizeTransportError は、通信エラーの外側に含まれるリクエストURLを除く
@@ -211,18 +176,6 @@ func sanitizeCredentialError(err error, secrets ...string) error {
 		return errors.New(sanitized)
 	}
 	return err
-}
-
-// parseRetryAfter は、Retry-After値を待機時間へ変換する
-func parseRetryAfter(value string, now time.Time) time.Duration {
-	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil && seconds >= 0 && seconds <= maxRetryAfterSeconds {
-		return time.Duration(seconds) * time.Second
-	}
-	date, err := http.ParseTime(value)
-	if err != nil || !date.After(now) {
-		return 0
-	}
-	return date.Sub(now)
 }
 
 // newError は、操作と分類を設定したErrorを生成する

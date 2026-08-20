@@ -8,16 +8,17 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/eamat-dot/manken/internal/httpendpoint"
+	"github.com/eamat-dot/manken/internal/httpresponse"
 )
 
 const (
-	defaultEndpoint      = "https://api.openbd.jp/v1/get"
-	successBodyMax       = 64 * 1024 * 1024
-	errorBodyMax         = 64 * 1024
-	maxRetryAfterSeconds = int64((1<<63 - 1) / time.Second)
+	defaultEndpoint = "https://api.openbd.jp/v1/get"
+	successBodyMax  = 64 * 1024 * 1024
+	errorBodyMax    = 64 * 1024
 
 	operationNewClient  = "openbd.NewClient"
 	operationISBNLookup = "openbd.LookupBooksByISBN"
@@ -69,27 +70,12 @@ func NewClient(httpClient *http.Client, options ...Option) (*Client, error) {
 // WithEndpoint は、openBDへの問い合わせに使用するエンドポイントを設定する
 func WithEndpoint(endpoint string) Option {
 	return optionFunc(func(options *clientOptions) error {
-		if err := validateEndpoint(endpoint); err != nil {
+		if err := httpendpoint.Validate(endpoint); err != nil {
 			return err
 		}
 		options.endpoint = endpoint
 		return nil
 	})
-}
-
-// validateEndpoint は、openBDエンドポイントとして使用できる絶対URLか検証する
-func validateEndpoint(endpoint string) error {
-	parsed, err := url.Parse(endpoint)
-	if err != nil {
-		return fmt.Errorf("endpoint must be an absolute HTTP URL: %w", err)
-	}
-	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return errors.New("endpoint must use http or https and include a host")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
-		return errors.New("endpoint must not include user information, query, or fragment")
-	}
-	return nil
 }
 
 // execute は、ISBN参照リクエストを送信して成功レスポンス本文を読み込む
@@ -119,7 +105,7 @@ func (client *Client) execute(ctx context.Context, isbns []string) ([]byte, erro
 		return nil, newHTTPError(httpResponse, errors.Join(copyErr, closeErr))
 	}
 
-	body, err := readLimitedBody(httpResponse.Body, successBodyMax)
+	body, err := httpresponse.ReadLimitedBody(httpResponse.Body, successBodyMax)
 	closeErr := httpResponse.Body.Close()
 	if err != nil {
 		return nil, newError(operationISBNLookup, ErrorKindInvalidResponse, err)
@@ -130,18 +116,6 @@ func (client *Client) execute(ctx context.Context, isbns []string) ([]byte, erro
 			ErrorKindInvalidResponse,
 			fmt.Errorf("close response body: %w", closeErr),
 		)
-	}
-	return body, nil
-}
-
-// readLimitedBody は、上限を超えないレスポンス本文を読み込む
-func readLimitedBody(reader io.Reader, limit int64) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-	if int64(len(body)) > limit {
-		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
 	}
 	return body, nil
 }
@@ -163,25 +137,9 @@ func newHTTPError(response *http.Response, cleanupErr error) error {
 		Kind:       kind,
 		Operation:  operationISBNLookup,
 		StatusCode: response.StatusCode,
-		RetryAfter: parseRetryAfter(response.Header.Get("Retry-After"), time.Now()),
+		RetryAfter: httpresponse.ParseRetryAfter(response.Header.Get("Retry-After"), time.Now()),
 		Err:        cause,
 	}
-}
-
-// parseRetryAfter は、Retry-Afterを待機時間へ変換する
-func parseRetryAfter(value string, now time.Time) time.Duration {
-	if value == "" {
-		return 0
-	}
-	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil &&
-		seconds >= 0 && seconds <= maxRetryAfterSeconds {
-		return time.Duration(seconds) * time.Second
-	}
-	date, err := http.ParseTime(value)
-	if err != nil || !date.After(now) {
-		return 0
-	}
-	return date.Sub(now)
 }
 
 // newError は、操作と分類を設定したErrorを生成する

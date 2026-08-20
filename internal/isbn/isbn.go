@@ -28,6 +28,20 @@ func Normalize(value string) ([]string, error) {
 	return candidates, nil
 }
 
+// Canonical13 は、ISBN-10またはISBN-13を問い合わせ用のISBN-13へ正準化する
+func Canonical13(value string) (string, error) {
+	candidates, err := Normalize(value)
+	if err != nil {
+		return "", err
+	}
+	for _, candidate := range candidates {
+		if IsValidISBN13(candidate) {
+			return candidate, nil
+		}
+	}
+	return "", errors.New("isbn cannot be represented as ISBN-13")
+}
+
 // normalizeInput は、ISBNからASCIIハイフンとUnicode空白を取り除き末尾のxを大文字にする
 func normalizeInput(value string) string {
 	value = strings.Map(func(character rune) rune {

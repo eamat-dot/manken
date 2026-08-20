@@ -48,6 +48,34 @@ func TestNormalizeRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+// TestCanonical13 は、ISBN入力を問い合わせ用のISBN-13へ正準化することを検証する
+func TestCanonical13(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "ISBN-10", value: "4088466365", want: "9784088466361"},
+		{name: "ISBN-13", value: "9784088466361", want: "9784088466361"},
+		{name: "979 ISBN-13", value: "9791234567896", want: "9791234567896"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := Canonical13(test.value)
+			if err != nil {
+				t.Fatalf("Canonical13() error = %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("Canonical13() = %q, want %q", got, test.want)
+			}
+		})
+	}
+	if _, err := Canonical13("9784088466362"); err == nil {
+		t.Fatal("Canonical13() error = nil")
+	}
+}
+
 // TestValidation は、ISBN-10とISBN-13のチェックディジットを検証する
 func TestValidation(t *testing.T) {
 	tests := []struct {
