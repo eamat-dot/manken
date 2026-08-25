@@ -27,17 +27,16 @@ Thumbs.db
 # Task
 .task/
 
-# Local scratch files (user works)
-__sandbox/
-__*
-dev.yml
+# Local environment files
 .env
 .env.*
 !.env.example
+
+# Local scratch files (user works)
+__sandbox/
+dev.yml
 
 # Archives
 _archive/
 *.zip
 
-# codexpro
-.ai-bridge/
