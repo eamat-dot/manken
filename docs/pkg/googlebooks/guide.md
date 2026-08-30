@@ -1,32 +1,94 @@
 # Google Booksガイド
 
-`googlebooks` はGoogle Books Volumes APIから、タイトル、著者、出版社、フリーワード、除外条件、ISBNで書誌候補を
-取得するパッケージである。漫画専用のデータベースではないため、結果を漫画単行本とみなす判定は
-利用側で行う。
+`googlebooks` パッケージは、Google Booksから書誌情報を検索・参照するためのパッケージです。漫画専用のサービスではないため、書籍検索には小説など漫画以外の書籍も含まれます。
 
-## APIキーの準備
+## 準備するもの
 
-Google CloudでBooks APIを有効にし、利用するアプリケーション用のAPIキーを作成する。キーは
-利用側の環境変数または秘密情報管理機能で保管し、ソースコード、CLI引数、ログへ書かない。
+Google CloudでBooks APIを有効にし、APIキーを作成してください。APIキーは環境変数や秘密情報管理機能で保管し、ソースコードやログへ直接書かないことを推奨します。
 
-```powershell
-$env:GOOGLE_BOOKS_API_KEY = "your-key"
-```
+`manken` はAPIキーを保存したり、環境変数から自動で読み込んだりしません。
 
-`manken` はAPIキーの作成、保存、環境変数の自動読込を行わない。Clientへ明示的に渡す。
+## 直接利用する
+
+`googlebooks` パッケージを直接importして利用できます。
 
 ```go
-client, err := googlebooks.NewClient(nil,
-    googlebooks.WithAPIKey(os.Getenv("GOOGLE_BOOKS_API_KEY")),
+import "github.com/eamat-dot/manken/googlebooks"
+```
+
+最小限のタイトル検索は次のように書けます。
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/eamat-dot/manken/googlebooks"
+)
+
+func main() {
+	// APIキーを指定してGoogle Books Clientを初期化する
+	client, err := googlebooks.NewClient(nil,
+		googlebooks.WithAPIKey(os.Getenv("GOOGLE_BOOKS_API_KEY")),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Google Booksでタイトル検索する
+	result, err := client.SearchBooks(
+		context.Background(),
+		googlebooks.SearchRequest{Title: "動物のお医者さん"},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("%d books found", len(result.Books))
+}
+```
+
+## 書籍を検索する
+
+タイトル、著者名、出版社名、フリーワード、除外語を指定できます。
+
+```go
+// Google Booksで著者名を指定して検索する
+result, err := client.SearchBooks(
+	context.Background(),
+	googlebooks.SearchRequest{Author: "佐々木倫子"},
 )
 ```
 
-検索条件、ページング、ISBN参照、変換項目、エラーの完全な仕様は
-[Google Booksパッケージ仕様](spec.md)を参照する。
+Google Booksでは漫画だけに絞り込む条件を指定できないため、検索結果が漫画だけになることは保証されません。
+
+## ISBNで参照する
+
+`LookupBooksByISBN` はISBNを1件だけ受け付けます。
+
+```go
+// Google BooksでISBNを参照する
+result, err := client.LookupBooksByISBN(
+	context.Background(),
+	[]string{"4-08-846636-5"},
+)
+```
+
+ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記も受け付けます。問い合わせにはISBN-13を使用し、`RequestedISBN` には指定した文字列がそのまま保持されます。
+
+## Rawレスポンスを取得する
+
+変換前の応答も確認したい場合は、次のメソッドを利用できます。
+
+- `SearchBooksWithRawResponse`
+- `LookupBooksByISBNWithRawResponse`
 
 ## CLIデモ
 
-リポジトリのルートで、環境変数を設定してから実行する。
+環境変数を設定してから、リポジトリルートで実行してください。
 
 ```text
 go run ./examples/googlebooks -title "動物のお医者さん" -limit 5
@@ -35,19 +97,20 @@ go run ./examples/googlebooks -publisher "白泉社"
 go run ./examples/googlebooks 4088466365
 ```
 
-全オプションとraw responseの保存は [CLIデモ](../../../examples/README.md#google-books)を参照する。
+全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md#google-books)を参照してください。
 
 ## 利用条件と表示
 
-Google Booksの結果、画像、プレビュー、販売・閲覧情報を利用・表示するアプリケーションは、
-[Books API Terms of Service](https://developers.google.com/books/terms)、
-[Branding Guidelines](https://developers.google.com/books/branding)、
-[Google APIs Terms of Service](https://developers.google.com/terms)を確認する。
+Google Booksの結果、画像、プレビュー、販売・閲覧情報をアプリケーションで利用する場合は、次の公式条件を確認してください。
 
-- 結果やプレビューを表示する場合は、必要なGoogleへのattributionとGoogle Booksへのリンクを設ける
-- API結果を長期保存・キャッシュする場合は、利用規約とレスポンスのcache headerを確認する
-- 利用者への課金を伴う形態はBooks API固有のTermsを確認する
-- Google Booksの結果順を変更しない。将来の横断検索では、他取得元との混在・順位変更が
-  Branding Guidelinesに適合するかを実装前に確認する
+- [Books API Terms of Service（公式）](https://developers.google.com/books/terms)
+- [Branding Guidelines（公式）](https://developers.google.com/books/branding)
+- [Google APIs Terms of Service（公式）](https://developers.google.com/terms)
 
-このパッケージは規約適合性を保証しない。利用側が表示、保存、課金の形態に応じて現行の公式条件を確認する。
+Google Booksの情報を画面に表示する場合は、必要なクレジット表示やGoogle Booksへのリンクを設けてください。結果の保存やキャッシュ、表示順の変更を行う場合も、利用方法が公式条件に適合するか確認してください。
+
+`manken` は利用方法が各規約に適合することを保証しません。
+
+## 詳細仕様
+
+検索条件、ページング、ISBN参照、変換項目、Rawレスポンス、エラーの完全な仕様は[manken Google Booksパッケージ仕様](spec.md)を参照してください。

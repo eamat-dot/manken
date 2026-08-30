@@ -1,265 +1,127 @@
 # 楽天Booksガイド
 
-## 1. 利用前に準備するもの
+`rakutenbooks` パッケージは、楽天ブックスから紙書籍を検索し、商品情報や書誌情報を取得するためのパッケージです。書籍検索とISBN参照に対応しています。
 
-楽天Booksプロバイダは楽天ウェブサービスの「楽天ブックス書籍検索API」を使用する。
-利用には次が必要である。
+## 準備するもの
 
-- Application ID
-- Access Key
+楽天ウェブサービスで発行したApplication IDとAccess Keyが必要です。Affiliate IDは検索に必須ではなく、楽天アフィリエイトのURLが必要な場合だけ設定します。
 
-Affiliate IDは検索に必須ではない。楽天アフィリエイトURLが必要な場合だけ設定する。
+認証情報は環境変数や秘密情報管理機能で保管し、ソースコードへ直接書かないことを推奨します。`manken` は環境変数から自動では読み込みません。
 
-楽天ウェブサービス:
-https://webservice.rakuten.co.jp/
+## 直接利用する
 
-楽天ブックス書籍検索API:
-https://webservice.rakuten.co.jp/documentation/books-book-search
-
-## 2. 認証情報の設定
-
-認証情報をソースコードへ直接記述せず、環境変数や利用側の秘密情報管理から読み込む。
-
-このリポジトリのCLIデモでは次の環境変数を使用する。
-
-```text
-RAKUTEN_APP_ID
-RAKUTEN_ACCESS_KEY
-RAKUTEN_AFFILIATE_ID
-```
-
-`RAKUTEN_AFFILIATE_ID` は省略できる。
-
-Clientの最小構成:
+`rakutenbooks` パッケージを直接importして利用できます。
 
 ```go
-client, err := rakutenbooks.NewClient(nil,
-    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+import "github.com/eamat-dot/manken/rakutenbooks"
+```
+
+最小限のタイトル検索は次のように書けます。
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/eamat-dot/manken/rakutenbooks"
 )
-if err != nil {
-    log.Fatal(err)
+
+func main() {
+	// 認証情報を指定して楽天Books Clientを初期化する
+	client, err := rakutenbooks.NewClient(nil,
+		rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+		rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 楽天Booksでタイトル検索する
+	result, err := client.SearchBooks(
+		context.Background(),
+		rakutenbooks.SearchRequest{Title: "動物のお医者さん"},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("%d books found", len(result.Books))
 }
 ```
 
-Affiliate IDを利用する場合だけOptionを追加する。
+Affiliate IDを使う場合は、Client作成時に `WithAffiliateID` を追加してください。
 
 ```go
-options := []rakutenbooks.Option{
-    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
-}
-if affiliateID := os.Getenv("RAKUTEN_AFFILIATE_ID"); affiliateID != "" {
-    options = append(options, rakutenbooks.WithAffiliateID(affiliateID))
-}
-client, err := rakutenbooks.NewClient(nil, options...)
-if err != nil {
-    log.Fatal(err)
-}
+// アフィリエイトURLを使う場合はAffiliate IDを設定する
+rakutenbooks.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID"))
 ```
 
-Affiliate IDを設定しても検索条件は変わらない。楽天Booksが返す `affiliateUrl` は
-`BookSource.AffiliateURL` とRaw responseの両方から利用できる。
+## 書籍を検索する
 
-## 3. タイトル・著者・出版社で検索する
-
-既定では一般コミックを検索する。
+既定では一般コミックを検索します。タイトル、著者名、出版社名を指定でき、複数指定した場合はすべての条件を満たす書籍へ絞り込みます。
 
 ```go
+// 楽天Booksで著者名を指定して検索する
 result, err := client.SearchBooks(
-    context.Background(),
-    rakutenbooks.SearchRequest{Title: "動物のお医者さん"},
-)
-if err != nil {
-    log.Fatal(err)
-}
-```
-
-`Title`、`Author`、`Publisher` のいずれか1つ以上を指定する。複数を同時に指定すると、
-すべての条件を満たす書籍に絞り込む。
-
-楽天BooksはBooks Book Search APIに汎用フリーワード検索と除外キーワード検索を持たないため、
-`Query` と `Exclude` は利用できない。
-
-## 4. 一般・BL・TLコミック
-
-検索対象はClient作成時に1区分を選ぶ。
-
-```go
-client, err := rakutenbooks.NewClient(nil,
-    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
-    rakutenbooks.WithComicGenre(rakutenbooks.ComicGenreBL),
+	context.Background(),
+	rakutenbooks.SearchRequest{Author: "佐々木倫子"},
 )
 ```
 
-利用できる区分:
+BLまたはTLを検索する場合は、Client作成時に `WithComicGenre` で `ComicGenreBL` または `ComicGenreTL` を指定してください。1回の検索で複数の漫画区分をまとめて検索することはありません。
 
-- `ComicGenreGeneral`: 一般コミック。既定値
-- `ComicGenreBL`: BLコミック
-- `ComicGenreTL`: TLコミック
+`WithBookSize` を使うと、単行本、文庫、コミックなどの商品形態でも絞り込めます。指定できる値は[manken 楽天Booksパッケージ仕様](spec.md)を参照してください。
 
-1回の検索で3区分を自動的に横断しない。別区分を検索する場合は、その区分を指定したClientを
-作成する。
+楽天Booksでは汎用のフリーワード検索と除外語検索を利用できないため、`Query` と `Exclude` には対応していません。
 
-## 5. ISBN参照
+## ISBNで参照する
 
-ISBN-10またはISBN-13を1件だけ指定する。
+`LookupBooksByISBN` はISBNを1件だけ受け付けます。
 
 ```go
+// 楽天BooksでISBNを参照する
 result, err := client.LookupBooksByISBN(
-    context.Background(),
-    []string{"4088466365"},
+	context.Background(),
+	[]string{"9784758088732"},
 )
 ```
 
-ISBN参照では一般・BL・TLの漫画区分と商品形態を使用しない。入力ISBNに一致する楽天Booksの商品を
-参照する。
+ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記も受け付けます。ISBN参照では、書籍検索で使用する漫画区分や商品形態による絞り込みは行いません。
 
-該当商品がない場合はエラーではなく、1件の入力結果の `books` が空になる。
+該当する商品がない場合はエラーではなく、その項目の `Books` が空になります。
 
-## 6. 商品形態で絞り込む
+## Rawレスポンスを取得する
 
-`WithBookSize` で楽天Books固有の商品形態を絞り込める。たとえば文庫を検索する場合は次のように指定する。
+変換前の応答も確認したい場合は、次のメソッドを利用できます。
 
-```go
-client, err := rakutenbooks.NewClient(nil,
-    rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-    rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
-    rakutenbooks.WithBookSize(rakutenbooks.BookSizeBunko),
-)
-```
+- `SearchBooksWithRawResponse`
+- `LookupBooksByISBNWithRawResponse`
 
-公式の値は`BookSizeAll`（0、絞り込みなし）、`BookSizeTankobon`（1）、`BookSizeBunko`（2）、
-`BookSizeShinsho`（3）、`BookSizeZenshuSosho`（4）、`BookSizeJiten`（5）、`BookSizeZukan`（6）、
-`BookSizeEhon`（7）、`BookSizeCassetteCD`（8）、`BookSizeComic`（9）、`BookSizeMookOther`（10）である。
+Affiliate IDを指定した場合、楽天Booksが返すアフィリエイトURLは `BookSource.AffiliateURL` から取得できます。
 
-既定値は`BookSizeAll`であり、`size=9`を固定しない。漫画区分と商品形態は別の条件であり、文庫版なども
-検索できるよう、必要な場合だけ利用側が商品形態を指定する。ISBN参照ではこの設定を使用しない。
-
-## 7. 次ページの取得
-
-`Limit` は1〜30件を指定できる。0は既定値の20件である。
-
-```go
-request := rakutenbooks.SearchRequest{
-    Title: "動物のお医者さん",
-    Limit: 5,
-}
-result, err := client.SearchBooks(ctx, request)
-```
-
-`result.NextCursor` が空でなければ、同じ検索条件・Limit・漫画区分・商品形態で次回の `Cursor` へ渡す。
-
-```go
-request.Cursor = result.NextCursor
-next, err := client.SearchBooks(ctx, request)
-```
-
-楽天Books側のページ番号は公開APIから隠蔽している。Cursorを別の検索条件、Limit、漫画区分、商品形態で
-再利用すると入力エラーになる。
-
-## 8. Raw response
-
-楽天Books固有の販売情報を確認する場合はRaw response用メソッドを使う。
-
-```go
-result, raw, err := client.SearchBooksWithRawResponse(ctx, request)
-```
-
-ISBN参照にも `LookupBooksByISBNWithRawResponse` がある。
-
-変換済み結果では、楽天Booksの販売情報のうち次を共通モデルから利用できる。
-
-- `itemPrice`: `CurrentPrice`。JPY、税込、取得時刻付き
-- `itemUrl`: `BookSource.URL` の通常商品URL
-- `affiliateUrl`: Affiliate ID指定時の `BookSource.AffiliateURL`
-
-Raw responseには、共通モデルへ変換していない在庫・販売状態、レビュー、試し読みURLなども
-含まれ得る。通常商品URLとアフィリエイトURLは別フィールドとして保持する。
-
-Rawを取得できることは、取得した情報を無期限に保存・再配布できることを意味しない。
-楽天ウェブサービスの現行利用条件を確認する。
-
-## 9. CLIデモ
-
-リポジトリのルートで、必要な環境変数を設定して実行する。
-
-一般コミックをタイトル検索する。
+## CLIデモ
 
 ```text
 go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
-```
-
-BLコミックを検索する。
-
-```text
 go run ./examples/rakutenbooks -genre bl -title "セブンティーンシロップス"
-```
-
-TLコミックを検索する。
-
-```text
-go run ./examples/rakutenbooks -genre tl -title "メロすぎ朔椰"
-```
-
-文庫を検索する。
-
-```text
-go run ./examples/rakutenbooks -size 2 -title "動物のお医者さん"
-```
-
-ISBNを参照する。
-
-```text
 go run ./examples/rakutenbooks 9784758088732
 ```
 
-Raw responseも保存する。
+全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
 
-```text
-go run ./examples/rakutenbooks -raw-output rakutenbooks-raw.json -title "動物のお医者さん"
-```
+## 利用条件
 
-全オプションは [CLIデモ](../../../examples/README.md) を参照する。
+楽天ウェブサービスは1つのApplication IDにつき1秒に1回以下のリクエストを案内しています。`rakutenbooks.Client` は待機や自動リトライを行わないため、利用側でアクセス頻度を管理してください。
 
-## 10. リクエスト頻度
+商品情報、画像、価格、アフィリエイトURLなどを表示・保存・再利用する場合は、利用時点の最新条件を確認してください。
 
-楽天ウェブサービスの公式ヘルプでは、1つのApplication IDにつき1秒に1回以下の
-リクエストとするよう案内されている。
+- [楽天ウェブサービス 利用規約（公式）](https://webservice.rakuten.co.jp/guide/rule)
+- [クレジット表示（公式）](https://webservice.rakuten.co.jp/guide/credit)
+- [楽天ブックス書籍検索API（公式）](https://webservice.rakuten.co.jp/documentation/books-book-search)
 
-`rakutenbooks.Client` は待機、直列化、自動リトライを行わない。複数goroutineや複数Clientから
-同じApplication IDを使用する場合も、利用側で全体のリクエスト頻度を管理する。
+## 詳細仕様
 
-公式ヘルプ:
-https://webservice.faq.rakuten.net/hc/ja
-
-## 11. 表示・保存上の注意
-
-楽天ウェブサービスの利用条件はAPIで取得できることとは別に確認する必要がある。
-2026-08-09時点の公式一次資料として、次を確認する。
-
-- [楽天ウェブサービス 利用規約](https://webservice.rakuten.co.jp/guide/rule)
-- [楽天ブックス書籍検索API](https://webservice.rakuten.co.jp/documentation/books-book-search)
-
-公開されている利用規約とAPIドキュメントでは、具体的な保存期限を確認できない。楽天由来の
-価格・販売可能情報を含む商品情報、およびその他のAPI取得情報を保存、表示、再利用する前に、
-利用時点の最新の規約とガイドを確認する。
-
-ライブラリはこれらの条件を自動的に履行しない。表示、保存、広告利用を行うアプリケーションは、
-利用時点の公式ガイドと規約を確認する。
-
-クレジット表示:
-https://webservice.rakuten.co.jp/guide/credit
-
-利用規約:
-https://webservice.rakuten.co.jp/guide/rule
-
-調査時点の詳細と判断根拠は
-[楽天ブックス書籍検索APIの現行仕様とmankenでの利用範囲調査](../../research/030-rakuten-books-api.md)
-を参照する。
-
-## 12. 詳細仕様
-
-検索条件、漫画区分、Cursor、ISBN参照、変換項目、HTTP・エラーの完全な動作は
-[楽天Booksパッケージ仕様](spec.md)を参照する。
+検索条件、漫画区分、商品形態、カーソル、ISBN参照、変換、Rawレスポンス、通信、エラーの完全な仕様は[manken 楽天Booksパッケージ仕様](spec.md)を参照してください。

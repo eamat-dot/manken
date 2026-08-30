@@ -1,44 +1,124 @@
 # DMMブックス利用ガイド
 
-DMMブックス検索にはDMM会員、DMMアフィリエイト、Webサービス利用登録で発行されるAPI IDとAffiliate IDが必要である。利用側で安全に読み込み、Client Optionへ渡す。
+`dmm` パッケージは、DMMブックスの一般向け電子コミックをシリーズから探し、そのシリーズに含まれる商品を取得するためのパッケージです。
+
+DMMブックスは他のパッケージの `SearchBooks` とは検索方法が異なり、まずシリーズを検索し、選んだシリーズの商品を取得します。
+
+## 準備するもの
+
+DMM会員、DMMアフィリエイト、Webサービス利用登録で発行されるAPI IDとAffiliate IDが必要です。
+
+認証情報は環境変数や秘密情報管理機能で保管し、ソースコードやログへ直接書かないことを推奨します。完全なリクエストURLには認証情報が含まれるため、保存や公開を避けてください。
+
+## 直接利用する
+
+`dmm` パッケージを直接importして利用します。
 
 ```go
-client, err := dmm.NewClient(nil,
-    dmm.WithAPIID(os.Getenv("DMM_API_ID")),
-    dmm.WithAffiliateID(os.Getenv("DMM_AFFILIATE_ID")),
-)
+import "github.com/eamat-dot/manken/dmm"
 ```
 
-リポジトリのデモとintegration testは `DMM_API_ID` と `DMM_AFFILIATE_ID` を使用する。認証値、完全なリクエストURL、無加工Raw responseを保存または公開しない。
-
-DMMの現行アフィリエイト規約と画像利用条件は組み込み先にも適用される。商品URL、アフィリエイトURL、画像URLを返すことは、保存・加工・再配布を許可するものではない。公開前に最新の公式条件を確認する。
-
-シリーズを探し、得られたIDで個別商品を取得する。
+シリーズを検索して、そのシリーズの商品を取得する最小例です。
 
 ```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/eamat-dot/manken/dmm"
+)
+
+func main() {
+	// 認証情報を指定してDMM Clientを初期化する
+	client, err := dmm.NewClient(nil,
+		dmm.WithAPIID(os.Getenv("DMM_API_ID")),
+		dmm.WithAffiliateID(os.Getenv("DMM_AFFILIATE_ID")),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// DMMでシリーズを検索する
+	series, err := client.SearchSeries(ctx, dmm.SearchSeriesRequest{
+		FreeText: "黄泉のツガイ",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(series.BookSeries) == 0 {
+		return
+	}
+
+	// 選んだシリーズに含まれる商品を取得する
+	books, err := client.SearchBooksBySeries(ctx, dmm.SearchBooksBySeriesRequest{
+		SeriesID: series.BookSeries[0].ID,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("%d books found", len(books.Books))
+}
+```
+
+## シリーズを検索する
+
+`SearchSeries` では、検索語、除外語、商品時期などを指定できます。
+
+```go
+// DMMで除外語と商品時期を指定してシリーズを検索する
 series, err := client.SearchSeries(ctx, dmm.SearchSeriesRequest{
-    FreeText:     "黄泉のツガイ",
-    ExcludedText: "特装版",
+	FreeText:     "黄泉のツガイ",
+	ExcludedText: "特装版",
 	DateFrom:     "2024",
 	DateTo:       "2024",
 })
-if err != nil {
-    // エラー処理
-}
-if len(series.BookSeries) == 0 {
-    // 候補なしとして処理
-    return
-}
-books, err := client.SearchBooksBySeries(ctx, dmm.SearchBooksBySeriesRequest{
-    SeriesID: series.BookSeries[0].ID,
-})
-if err != nil {
-    // エラー処理
-}
-_ = books
 ```
 
-`DateFrom` と `DateTo` はDMM商品 `date` の時期を絞り込む。`SearchSeries` はDMMがkeyword結果へ付与したシリーズと、同じ応答の代表商品由来のタイトル、著者、出版社、genre、画像、商品参照先を候補判別用に返す。補助情報はシリーズ自体の確定属性ではない。`SearchBooksBySeries` はそのシリーズ内の個別商品だけを `Book` として返し、空でないmanufacturer名を出版社として保持する。各Bookの `BookSeries` にはDMMが明示したシリーズIDと名称が設定される。検索条件と失敗時の動作は[DMMパッケージ仕様](spec.md)を参照する。
+検索結果にはシリーズ候補と、候補を見分けるための商品由来の情報が含まれます。タイトルや著者名などの補助情報は、シリーズ自体の確定情報とは限りません。
 
-- [DMMアフィリエイト](https://affiliate.dmm.com/)
-- [DMM Webサービス](https://affiliate.dmm.com/api/)
+## シリーズの商品を取得する
+
+シリーズを選んだら、そのIDを `SearchBooksBySeries` に指定します。
+
+```go
+// DMMでシリーズIDを指定して商品を取得する
+books, err := client.SearchBooksBySeries(ctx, dmm.SearchBooksBySeriesRequest{
+	SeriesID: series.BookSeries[0].ID,
+})
+```
+
+取得結果には電子書籍の単話、合本、無料版などが含まれる場合があります。
+
+## Rawレスポンスを取得する
+
+変換前の応答も確認したい場合は、次のメソッドを利用できます。
+
+- `SearchSeriesWithRawResponse`
+- `SearchBooksBySeriesWithRawResponse`
+
+認証情報を含むURLや、利用条件上公開できない情報を誤って保存・公開しないよう注意してください。
+
+## CLIデモ
+
+```text
+go run ./examples/dmm -query "黄泉のツガイ" -exclude "特装版" -limit 5
+```
+
+全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
+
+## 利用条件
+
+DMMの商品情報、商品URL、アフィリエイトURL、画像などを表示・保存・再利用する場合は、DMMアフィリエイトとWebサービスの最新条件を確認してください。
+
+- [DMMアフィリエイト（公式）](https://affiliate.dmm.com/)
+- [DMM Webサービス（公式）](https://affiliate.dmm.com/api/)
+
+## 詳細仕様
+
+検索条件、シリーズ候補、個別商品、Rawレスポンス、エラーの完全な仕様は[manken DMMパッケージ仕様](spec.md)を参照してください。

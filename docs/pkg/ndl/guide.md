@@ -1,35 +1,129 @@
-# NDLガイド
+# NDLサーチガイド
 
-NDLサーチSRUの利用にAPIキーやアクセストークンは不要である。
+`ndl` パッケージは、国立国会図書館サーチの全国書誌から書籍を検索し、書誌情報を取得するためのパッケージです。書籍検索とISBN参照に対応しています。APIキーやアクセストークンは必要ありません。
+
+## 直接利用する
+
+`ndl` パッケージを直接importして利用できます。
 
 ```go
-client, err := ndl.NewClient(nil)
-result, err := client.SearchBooks(ctx, ndl.SearchRequest{Title: "動物のお医者さん"})
+import "github.com/eamat-dot/manken/ndl"
 ```
 
-通常検索は既定で`NDC 726.1`と`NDLC Y84`の両方へ絞り込み、漫画候補を優先する。古い漫画など分類が付与されていない書誌も含めて探したい場合は、必要なフィルタだけ無効化する。
+最小限のタイトル検索は次のように書けます。
 
 ```go
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/eamat-dot/manken/ndl"
+)
+
+func main() {
+	// NDLサーチ Clientを初期化する
+	client, err := ndl.NewClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// NDLサーチでタイトル検索する
+	result, err := client.SearchBooks(
+		context.Background(),
+		ndl.SearchRequest{Title: "動物のお医者さん"},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("%d books found", len(result.Books))
+}
+```
+
+## 漫画を検索する
+
+書籍検索は既定で `NDC 726.1` と `NDLC Y84` の分類を使い、漫画に絞り込みます。古い漫画など、分類が付与されていない書誌も探したい場合は、必要に応じて分類による絞り込みを無効にできます。
+
+```go
+// NDLCによる漫画の絞り込みを無効にしてClientを初期化する
 client, err := ndl.NewClient(nil,
-    ndl.WithMangaNDLCFilter(false),
+	ndl.WithMangaNDLCFilter(false),
 )
 ```
 
-`WithMangaNDCFilter(false)`と`WithMangaNDLCFilter(false)`を両方指定すると分類絞り込みを行わない。分類フィルタは通常検索だけに適用し、ISBN参照には影響しない。
-
-出版時期は共通 `SearchRequest` の `DateFrom` / `DateTo`、件名と内容記述は`SearchOptions`で絞り込む。
+両方の分類を使わない場合は、次のように指定します。
 
 ```go
-result, err := client.SearchBooksWithOptions(ctx,
-    ndl.SearchRequest{Title: "動物のお医者さん", DateFrom: "2024", DateTo: "2024"},
-    ndl.SearchOptions{
-        Description: "ハムテル",
-    },
+// NDCとNDLCによる漫画の絞り込みを無効にしてClientを初期化する
+client, err := ndl.NewClient(nil,
+	ndl.WithMangaNDCFilter(false),
+	ndl.WithMangaNDLCFilter(false),
 )
 ```
 
-`DateFrom` / `DateTo`は`YYYY`、`YYYY-MM`、`YYYY-MM-DD`で指定し、両方使う場合は精度をそろえる。`Subject`は人物・地域・題材等の件名検索、`Description`は要約等を含む内容記述系インデックスの検索に使う。`Description`で検索できた語が変換前SRU XMLに含まれるとは限らず、現在のNDL実装は「要約等」の本文を`Description`へ格納しない。
+分類による絞り込みは書籍検索だけに適用され、ISBN参照には影響しません。
 
-NDLサーチAPIを利用するサイトやアプリケーションでは、NDLサーチAPIを使用していることを表示する。全国書誌情報を二次利用する場合は、適用されるメタデータの利用条件・表示要件を確認する。完成済み全国書誌の二次利用条件はCC BY 4.0互換として案内されている。
+## 検索条件を追加する
 
-同時・継続的な大量アクセスは制限または遮断される場合がある。公開された固定の数値上限は前提にせず、利用量が大きい用途ではNDLサーチの利用案内を確認する。クライアントはリトライ、キャッシュ、待機を自動では行わない。
+タイトル、著者名、出版社名、フリーワード、除外語、出版時期で検索できます。NDLサーチ固有の件名や内容記述を使う場合は `SearchBooksWithOptions` を利用します。
+
+```go
+// NDLサーチ固有の内容記述を含めて検索する
+result, err := client.SearchBooksWithOptions(
+	context.Background(),
+	ndl.SearchRequest{
+		Title:    "動物のお医者さん",
+		DateFrom: "2024",
+		DateTo:   "2024",
+	},
+	ndl.SearchOptions{Description: "ハムテル"},
+)
+```
+
+`DateFrom` と `DateTo` は `YYYY`、`YYYY-MM`、`YYYY-MM-DD` で指定できます。両方を指定する場合は精度をそろえてください。
+
+## ISBNで参照する
+
+`LookupBooksByISBN` はISBNを1件だけ受け付けます。
+
+```go
+// NDLサーチでISBNを参照する
+result, err := client.LookupBooksByISBN(
+	context.Background(),
+	[]string{"4-08-846636-5"},
+)
+```
+
+ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記も受け付けます。ISBN参照では、書籍検索で使用する漫画分類による絞り込みは行いません。
+
+古い刊行物では、NDLに書誌が存在していてもISBNが記録されていない場合があります。その場合、ISBN参照では見つかりません。
+
+## Rawレスポンスを取得する
+
+変換前の応答も確認したい場合は、次のメソッドを利用できます。
+
+- `SearchBooksWithRawResponse`
+- `SearchBooksWithOptionsAndRawResponse`
+- `LookupBooksByISBNWithRawResponse`
+
+## CLIデモ
+
+```text
+go run ./examples/ndl -title "動物のお医者さん" -limit 5
+```
+
+全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
+
+## 利用条件
+
+NDLサーチAPIを利用するサイトやアプリケーションでは、NDLサーチAPIを使用していることを表示してください。全国書誌情報を二次利用する場合は、適用されるメタデータの利用条件や表示要件も確認してください。
+
+同時・継続的な大量アクセスは制限または遮断される場合があります。Clientは待機や自動リトライを行わないため、利用量が大きい場合はNDLサーチの利用案内を確認してください。
+
+- [NDLサーチ APIのご利用について（公式）](https://ndlsearch.ndl.go.jp/help/api)
+
+## 詳細仕様
+
+検索条件、分類による絞り込み、ISBN参照、Rawレスポンス、変換、通信、エラーの完全な仕様は[manken NDLサーチパッケージ仕様](spec.md)を参照してください。

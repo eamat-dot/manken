@@ -1,399 +1,163 @@
-# 漫検 manken - 漫画の書誌情報を検索・取得する Go ライブラリ
+# manken (漫画検索ライブラリ)
 
-`manken` は、漫画の書誌情報を検索・取得し、データ取得元に依存しない共通書籍モデルで
-扱うためのGoライブラリである。利用側は、必要なプロバイダのパッケージだけを導入できる。
+`manken` は、日本国内の書誌データベースや書店・電子書籍サービスから、漫画単行本を中心とした書誌情報・販売情報を検索・取得するGo言語向けライブラリです。
 
-## 対応プロバイダ
+AniListなどの海外向けメタデータサービスでは、ローマ字表記を中心に扱うことがあります。`manken` は、**日本語のタイトルや著者名を含む国内向けの漫画情報**（出版社、ISBN、発売日、価格、商品URLなど）を取得することを目的としています。
 
-| パッケージ      | データ取得元                                                                                                                  | 利用できる機能                                                               | 利用開始に必要なもの                                                |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `madb`          | [メディア芸術データベース（MADB）](https://mediaarts-db.artmuseums.go.jp/) / [MADB Lab](https://mediag.bunka.go.jp/madb_lab/) | タイトル・著者名・出版社名などによる検索、ISBNによる取得                     | APIキー・アカウント登録は不要。MADB Lab利用規約の確認が必要         |
-| `openbd`        | [openBD](https://openbd.jp/)                                                                                                  | ISBNによる取得                                                               | APIキー・アカウント登録は不要。openBD API利用規約への同意が必要     |
-| `googlebooks`   | [Google Books](https://books.google.com/)                                                                                     | タイトル・著者名・出版社名・フリーワードによる検索、1件のISBNによる取得      | Google Books APIキーとTerms / Brandingの確認が必要                  |
-| `rakutenbooks`  | [楽天ブックス](https://books.rakuten.co.jp/)                                                                                  | 一般・BL・TLコミックのタイトル・著者名・出版社名検索、1件のISBNによる取得    | Application IDとAccess Keyが必要。Affiliate IDは任意                |
-| `rakutenkobo`   | [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                                                               | 一般・BL・TLコミックのタイトル・著者名・出版社名・商品キーワード・除外語検索 | Application IDとAccess Keyが必要。Affiliate IDは任意                |
-| `yahooshopping` | [Yahoo!ショッピング](https://shopping.yahoo.co.jp/)                                                                           | Tower固定の紙コミック商品キーワード検索、1件のISBNによる取得                 | Yahoo!ショッピングClient IDとクレジット表示要件の確認が必要         |
-| `dmm`           | [DMMブックス](https://book.dmm.com/)                                                                                          | 一般向け電子コミックのシリーズ探索とシリーズ内個別商品取得                   | API IDとAffiliate IDが必要                                          |
-| `ndl`           | [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                                                          | 完成済み全国書誌のタイトル・著者・出版社・フリーワード検索、1件のISBN参照    | APIキー不要。NDLサーチAPIの利用表示と書誌データの利用条件確認が必要 |
+## 主な特徴
 
-### 利用前の確認
+- **国内の漫画情報を検索**: 日本国内の書誌データベースや書店・電子書籍サービスから、漫画単行本を中心に検索します。
 
-- MADBのデータを利用する場合は出典を記載する。編集・加工した場合は、その旨も記載する。
-  詳細は [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/) を確認する。
-- openBDの書誌・書影などは、本の紹介・販促目的に限って利用できる。取得データの任意改変は
-  認められておらず、削除要請を受けた場合は対応が必要となる。詳細は
-  [openBD API利用規約](https://openbd.jp/terms/) を確認する。
-- openBDは、収録されていないISBNや、一部の書誌項目・書影がない書籍を含む。取得結果の扱いは
-  [openBDパッケージ仕様](docs/pkg/openbd/spec.md)を参照する。
-- Google Booksは漫画専用の取得元ではない。検索結果の表示、保存、課金形態には
-  [Google Booksガイド](docs/pkg/googlebooks/guide.md)のTerms / Branding上の注意が適用される。
-- 楽天Booksは楽天ウェブサービスの利用条件に従う。リクエスト頻度、クレジット表示、
-  データの保存・更新条件は [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md) を確認する。
-- 楽天Koboも楽天ウェブサービスの利用条件に従う。Application ID / Access Key、クレジット表示、
-  電子書籍の商品情報の扱いは [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md) を確認する。
-- Yahoo!ショッピングはTower固定の商品検索であり、タイトル・著者・出版社は専用書誌検索ではない。
-  公式の1クエリ/秒とクレジット表示要件、Raw responseの保存条件の未確定性は
-  [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md)を確認する。
-- DMMブックスは一般向け電子コミックのシリーズ探索と個別商品取得に使う。シリーズ探索はDMMのフリーワード検索結果へ明示されたシリーズと、代表商品由来の候補判別情報を返す。認証情報と画像・アフィリエイト利用条件は[DMMブックス利用ガイド](docs/pkg/dmm/guide.md)を確認する。
-- NDLサーチAPIを利用するサイトやアプリケーションでは、その利用を表示する。全国書誌情報を二次利用する場合は
-  [NDLサーチガイド](docs/pkg/ndl/guide.md)の表示・利用条件と大量アクセス時の注意を確認する。
+- **漫画向けに絞り込み**: 書籍検索は、取得元で利用できる分類やカテゴリを使って、可能な範囲で漫画に絞り込みます。
 
-## 主な機能
+- **ISBNで書籍を参照**: ISBN指定時は漫画向けの絞り込みをせず、該当する書籍情報を参照します。
 
-### MADB
-
-- タイトルによる検索
-- 著者名による検索
-- 出版社名による検索
-- 複数の書誌項目を対象とするフリーワード検索
-- 指定語を含む結果の除外
-- 出版時期による範囲検索
-- 取得件数の指定とカーソルによるページング
-- ISBN-10またはISBN-13による書誌情報の取得
-
-### openBD
-
-- 複数のISBN-10またはISBN-13による書誌情報の取得
-
-### Google Books
-
-- タイトル、著者名、出版社名、複数の書誌項目を対象にするフリーワードによる検索
-- 指定語を含む結果の除外
-- 取得件数の指定とカーソルによるページング
-- ISBN-10またはISBN-13を1件指定した書誌情報の取得
-- 変換済みの検索・ISBN参照結果と受信したrawレスポンスの取得
-
-### 楽天Books
-
-- 一般・BL・TLコミックを区分したタイトル・著者名・出版社名検索と楽天Booksの商品形態による任意の絞り込み
-- 取得件数の指定とカーソルによるページング
-- ISBN-10またはISBN-13を1件指定した書誌情報の取得
-- 取得時点の税込販売価格を共通価格情報として取得
-- Affiliate IDを任意設定し、通常商品URLとは別のアフィリエイトURLを取得
-- 変換済み結果と受信したrawレスポンスの取得
-
-### 楽天Kobo
-
-- 一般・BL・TLコミックを区分したタイトル・著者名・出版社名・商品キーワード検索
-- 指定語を含む結果の除外
-- 取得件数の指定とカーソルによるページング
-- Kobo商品番号、取得時点の税込販売価格、商品URL、画像の取得
-- Affiliate IDを任意設定し、通常商品URLとは別のアフィリエイトURLを取得
-- 変換済み結果と受信したrawレスポンスの取得
-
-### NDLサーチ
-
-- 完成済み全国書誌を対象にするタイトル・著者名・出版社名・フリーワード検索
-- 出版時期による範囲検索と、件名・内容記述によるNDL固有の絞り込み
-- NDC 726.1 / NDLC Y84による漫画候補の既定絞り込みと個別解除
-- ISBN-10またはISBN-13を1件指定した書誌情報の取得
-- 取得件数の指定とカーソルによるページング
-- DC-NDL v3から変換した巻、版、シリーズ、読み、分類などと受信したraw XMLの取得
+> Google Booksなど、漫画だけに絞り込めない取得元もあります。電子書籍では単話・分冊・合本などが含まれる場合があります
 
 ## 必要な環境
 
-Go 1.26.0以降を使用する。
+Go 1.26.0以降
 
 ## インストール
-
-```text
-go get github.com/eamat-dot/manken/madb
-go get github.com/eamat-dot/manken/openbd
-go get github.com/eamat-dot/manken/googlebooks
-go get github.com/eamat-dot/manken/rakutenbooks
-go get github.com/eamat-dot/manken/rakutenkobo
-go get github.com/eamat-dot/manken/dmm
-go get github.com/eamat-dot/manken/yahooshopping
-go get github.com/eamat-dot/manken/ndl
-```
-
-使用するデータ取得元のパッケージを利用側のGoモジュールへ追加する。
-登録済みproviderを明示して共通操作を呼ぶ場合は、ルートパッケージも追加する。
 
 ```text
 go get github.com/eamat-dot/manken
 ```
 
-## Quick Start
+## クイックスタート
 
-providerを一つ選んで共通の入口から呼び出す場合は、provider Clientを利用側で生成して
-`manken.NewClient` へ登録する。ルートは検索条件や結果を変更せず、指定した取得元へだけ委譲する。
+利用したいプロバイダのClientを作成して `manken.Client` に登録し、検索時に `Source` を指定して呼び出します。
 
-```go
-package main
+### 1. 書籍のタイトル検索
 
-import (
-    "context"
-    "log"
-
-    "github.com/eamat-dot/manken"
-    "github.com/eamat-dot/manken/madb"
-)
-
-func main() {
-    provider, err := madb.NewClient(nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-    client, err := manken.NewClient(manken.WithMADBClient(provider))
-    if err != nil {
-        log.Fatal(err)
-    }
-    result, err := client.SearchBooks(
-        context.Background(),
-        manken.SourceMADB,
-        manken.SearchRequest{Title: "動物のおしゃべり"},
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    log.Printf("%d books found", len(result.Books))
-}
-```
-
-この形では、必要なproviderパッケージもあわせてimportする。NDL固有の検索条件やDMMの
-シリーズ探索などは、従来どおりproviderパッケージを直接利用する。次の例のように
-providerを直接利用することもできる。
+以下は、MADB（メディア芸術データベース）をプロバイダとして登録し、タイトルで検索する例です。
 
 ```go
 package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
+	"github.com/eamat-dot/manken"
 	"github.com/eamat-dot/manken/madb"
 )
 
 func main() {
-	client, err := madb.NewClient(nil)
+	// プロバイダの初期化
+	provider, err := madb.NewClient(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// ルートClientへ登録
+	client, err := manken.NewClient(manken.WithMADBClient(provider))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// MADBを指定して書籍を検索
 	result, err := client.SearchBooks(
 		context.Background(),
-		madb.SearchRequest{Title: "動物のおしゃべり"},
+		manken.SourceMADB,
+		manken.SearchRequest{Title: "動物のおしゃべり"},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, book := range result.Books {
-		fmt.Println(book.Title, book.Authors)
-	}
+	log.Printf("%d books found", len(result.Books))
 }
 ```
 
-タイトルに「動物のおしゃべり」を含む単行本を検索し、タイトルと著者を出力する。
-ISBN参照は `client.LookupBooksByISBN(ctx, []string{"4088466365"})` のように呼び出す。
-検索条件、ISBN参照、ページング、エラーの詳細は
-[MADBパッケージ仕様](docs/pkg/madb/spec.md)を参照する。
+### 2. ISBNでの参照
 
-openBDで複数のISBNを参照する場合は次のように呼び出す。
+登録済みのプロバイダと `Source` を指定して、ISBNから書籍情報を取得することも可能です。
 
 ```go
-package main
-
-import (
-	"context"
-	"log"
-
-	"github.com/eamat-dot/manken/openbd"
-)
-
-func main() {
-	client, err := openbd.NewClient(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	result, err := client.LookupBooksByISBN(
 		context.Background(),
-		[]string{"4088466365", "9784048689410"},
+		manken.SourceMADB,
+		[]string{"4-08-846636-5"},
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("%d件の入力結果を取得", len(result.Items))
-}
 ```
-
-結果は入力ISBNと同じ件数、同じ順序で返る。未収録ISBNの `Books` は空になる。
-変換項目と通信条件は [openBDパッケージ仕様](docs/pkg/openbd/spec.md)を参照する。
-
-Google Booksを使う場合は、利用側でAPIキーを安全に読み込んでClientへ渡す。
-
-```go
-client, err := googlebooks.NewClient(nil,
-    googlebooks.WithAPIKey(os.Getenv("GOOGLE_BOOKS_API_KEY")),
-)
-if err != nil {
-    log.Fatal(err)
-}
-result, err := client.SearchBooks(
-    context.Background(),
-    googlebooks.SearchRequest{Title: "動物のお医者さん"},
-)
-```
-
-Google Booksは漫画以外も返す。検索条件、ISBN参照、利用条件は
-[Google Booksパッケージ仕様](docs/pkg/googlebooks/spec.md)と
-[Google Booksガイド](docs/pkg/googlebooks/guide.md)を参照する。
-
-楽天Booksを使う場合はApplication IDとAccess Keyを設定する。Affiliate IDは任意である。
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "os"
-
-    "github.com/eamat-dot/manken/rakutenbooks"
-)
-
-func main() {
-    client, err := rakutenbooks.NewClient(nil,
-        rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
-        rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    result, err := client.SearchBooks(
-        context.Background(),
-        rakutenbooks.SearchRequest{Title: "動物のお医者さん"},
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    for _, book := range result.Books {
-        log.Println(book.Title)
-    }
-}
-```
-
-既定は一般コミックを検索する。BL・TLの指定、Affiliate ID、利用条件は
-[楽天Booksパッケージ仕様](docs/pkg/rakutenbooks/spec.md)と
-[楽天Booksガイド](docs/pkg/rakutenbooks/guide.md)を参照する。
-
-楽天Koboも同じApplication ID / Access Key方式でClientを作成し、電子書籍を検索できる。
-ISBN参照は提供しない。検索条件と除外語の組み合わせ、商品番号の扱いは
-[楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md)と
-[楽天Koboガイド](docs/pkg/rakutenkobo/guide.md)を参照する。
-
-NDLサーチは認証情報なしで利用できる。タイトル検索は次のように呼び出す。
-
-```go
-client, err := ndl.NewClient(nil)
-if err != nil {
-    log.Fatal(err)
-}
-result, err := client.SearchBooks(
-    context.Background(),
-    ndl.SearchRequest{Title: "動物のお医者さん"},
-)
-```
-
-NDLサーチは漫画専用の取得元ではなく、タイトル検索は関連タイトルも対象にする。検索条件、変換項目、利用条件は
-[NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md)と[NDLサーチガイド](docs/pkg/ndl/guide.md)を参照する。
 
 ## CLIデモ
 
-`examples/madb` で、MADBの実サービスを検索・参照してJSON結果を確認できる。
+`examples/` に各プロバイダに対応した実行可能なCLIサンプルを用意しています。
 
-```text
+```bash
 go run ./examples/madb -title "動物のおしゃべり" -limit 5
 ```
 
-タイトルに「動物のおしゃべり」を含む単行本を5件まで検索する。
-全オプションと操作方法は [MADB CLIデモ](examples/README.md) を参照する。
+※詳細なオプションやRawレスポンスの保存方法などは [CLIデモ](examples/README.md) を参照してください。
 
-Google BooksのAPIキーを環境変数へ設定済みの場合は、次のデモを実行できる。
+## 対応データソース（Providers）
 
-```text
-go run ./examples/googlebooks -title "動物のお医者さん" -limit 5
-```
+プロバイダごとの機能対応表および認証情報の要否です。
 
-楽天BooksのApplication IDとAccess Keyを環境変数へ設定済みの場合は、次のデモを実行できる。
+| データ取得元                                                       | パッケージ      | 対象                  | 書籍検索           | ISBN参照 | APIキー等            |
+| ------------------------------------------------------------------ | --------------- | --------------------- | ------------------ | -------- | -------------------- |
+| [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)               | `ndl`           | 全国書誌              | 漫画に絞り込み     | ○       | **不要**             |
+| [メディア芸術データベース](https://mediaarts-db.artmuseums.go.jp/) | `madb`          | 漫画書誌              | ○                 | ○       | **不要**             |
+| [openBD](https://openbd.jp/)                                       | `openbd`        | 書誌                  | -                  | ○       | **不要**             |
+| [Google Books APIs](https://books.google.com/)                     | `googlebooks`   | 書誌                  | 書籍全般           | ○       | API Key              |
+| [Yahoo!ショッピング](https://store.shopping.yahoo.co.jp/tower/)    | `yahooshopping` | 紙書籍 _(タワレコ店)_ | 漫画に絞り込み     | ○       | Client ID            |
+| [楽天ブックス](https://books.rakuten.co.jp/)                       | `rakutenbooks`  | 紙書籍                | 漫画に絞り込み     | ○       | App ID, Access Key   |
+| [楽天Kobo](https://books.rakuten.co.jp/e-book/)                    | `rakutenkobo`   | 電子書籍              | 漫画に絞り込み     | -        | App ID, Access Key   |
+| [DMMブックス](https://book.dmm.com/)                               | `dmm`           | 電子書籍              | シリーズ検索・取得 | -        | API ID, Affiliate ID |
 
-```text
-go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
-```
+### プロバイダに関する注意事項
 
-同じ環境変数で楽天Koboを利用できるアプリでは、電子コミック検索も実行できる。
+- **書籍検索の挙動**: `Google Books` はジャンル指定が不可のため書籍全般が対象になります。\
+  `Yahoo!ショッピング` は「タワーレコード Yahoo!店」の商品に限定して検索します。\
+  `DMMブックス` はシリーズを検索し、シリーズ内の商品を取得します。
 
-```text
-go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -limit 5
-```
+- **表記の揺れ・内容差**: プロバイダによってタイトル副題の扱いや著者名の姓名区切り、電子書籍の単位（単話・合本・無料版等）の扱いが異なります。
 
-DMM API IDとAffiliate IDを設定済みの場合は、一般向けDMMブックスのシリーズ探索を実行できる。
+- **プロバイダの利用条件**: 各プロバイダの規約（クレジット表示、リクエスト頻度、アフィリエイト条件など）は利用時点の公式情報をご確認ください。
+  - **国立国会図書館サーチ**: [NDLサーチ APIのご利用について](https://ndlsearch.ndl.go.jp/help/api)
 
-```text
-go run ./examples/dmm -query "黄泉のツガイ" -exclude "特装版" -limit 5
-```
+  - **メディア芸術データベース**: [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/)
 
-Yahoo!ショッピングのClient IDを環境変数へ設定済みの場合は、Tower固定の紙コミック商品検索を実行できる。
+  - **openBD**: [openBD API利用規約](https://openbd.jp/terms/)
 
-```text
-go run ./examples/yahooshopping -title "動物のお医者さん" -limit 5
-```
+  - **Google Books**: [Google Books API Terms of Service](https://developers.google.com/books/terms) / [Branding Guidelines](https://developers.google.com/books/branding)
 
-認証情報なしでNDLサーチのデモを実行できる。
+  - **Yahoo!ショッピング**: [Yahoo!デベロッパーネットワーク ご利用ガイド](https://developer.yahoo.co.jp/start/) / [クレジット表示](https://developer.yahoo.co.jp/attribution/)
 
-```text
-go run ./examples/ndl -title "動物のお医者さん" -limit 5
-```
+  - **楽天**: [楽天ウェブサービス利用規約](https://webservice.rakuten.co.jp/guide/rule) / [クレジット表示](https://webservice.rakuten.co.jp/guide/credit)
+
+  - **DMMブックス**: [DMMアフィリエイト](https://affiliate.dmm.com/) / [DMMウェブサービス利用規約](https://terms.dmm.com/affiliate_web_service/)
 
 ## ドキュメント
 
-- [MADBパッケージ仕様](docs/pkg/madb/spec.md): MADB固有の検索、変換、通信、エラー
-- [openBDパッケージ仕様](docs/pkg/openbd/spec.md): openBD固有のISBN参照、変換、通信、エラー
-- [Google Booksパッケージ仕様](docs/pkg/googlebooks/spec.md): Google Books固有の検索、ISBN参照、変換、通信、エラー
-- [Google Booksガイド](docs/pkg/googlebooks/guide.md): APIキー、デモ、利用条件
-- [楽天Booksパッケージ仕様](docs/pkg/rakutenbooks/spec.md): 楽天Books固有の検索、漫画区分、ISBN参照、変換、通信、エラー
-- [楽天Booksガイド](docs/pkg/rakutenbooks/guide.md): 認証情報、Affiliate ID、デモ、利用条件
-- [楽天Koboパッケージ仕様](docs/pkg/rakutenkobo/spec.md): 楽天Kobo固有の検索、変換、通信、エラー
-- [楽天Koboガイド](docs/pkg/rakutenkobo/guide.md): 認証情報、Affiliate ID、利用条件
-- [Yahoo!ショッピングパッケージ仕様](docs/pkg/yahooshopping/spec.md): Tower固定の商品検索、変換、通信、エラー
-- [DMMパッケージ仕様](docs/pkg/dmm/spec.md): DMMブックスのシリーズ探索、個別商品取得、変換、通信、エラー
-- [DMMブックス利用ガイド](docs/pkg/dmm/guide.md): 認証情報と利用条件
-- [NDLサーチパッケージ仕様](docs/pkg/ndl/spec.md): NDLサーチ固有の検索、ISBN参照、変換、通信、エラー
-- [NDLサーチガイド](docs/pkg/ndl/guide.md): 利用表示、書誌データの二次利用条件、大量アクセス時の注意
-- [共通API仕様](docs/spec.md): 共通書籍モデルとAPI仕様
-- [アーキテクチャ](ARCHITECTURE.md): パッケージ構成と依存関係
-- [Changelog](CHANGELOG.md): 利用者に影響する変更
+- **共通仕様**: [manken API仕様](docs/spec.md)
+
+- **開発者向けガイド**: [アーキテクチャ](ARCHITECTURE.md) / [変更履歴](CHANGELOG.md)
+
+### 各パッケージの使い方
+
+- [NDLサーチ](docs/pkg/ndl/guide.md)
+- [MADB](docs/pkg/madb/guide.md)
+- [openBD](docs/pkg/openbd/guide.md)
+- [Google Books](docs/pkg/googlebooks/guide.md)
+- [楽天Books](docs/pkg/rakutenbooks/guide.md)
+- [楽天Kobo](docs/pkg/rakutenkobo/guide.md)
+- [Yahoo!ショッピング](docs/pkg/yahooshopping/guide.md)
+- [DMMブックス](docs/pkg/dmm/guide.md)
 
 ## 開発
 
-```text
-task mod-deps
-task lint
-task test
-task build
-task all
-```
+```bash
+go test -v ./...
+go build -v ./...
+golangci-lint run
 
-`task all` は依存関係の整理、lint、テスト、全パッケージのビルドを順に実行する。
-通常のテストは実サービスへ接続しない。
-
-各取得元の実サービスを明示的に確認する場合は次を実行する。
-
-```text
-go test -v -tags=integration ./madb
-go test -v -tags=integration ./openbd
-go test -v -tags=integration ./googlebooks
-go test -v -tags=integration ./rakutenbooks
-go test -v -tags=integration ./rakutenkobo
-go test -v -tags=integration ./dmm
-go test -v -tags=integration ./yahooshopping
-go test -v -tags=integration ./ndl
 ```
 
 ## ライセンス
 
 [MIT License](LICENSE)
+
+> **Note**: 本ライブラリ自体はMITライセンスですが、取得した書誌データ・画像・APIの利用には各データ提供元の利用規約が適用されます。
