@@ -55,8 +55,12 @@ func main() {
 Affiliate IDを使う場合は、Client作成時に `WithAffiliateID` を追加してください。
 
 ```go
-// アフィリエイトURLを使う場合はAffiliate IDを設定する
-rakutenbooks.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID"))
+// Affiliate IDを含めて楽天Books Clientを初期化する
+client, err := rakutenbooks.NewClient(nil,
+	rakutenbooks.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+	rakutenbooks.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+	rakutenbooks.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID")),
+)
 ```
 
 ## 書籍を検索する

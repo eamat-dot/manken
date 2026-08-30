@@ -55,8 +55,12 @@ func main() {
 Affiliate IDを使う場合は、Client作成時に `WithAffiliateID` を追加してください。
 
 ```go
-// アフィリエイトURLを使う場合はAffiliate IDを設定する
-rakutenkobo.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID"))
+// Affiliate IDを含めて楽天Kobo Clientを初期化する
+client, err := rakutenkobo.NewClient(nil,
+	rakutenkobo.WithApplicationID(os.Getenv("RAKUTEN_APP_ID")),
+	rakutenkobo.WithAccessKey(os.Getenv("RAKUTEN_ACCESS_KEY")),
+	rakutenkobo.WithAffiliateID(os.Getenv("RAKUTEN_AFFILIATE_ID")),
+)
 ```
 
 ## 電子コミックを検索する
