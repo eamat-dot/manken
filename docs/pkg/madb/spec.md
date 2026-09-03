@@ -20,7 +20,7 @@ MADBの `schema:provider` 配下にある `schema:price` は、所蔵・提供�
 
 ## 2. 参照資料
 
-2026年7月29日、30日、8月3日に次の公式資料と実サービスを確認した。
+参照する公式資料は次のとおりである。
 
 - [MADBの概要とSPARQLクエリサービス](https://mediaarts-db.artmuseums.go.jp/about)
 - [MADBクラス定義](https://mediaarts-db.artmuseums.go.jp/data/class/)
@@ -302,13 +302,9 @@ ISBN-10またはISBN-13のチェックディジットを検証する。
 
 マンガ単行本へ直接記録された言語タグなしの `schema:brand` を
 `PublicationSeries` として返す。`ja-hrkt` などの言語タグ付きの読みは返さない。
-空文字列を除外し、完全一致の重複を除去してGo文字列昇順で返す。レーベルらしくない値が
-含まれていても、文字列の内容から除外、修正、再結合、再分類しない。たとえば
-`M530976`（ISBN `9784253121989`）では、NDL保存済みRawの
-`dcndl:seriesTitle` が `A.L.C.SELECTION. アラ還 愛子ときどき母` という1値である一方、
-現行MADBは `A`、`C`、`L`、`SELECTION`、`アラ還 愛子ときどき母` の5つの
-`schema:brand` を返す。取得元データを `A.L.C.SELECTION` へ再結合したり、
-`アラ還 愛子ときどき母` を `BookSeries` へ移したりしない。
+空文字列を除外し、完全一致の重複を除去してGo文字列昇順で返す。レーベルらしくない値や
+分割されたように見える値が含まれていても、文字列の内容から除外、修正、再結合、再分類しない。
+別の取得元や別項目の値を根拠に `schema:brand` を補正したり、`BookSeries` へ移したりしない。
 
 `schema:isPartOf` が参照する `class:MangaBookSeries` から、次を取得する。
 

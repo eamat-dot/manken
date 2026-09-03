@@ -85,14 +85,6 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 
 どちらも変換済みの結果と、MADBから受信した成功レスポンス本文を返します。
 
-## CLIデモ
-
-```text
-go run ./examples/madb -title "動物のおしゃべり" -limit 5
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md#madb)を参照してください。
-
 ## 利用条件
 
 MADBのデータを利用する場合は出典を記載してください。編集・加工した場合は、その旨も記載してください。詳細は[MADB Lab利用規約（公式）](https://mediag.bunka.go.jp/madb_lab/user_terms/)を確認してください。

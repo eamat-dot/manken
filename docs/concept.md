@@ -73,8 +73,7 @@ ISBNなど信頼性の高い識別子で確実に判断できる範囲はライ�
 
 MCPサーバーは検索ライブラリ本体と分離した独立repository / Go moduleで実装し、
 `manken` 本体をMCP SDKへ依存させない。MCP層は利用側としてルートファサードまたは
-各providerの公開APIを呼び出す。配置と初期設計の根拠は
-[MCPサーバー設計調査](research/067-mcp-server-design.md) に記録する。
+各providerの公開APIを呼び出す。
 
 MCP / LLMからは用途に応じて、共通 `Book`、Raw response、またはその両方を利用できる形を
 維持する。LLMがRaw responseを解析できる場合でも、共通項目を安定して扱える

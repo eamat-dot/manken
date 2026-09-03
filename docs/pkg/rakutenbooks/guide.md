@@ -106,16 +106,6 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 
 Affiliate IDを指定した場合、楽天Booksが返すアフィリエイトURLは `BookSource.AffiliateURL` から取得できます。
 
-## CLIデモ
-
-```text
-go run ./examples/rakutenbooks -title "動物のお医者さん" -limit 5
-go run ./examples/rakutenbooks -genre bl -title "セブンティーンシロップス"
-go run ./examples/rakutenbooks 9784758088732
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
-
 ## 利用条件
 
 楽天ウェブサービスは1つのApplication IDにつき1秒に1回以下のリクエストを案内しています。`rakutenbooks.Client` は待機や自動リトライを行わないため、利用側でアクセス頻度を管理してください。

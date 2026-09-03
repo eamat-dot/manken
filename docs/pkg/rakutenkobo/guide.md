@@ -83,20 +83,6 @@ result, err := client.SearchBooks(
 
 `SearchBooksWithRawResponse` を使うと、変換済みの結果と楽天Koboから受信した成功レスポンス本文を取得できます。
 
-## CLIデモ
-
-```text
-go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -limit 5
-```
-
-変換前の応答も保存する場合は `-raw-output` を指定します。既存ファイルは上書きしません。
-
-```text
-go run ./examples/rakutenkobo -title "ふつつかな悪女ではございますが" -raw-output ./kobo-raw.json
-```
-
-全オプションは[CLIデモ](../../../examples/README.md)を参照してください。
-
 ## 利用条件
 
 楽天Koboの商品情報、画像、価格、アフィリエイトURLなどを表示・保存・再利用する場合は、利用時点の最新条件を確認してください。クレジット表示も楽天ウェブサービスの現行案内に従ってください。

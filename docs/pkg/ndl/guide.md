@@ -108,14 +108,6 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 - `SearchBooksWithOptionsAndRawResponse`
 - `LookupBooksByISBNWithRawResponse`
 
-## CLIデモ
-
-```text
-go run ./examples/ndl -title "動物のお医者さん" -limit 5
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
-
 ## 利用条件
 
 NDLサーチAPIを利用するサイトやアプリケーションでは、NDLサーチAPIを使用していることを表示してください。全国書誌情報を二次利用する場合は、適用されるメタデータの利用条件や表示要件も確認してください。

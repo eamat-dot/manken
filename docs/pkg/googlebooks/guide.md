@@ -86,19 +86,6 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 - `SearchBooksWithRawResponse`
 - `LookupBooksByISBNWithRawResponse`
 
-## CLIデモ
-
-環境変数を設定してから、リポジトリルートで実行してください。
-
-```text
-go run ./examples/googlebooks -title "動物のお医者さん" -limit 5
-go run ./examples/googlebooks -author "佐々木倫子"
-go run ./examples/googlebooks -publisher "白泉社"
-go run ./examples/googlebooks 4088466365
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md#google-books)を参照してください。
-
 ## 利用条件と表示
 
 Google Booksの結果、画像、プレビュー、販売・閲覧情報をアプリケーションで利用する場合は、次の公式条件を確認してください。

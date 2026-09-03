@@ -82,16 +82,6 @@ func main() {
 	)
 ```
 
-## CLIデモ
-
-`examples/` に各プロバイダに対応した実行可能なCLIサンプルを用意しています。
-
-```bash
-go run ./examples/madb -title "動物のおしゃべり" -limit 5
-```
-
-※詳細なオプションやRawレスポンスの保存方法などは [CLIデモ](examples/README.md) を参照してください。
-
 ## 対応データソース（Providers）
 
 プロバイダごとの機能対応表および認証情報の要否です。

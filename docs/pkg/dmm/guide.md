@@ -104,14 +104,6 @@ books, err := client.SearchBooksBySeries(ctx, dmm.SearchBooksBySeriesRequest{
 
 認証情報を含むURLや、利用条件上公開できない情報を誤って保存・公開しないよう注意してください。
 
-## CLIデモ
-
-```text
-go run ./examples/dmm -query "黄泉のツガイ" -exclude "特装版" -limit 5
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
-
 ## 利用条件
 
 DMMの商品情報、商品URL、アフィリエイトURL、画像などを表示・保存・再利用する場合は、DMMアフィリエイトとWebサービスの最新条件を確認してください。

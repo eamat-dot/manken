@@ -65,7 +65,7 @@ WithEndpoint(endpoint string)
 
 Clientの既定値は `ComicGenreGeneral` である。1回の `SearchBooks` で複数区分を横断しない。
 複数区分を内部で別々のAPIリクエストへ展開すると、Limit、page、取得元の返却順を単一の検索結果と
-Cursorで表せなくなるためである。これらのジャンルIDは2026年8月10日にKoboジャンル検索APIで再確認している。
+Cursorで表せなくなるためである。
 
 ## 4. SearchBooks
 
@@ -109,7 +109,7 @@ func (client *Client) SearchBooksWithRawResponse(
 - 専用条件は常に対応する取得元パラメーターへ送る。補完する `keyword` は利用者が別途指定した検索語ではなく、`NGKeyword` の取得元要件を満たすため既存の正条件と同じ値を送る
 - `Exclude` だけでは検索できない
 
-この補完は2026年8月11日に取得元へ送信して確認した挙動に基づく回避策であり、`NGKeyword` が検索対象とする項目の範囲は保証しない。固定の除外語は追加しない。利用者が指定した `Exclude` だけを `NGKeyword` へ送る。
+この補完は `NGKeyword` と `keyword` の取得元要件を満たすための処理であり、`NGKeyword` が検索対象とする項目の範囲は保証しない。固定の除外語は追加しない。利用者が指定した `Exclude` だけを `NGKeyword` へ送る。
 
 ### 4.2 固定パラメータ
 
@@ -158,8 +158,7 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 - 現在ページが `pageCount` 以上
 - 現在ページが100
 
-楽天Koboの上限に合わせ、100ページを超えるCursorを生成しない。2026年8月10日の実API確認では、
-0件時はHTTP 200で `count=0`、`page=0`、`pageCount=0`、`hits=0`、空の`Items`が返った。
+楽天Koboの上限に合わせ、100ページを超えるCursorを生成しない。
 
 ## 6. 共通モデルへの変換
 

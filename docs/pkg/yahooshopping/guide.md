@@ -88,14 +88,6 @@ ISBN参照もタワーレコード Yahoo!店の商品だけを対象にします
 - `SearchBooksWithRawResponse`
 - `LookupBooksByISBNWithRawResponse`
 
-## CLIデモ
-
-```text
-go run ./examples/yahooshopping -title "動物のお医者さん" -limit 5
-```
-
-全オプションとRawレスポンスの保存方法は[CLIデモ](../../../examples/README.md)を参照してください。
-
 ## 利用条件
 
 公式の案内に従い、1秒に1回を超えないよう利用側でアクセス頻度を管理してください。クレジット表示も必要です。Clientは待機や自動リトライを行いません。
