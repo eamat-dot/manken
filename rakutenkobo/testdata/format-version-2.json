@@ -1,0 +1,12 @@
+{
+  "Items": [
+    {
+      "title": "サンプル作品 1",
+      "author": "著者A/著者B",
+      "authorKana": "チョシャエー,チョシャビー/チョシャエー,チョシャビー",
+      "publisherName": "サンプル出版社",
+      "itemNumber": "test-item-001"
+    }
+  ],
+  "GenreInformation": []
+}

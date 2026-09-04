@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <srw:numberOfRecords>1</srw:numberOfRecords>
+  <srw:records><srw:record><srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema><srw:recordData>
+    <rdf:RDF><dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000001">
+      <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000001</dcterms:identifier>
+      <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-0-00-000000-2</dcterms:identifier>
+      <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">00000000</dcterms:identifier>
+      <dcterms:title>サンプル作品. 1</dcterms:title>
+      <dc:title><rdf:Description><rdf:value>サンプル作品</rdf:value><dcndl:transcription>サンプル サクヒン</dcndl:transcription></rdf:Description></dc:title>
+      <dcndl:volume><rdf:Description><rdf:value>1</rdf:value></rdf:Description></dcndl:volume>
+      <dcndl:seriesTitle><rdf:Description><rdf:value>サンプルコミックス</rdf:value></rdf:Description></dcndl:seriesTitle>
+      <dcndl:edition>新装版</dcndl:edition>
+      <dcterms:creator><foaf:Agent><foaf:name>作家, 太郎</foaf:name><dcndl:role>美術制作者</dcndl:role></foaf:Agent></dcterms:creator>
+      <dc:creator>原作者A 原作</dc:creator>
+      <dc:creator>脚本家B 脚本</dc:creator>
+      <dc:creator>作画家C 作画</dc:creator>
+      <dc:creator>監修者D 監修</dc:creator>
+      <dc:creator>構成者E 構成・絵</dc:creator>
+      <dc:creator>協力者F 協力</dc:creator>
+      <dcterms:publisher><foaf:Agent><foaf:name>出版社A</foaf:name></foaf:Agent></dcterms:publisher>
+      <dcterms:publisher><foaf:Agent><foaf:name>流通会社</foaf:name><dcterms:description>発売</dcterms:description></foaf:Agent></dcterms:publisher>
+      <dcterms:date>2020.01</dcterms:date><dcterms:issued>2020.02</dcterms:issued><dcterms:language>jpn</dcterms:language>
+      <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+      <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+      <dcterms:subject><rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/00000001"><rdf:value>漫画</rdf:value></rdf:Description></dcterms:subject>
+      <dcndl:genre><rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/000000002"><rdf:value>漫画</rdf:value></rdf:Description></dcndl:genre>
+      <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+      <dcterms:extent>200p ; 18cm</dcterms:extent><dcndl:price>700円</dcndl:price>
+    </dcndl:BibResource></rdf:RDF>
+  </srw:recordData></srw:record></srw:records>
+</srw:searchRetrieveResponse>
