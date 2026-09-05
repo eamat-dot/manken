@@ -25,68 +25,46 @@ DMMブックス電子コミックのシリーズを探索し、シリーズ内�
 
 ## 構成と依存方向
 
+### 公開パッケージの依存関係
+
 ```text
-利用側・examples
-       |
-       +------> manken -----> madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping -----> model
-       |           |
-       |           `------> model
-       |
-       +------> madb -----> model
-       |          |
-       |          +------> internal/isbn
-       |          |
-       |          `------> MADB SPARQL Query Service
-       |
-       `------> openbd --> model
-                  |
-                  +------> internal/isbn
-                  |
-                  `------> openBD
-       |
-       +------> googlebooks -> model
-       |                |
-       |                +------> internal/isbn
-       |                |
-       |                `------> Google Books Volumes API
-       |
-       +------> rakutenbooks -> model
-       |                |
-       |                +------> internal/isbn
-       |                |
-       |                `------> 楽天ブックス書籍検索API
-       |
-       `------> rakutenkobo -> model
-                        |
-                        `------> 楽天Kobo電子書籍検索API
-
-       `------> yahooshopping -> model
-                         |
-                         +------> internal/isbn
-                         |
-                         `------> Yahoo!ショッピング商品検索API
-       |
-       `------> dmm -----------> model
-                         |
-                         `------> DMM.com Webサービス v3 ItemList
-       |
-       `------> ndl -> model
-                         |
-                         +------> internal/isbn
-                         |
-                         `------> NDLサーチ SRU API
-
-madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
-       `------> internal/titlemeta
-madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
-       `------> internal/httpresponse
-madb/openbd/googlebooks/rakutenbooks/rakutenkobo/ndl/yahooshopping/dmm
-       `------> internal/httpendpoint
-madb/ndl/dmm
-       `------> internal/daterange
-madb/ndl
-       `------> internal/authorrole
+利用側
+  |
+  +-----> manken --------> facade対応provider -----> model
+  |
+  +-----> 各provider package ---------------------> model
+  |
+  `-----> model
 ```
+
+`manken` は共通検索またはISBN参照に対応するproviderだけを登録・委譲対象とする。
+各provider packageは直接利用でき、共通型だけを扱う場合は `model` も直接利用できる。
+
+### providerと外部サービス
+
+| provider        | 外部サービス                    |
+| --------------- | ------------------------------- |
+| `madb`          | MADB SPARQL Query Service       |
+| `openbd`        | openBD                          |
+| `googlebooks`   | Google Books Volumes API        |
+| `rakutenbooks`  | 楽天ブックス書籍検索API         |
+| `rakutenkobo`   | 楽天Kobo電子書籍検索API         |
+| `ndl`           | NDLサーチ SRU API               |
+| `yahooshopping` | Yahoo!ショッピング商品検索API   |
+| `dmm`           | DMM.com Webサービス v3 ItemList |
+
+### internalパッケージ
+
+| internal package        | 利用provider                                                                                  | 役割                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `internal/isbn`         | `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`ndl`、`yahooshopping`                       | ISBNの検証、変換、正準化                  |
+| `internal/titlemeta`    | `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` | 安全なタイトルメタデータ抽出              |
+| `internal/httpresponse` | `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` | HTTPレスポンス本文とRetry-Afterの共通処理 |
+| `internal/httpendpoint` | `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` | HTTP endpointの共通検証                   |
+| `internal/daterange`    | `madb`、`ndl`、`dmm`                                                                          | 日付範囲の検証と境界計算                  |
+| `internal/authorrole`   | `madb`、`ndl`                                                                                 | 共通の主要創作者役割の判定                |
+
+### 各パッケージの責務
 
 - `model`
   - 取得元に依存しない書籍モデル、検索条件、検索結果、エラー分類を定義する
@@ -142,10 +120,6 @@ madb/ndl
 - `internal/authorrole`
   - `Authors` へ含める共通の主要創作者役割を判定する
   - MADBとNDLから再利用し、取得元固有の役割表記から共通日本語役割名への変換は各providerが担当する
-- `examples`
-  - `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` の公開APIを使う動作確認用CLIを置く
-  - ライブラリの一部として再利用する内部処理は置かない
-
 `model` は取得元パッケージを参照しない。利用側が単一の取得元だけを使う場合は
 `madb`、`openbd`、`googlebooks`、`rakutenbooks`、`rakutenkobo`、`ndl`、`yahooshopping`、`dmm` の必要なパッケージだけをimportでき、
 共通型を直接扱う用途では `model` をimportできる。
@@ -220,4 +194,3 @@ HTTPエラー本文は公開エラーへそのまま含めない。エラーは 
 
 MCPなど別のインターフェースを追加する場合は、検索ライブラリの公開入出力を利用し、
 SDK、ツール定義、構造化入出力、トランスポートを別の層で扱う案を想定している。
-未実装機能と着手順は [Backlog](docs/backlog.md) で管理する。
