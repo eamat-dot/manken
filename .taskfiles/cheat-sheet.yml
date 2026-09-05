@@ -15,7 +15,7 @@ tasks:
         EOF
 
   docs:
-    desc: 仕様書とTODOの配置を表示
+    desc: 主要ドキュメントの配置を表示
     silent: true
     cmds:
       - |
@@ -23,7 +23,6 @@ tasks:
         [ Documents ]
           docs/spec.md
           docs/pkg/madb/spec.md
-          docs/todo/
           docs/backlog.md
           docs/idea.md
         EOF

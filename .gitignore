@@ -21,7 +21,6 @@ Thumbs.db
 .idea/
 .tmp/
 .vscode/*
-!.vscode/tasks.json.example
 *.code-workspace
 
 # Task
@@ -35,6 +34,7 @@ Thumbs.db
 # Local scratch files (user works)
 __sandbox/
 dev.yml
+.ai/
 
 # Archives
 _archive/
