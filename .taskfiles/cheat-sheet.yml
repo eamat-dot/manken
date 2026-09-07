@@ -22,9 +22,9 @@ tasks:
         cat <<'EOF'
         [ Documents ]
           docs/spec.md
+          docs/concept.md
           docs/pkg/madb/spec.md
-          docs/backlog.md
-          docs/idea.md
+          ARCHITECTURE.md
         EOF
 
   git:

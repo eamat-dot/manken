@@ -124,7 +124,7 @@ MADB固有の役割表記を処理した後、`model.Book.Authors` へ設定す�
 - 入力エラー、外部サービスエラー、レスポンス解析エラーの分類
 
 複数取得元をまたぐ検索・重複統合、汎用CLI、MCPサーバーは公開APIとして
-提供しない。将来の実装候補は [Backlog](backlog.md) で管理する。
+提供しない。
 
 ルート `manken.Client` は、`WithMADBClient`、`WithOpenBDClient`、`WithGoogleBooksClient`、`WithRakutenBooksClient`、`WithRakutenKoboClient`、`WithNDLClient`、`WithYahooShoppingClient` で完成済みprovider Clientを1つ以上登録して生成する。provider Clientを指定しない場合は `ErrorKindInvalidArgument` となる。同じOptionを複数指定した場合は後のClientを使用する。検索はMADB、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピング、ISBN参照はMADB、openBD、Google Books、楽天Books、NDL、Yahoo!ショッピングに対応する。
 
@@ -327,4 +327,4 @@ Yahoo!ショッピングがそれぞれ1件とする。この差は共通型へ�
 - `Operation` の具体的な値は取得元パッケージの仕様で定義する
 
 データ取得元ごとのHTTPステータスと `ErrorKind` の対応は、各パッケージの仕様書で
-定義する。未実装機能と着手時期を決めていない作業は [Backlog](backlog.md) で管理する。
+定義する。

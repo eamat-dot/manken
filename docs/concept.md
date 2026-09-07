@@ -100,4 +100,4 @@ MCP / LLMからは用途に応じて、共通 `Book`、Raw response、または�
 
 現在の構造と責務分担は [アーキテクチャ](../ARCHITECTURE.md)、確定した公開APIは
 [共通API仕様](spec.md)、取得元固有の仕様は `docs/pkg/<provider>/spec.md` に記載する。
-未確定の案は [構想メモ](idea.md)、将来対応は [backlog](backlog.md) へ分離する。
+未確定の案や将来対応は、この公開文書へ現在仕様として記載しない。
