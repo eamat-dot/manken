@@ -29,7 +29,6 @@
 - 楽天Booksの `itemPrice` を取得時点の税込JPY価格として共通価格情報へ変換
 - NDLの書誌価格とopenBDの確認済みONIX価格を `ListPrice` へ変換
 - NDLのextentにある単純な書籍サイズと、タイトルの `＜完＞` / `<完>` 完結表示
-- 検索結果のJSON出力、カーソル、rawレスポンス保存を確認できるCLIデモ
 
 ### Changed
 
@@ -43,7 +42,7 @@
 - 識別子、日付、価格を用途別フィールドへ整理し、表紙を `CoverURL`、書籍サイズを `Size` として単純化
 - Contributorの共通役割を固定enumから人間向け日本語文字列へ変更し、`Reading` を維持
 - 共通packageを `api` から `model` へ、検索条件を `SearchRequest` / `Query` / `Exclude` へ整理
-- NDLの出版時期検索を固有 `SearchOptions.From` / `Until` から共通 `SearchRequest.DateFrom` / `DateTo` へ移し、CLIの終了条件を `-until` から `-to` へ変更
+- NDLの出版時期検索を固有 `SearchOptions.From` / `Until` から共通 `SearchRequest.DateFrom` / `DateTo` へ移行
 - MADBの巻表示を、許可した構文に限って`Volume.Number`と`Volume.Label`へ変換
 - MADBの出版社名に付記されたカナ読みを除去し、正規化後の重複を削除
 - 欠落した任意の書誌項目をJSONから省略

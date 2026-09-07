@@ -26,11 +26,11 @@ go get github.com/eamat-dot/manken
 
 ## クイックスタート
 
-利用したいプロバイダのClientを作成して `manken.Client` に登録し、検索時に `Source` を指定して呼び出します。
+利用したいプロバイダのパッケージをインポートし、Clientを作成して検索やISBN参照を呼び出します。
 
 ### 1. 書籍のタイトル検索
 
-以下は、MADB（メディア芸術データベース）をプロバイダとして登録し、タイトルで検索する例です。
+以下は、MADB（メディア芸術データベース）でタイトル検索する例です。
 
 ```go
 package main
@@ -39,28 +39,20 @@ import (
 	"context"
 	"log"
 
-	"github.com/eamat-dot/manken"
 	"github.com/eamat-dot/manken/madb"
 )
 
 func main() {
-	// プロバイダの初期化
-	provider, err := madb.NewClient(nil)
+	// MADB Clientを初期化する
+	client, err := madb.NewClient(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// ルートClientへ登録
-	client, err := manken.NewClient(manken.WithMADBClient(provider))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// MADBを指定して書籍を検索
+	// MADBでタイトル検索する
 	result, err := client.SearchBooks(
 		context.Background(),
-		manken.SourceMADB,
-		manken.SearchRequest{Title: "動物のおしゃべり"},
+		madb.SearchRequest{Title: "動物のおしゃべり"},
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -72,30 +64,34 @@ func main() {
 
 ### 2. ISBNでの参照
 
-登録済みのプロバイダと `Source` を指定して、ISBNから書籍情報を取得することも可能です。
+上の例で作成したClientを使い、ISBNから書籍情報を取得することも可能です。以下を `main` 関数内に追加します。
 
 ```go
-	result, err := client.LookupBooksByISBN(
+	// MADBでISBNから書籍情報を参照する
+	lookup, err := client.LookupBooksByISBN(
 		context.Background(),
-		manken.SourceMADB,
 		[]string{"4-08-846636-5"},
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("%d ISBN results found", len(lookup.Items))
 ```
 
 ## 対応データソース（Providers）
 
 プロバイダごとの機能対応表および認証情報の要否です。
 
-| データ取得元                                                       | パッケージ      | 対象                  | 書籍検索           | ISBN参照 | APIキー等            |
-| ------------------------------------------------------------------ | --------------- | --------------------- | ------------------ | -------- | -------------------- |
-| [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)               | `ndl`           | 全国書誌              | 漫画に絞り込み     | ○       | **不要**             |
-| [メディア芸術データベース](https://mediaarts-db.artmuseums.go.jp/) | `madb`          | 漫画書誌              | ○                 | ○       | **不要**             |
-| [openBD](https://openbd.jp/)                                       | `openbd`        | 書誌                  | -                  | ○       | **不要**             |
-| [Google Books APIs](https://books.google.com/)                     | `googlebooks`   | 書誌                  | 書籍全般           | ○       | API Key              |
-| [Yahoo!ショッピング](https://store.shopping.yahoo.co.jp/tower/)    | `yahooshopping` | 紙書籍 _(タワレコ店)_ | 漫画に絞り込み     | ○       | Client ID            |
-| [楽天ブックス](https://books.rakuten.co.jp/)                       | `rakutenbooks`  | 紙書籍                | 漫画に絞り込み     | ○       | App ID, Access Key   |
-| [楽天Kobo](https://books.rakuten.co.jp/e-book/)                    | `rakutenkobo`   | 電子書籍              | 漫画に絞り込み     | -        | App ID, Access Key   |
-| [DMMブックス](https://book.dmm.com/)                               | `dmm`           | 電子書籍              | シリーズ検索・取得 | -        | API ID, Affiliate ID |
+| データ取得元                                                                               | パッケージ      | 対象     | 書籍検索           | ISBN参照 | APIキー等            |
+| ------------------------------------------------------------------------------------------ | --------------- | -------- | ------------------ | -------- | -------------------- |
+| [国立国会図書館サーチ](https://ndlsearch.ndl.go.jp/)                                       | `ndl`           | 全国書誌 | 漫画に絞り込み     | ○       | **不要**             |
+| [メディア芸術データベース](https://mediaarts-db.artmuseums.go.jp/)                         | `madb`          | 漫画書誌 | ○                 | ○       | **不要**             |
+| [openBD](https://openbd.jp/)                                                               | `openbd`        | 書誌     | -                  | ○       | **不要**             |
+| [Google Books APIs](https://books.google.com/)                                             | `googlebooks`   | 書誌     | 書籍全般           | ○       | API Key              |
+| [Yahoo!ショッピング（タワーレコード Yahoo!店）](https://store.shopping.yahoo.co.jp/tower/) | `yahooshopping` | 紙書籍   | 漫画に絞り込み     | ○       | Client ID            |
+| [楽天ブックス](https://books.rakuten.co.jp/)                                               | `rakutenbooks`  | 紙書籍   | 漫画に絞り込み     | ○       | App ID, Access Key   |
+| [楽天Kobo](https://books.rakuten.co.jp/e-book/)                                            | `rakutenkobo`   | 電子書籍 | 漫画に絞り込み     | -        | App ID, Access Key   |
+| [DMMブックス](https://book.dmm.com/)                                                       | `dmm`           | 電子書籍 | シリーズ検索・取得 | -        | API ID, Affiliate ID |
 
 ### プロバイダに関する注意事項
 

@@ -59,6 +59,9 @@ func TestBuildSearchQueryWithOptionsAcceptsSingleNDLCondition(t *testing.T) {
 		if err != nil || !strings.Contains(query, defaultSortCQLTerm) {
 			t.Fatalf("request = %#v, query = %q, err = %v", request, query, err)
 		}
+		if !strings.Contains(query, `subject = "動物"`) {
+			t.Fatalf("request = %#v, query = %q, want subject condition", request, query)
+		}
 	}
 }
 
@@ -115,7 +118,9 @@ func TestBuildSearchQueryMangaFilters(t *testing.T) {
 
 // TestSearchBooksMangaFilterOptions は、Client Optionが通常検索の分類フィルタを切り替えることを確認する
 func TestSearchBooksMangaFilterOptions(t *testing.T) {
+	requestedQuery := ""
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requestedQuery = request.URL.Query().Get("query")
 		_, _ = writer.Write([]byte(`<?xml version="1.0"?><searchRetrieveResponse><numberOfRecords>0</numberOfRecords></searchRetrieveResponse>`))
 	}))
 	defer server.Close()
@@ -147,6 +152,11 @@ func TestSearchBooksMangaFilterOptions(t *testing.T) {
 			}
 			if _, err := client.SearchBooks(context.Background(), SearchRequest{Title: "漫画"}); err != nil {
 				t.Fatal(err)
+			}
+			for _, filter := range []string{`ndc = "726.1"`, `ndlc = "Y84"`} {
+				if strings.Contains(requestedQuery, filter) != strings.Contains(test.want, filter) {
+					t.Errorf("request query = %q, filter %q presence differs from %q", requestedQuery, filter, test.want)
+				}
 			}
 		})
 	}
