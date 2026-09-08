@@ -104,7 +104,7 @@ func main() {
 - **プロバイダの利用条件**: 各プロバイダの規約（クレジット表示、リクエスト頻度、アフィリエイト条件など）は利用時点の公式情報をご確認ください。
   - **国立国会図書館サーチ**: [NDLサーチ APIのご利用について](https://ndlsearch.ndl.go.jp/help/api)
 
-  - **メディア芸術データベース**: [MADB Lab利用規約](https://mediag.bunka.go.jp/madb_lab/user_terms/)
+  - **メディア芸術データベース**: [メディア芸術データベース利用規約](https://mediaarts-db.artmuseums.go.jp/user_terms)
 
   - **openBD**: [openBD API利用規約](https://openbd.jp/terms/)
 

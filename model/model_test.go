@@ -224,3 +224,49 @@ func TestISBNLookupResultJSON_PreservesEmptySlices(t *testing.T) {
 		t.Fatalf("Marshal(empty) = %s", got)
 	}
 }
+
+// TestAttributionJSON_UsesPublicFieldsAndOmitsMissingLicense は、出典情報のJSON名と任意ライセンス項目の省略を検証する
+func TestAttributionJSON_UsesPublicFieldsAndOmitsMissingLicense(t *testing.T) {
+	result := SearchBooksResult{
+		Books: []Book{},
+		Attributions: []Attribution{
+			{
+				Source:          SourceNDL,
+				Scope:           AttributionScopeService,
+				Text:            "国立国会図書館サーチAPIを利用",
+				URL:             "https://ndlsearch.ndl.go.jp/",
+				RequirementsURL: "https://ndlsearch.ndl.go.jp/help/api",
+			},
+			{
+				Source:          SourceNDL,
+				Scope:           AttributionScopeData,
+				License:         "CC BY 4.0",
+				LicenseURL:      "https://creativecommons.org/licenses/by/4.0/",
+				RequirementsURL: "https://ndlsearch.ndl.go.jp/help/api/provider",
+			},
+		},
+	}
+
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	got := string(encoded)
+	for _, fragment := range []string{
+		`"attributions":[`, `"source":"ndl"`, `"scope":"service"`, `"scope":"data"`,
+		`"text":"国立国会図書館サーチAPIを利用"`, `"url":"https://ndlsearch.ndl.go.jp/"`,
+		`"license":"CC BY 4.0"`, `"license_url":"https://creativecommons.org/licenses/by/4.0/"`,
+		`"requirements_url":"https://ndlsearch.ndl.go.jp/help/api"`,
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("JSON does not contain %s: %s", fragment, got)
+		}
+	}
+	serviceJSON, err := json.Marshal(result.Attributions[0])
+	if err != nil {
+		t.Fatalf("Marshal(service) error = %v", err)
+	}
+	if strings.Contains(string(serviceJSON), `"license"`) || strings.Contains(string(serviceJSON), `"license_url"`) {
+		t.Fatalf("service attribution contains missing license fields: %s", serviceJSON)
+	}
+}

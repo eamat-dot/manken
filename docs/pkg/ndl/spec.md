@@ -16,6 +16,13 @@ Limitの既定値は20、範囲は1から500である。Cursorは検索条件と
 
 成功時の`SearchBooksWithRawResponse`、`SearchBooksWithOptionsAndRawResponse`、`LookupBooksByISBNWithRawResponse`は、受信したXMLを無加工で返す。XML本文はSRUラッパーの`recordSchema`値ではなく、DC-NDL v3の`BibResource`構造から解析する。
 
+`Attributions()` は外部通信を行わず、`service`、`data` の順で2件のクレジット情報を返す。成功した検索・ISBN参照では、該当書籍が0件でも同じ値を結果の `Attributions` に設定する。
+
+- `service`: `国立国会図書館サーチAPIを利用`、参照先 `https://ndlsearch.ndl.go.jp/`、条件確認先 `https://ndlsearch.ndl.go.jp/help/api`
+- `data`: `国立国会図書館全国書誌情報（国立国会図書館）をもとに、mankenで共通書誌形式へ変換して作成`、参照先 `https://ndlsearch.ndl.go.jp/`、ライセンス `CC BY 4.0`、ライセンス参照先 `https://creativecommons.org/licenses/by/4.0/`、条件確認先 `https://ndlsearch.ndl.go.jp/help/api/provider`
+
+`service` はNDLサーチAPIを利用していること自体の表示、`data` は固定の `dpid="iss-ndl-opac-national"` で取得する全国書誌情報の出典・利用条件を表す。返却するクレジット情報だけで利用条件への適合を保証せず、利用時点の公式条件を確認する。
+
 変換する値は主タイトル・読み、巻、叢書・出版シリーズ、版、著者、寄与者、出版者、取得元ISBN、出版日、言語、安全に識別できる分類、単純なページ数・大きさ、書誌価格、図書の紙媒体、NDLBibIDと書誌URLである。`dcterms:extent`は先頭の`NNNp`または`NNN p`を`PageCount`へ変換し、セミコロン以降の単純な`NNNcm`または`NNN cm`を取得元表記のまま`Size`へ設定する。付属資料、複数寸法、複雑な寸法は設定しない。`dcndl:price`は前後空白を除いたうえでASCII数字の直後に任意空白と`円`が続く単純形式だけを`Source: ndl`、`Currency: JPY`の`ListPrice`へ変換する。数字途中の空白は許容しない。同じ価格の重複は許容するが異なる有効価格がある場合は設定しない。税込・税別と観測時刻は設定せず、`CurrentPrice`にも設定しない。`dcndl:seriesTitle/rdf:Description/rdf:value`は空文字列と完全一致の重複を除き、最初の出現順を保って`PublicationSeries`へ設定する。`dcndl:transcription`は共通Bookへ変換しない。`dc:creator`の直接の子要素は、末尾が既知の役割表記である場合だけ表示名と役割へ分ける。役割表記はそのまま、または全体をASCII角括弧`[...]`で囲んだ形を受け付ける。安全に分けられた値は`Contributors`へ応答順で入り、著者・原作・脚本・作画・キャラクター原作・キャラクターデザインの役割を持つ表示名だけが`Authors`へ入る。同じ表示名と役割は重複を除き、順序は変えない。監修、編集、翻訳、解説、デザインは`Contributors`だけへ入る。
 
 `dcndl:volume` と edition はTitle解析より優先する。各値が欠落する場合だけ、Titleを非破壊で保持したまま、安全なタイトル構文からVolume、Editions、IsFinalVolumeを補う場合がある。

@@ -12,6 +12,12 @@ type Book = model.Book
 // BookSource は、Bookの情報を取得した取得元と参照先を表す
 type BookSource = model.BookSource
 
+// AttributionScope は、クレジット情報がサービス利用または取得データのどちらに関するものかを表す
+type AttributionScope = model.AttributionScope
+
+// Attribution は、取得元に関する表示・保存用の出典情報を表す
+type Attribution = model.Attribution
+
 // Volume は、整数化できる巻数と正規化済みの巻表示を表す
 type Volume = model.Volume
 
@@ -48,6 +54,10 @@ type Error = model.Error
 const (
 	// SourceNDL は、国立国会図書館サーチを表す
 	SourceNDL = model.SourceNDL
+	// AttributionScopeService は、APIやサービスを利用していること自体に関するクレジットを表す
+	AttributionScopeService = model.AttributionScopeService
+	// AttributionScopeData は、取得したデータの出典や利用条件に関するクレジットを表す
+	AttributionScopeData = model.AttributionScopeData
 	// PublicationMediumUnknown は、紙または電子を判定できない状態を表す
 	PublicationMediumUnknown = model.PublicationMediumUnknown
 	// PublicationMediumPrint は、紙書籍を表す

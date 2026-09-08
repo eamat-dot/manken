@@ -64,7 +64,7 @@ func (client *Client) searchBooks(ctx context.Context, request SearchRequest, op
 		return SearchBooksResult{}, body, responseError(operationSearchBooks, err)
 	}
 	if response.notFound {
-		return SearchBooksResult{Books: []Book{}}, body, nil
+		return SearchBooksResult{Books: []Book{}, Attributions: Attributions()}, body, nil
 	}
 	if response.next > 0 && response.next <= start {
 		return SearchBooksResult{}, body, newError(operationSearchBooks, ErrorKindInvalidResponse, errors.New("response pagination did not advance"))
@@ -77,7 +77,7 @@ func (client *Client) searchBooks(ctx context.Context, request SearchRequest, op
 		}
 		books = append(books, book)
 	}
-	result := SearchBooksResult{Books: books}
+	result := SearchBooksResult{Books: books, Attributions: Attributions()}
 	if response.next > 0 {
 		if response.next < 501 {
 			cursor, err := encodeCursor(response.next, query, limit)

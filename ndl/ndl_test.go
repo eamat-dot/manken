@@ -185,6 +185,9 @@ func TestSearchBooksSendsDecodedCQL(t *testing.T) {
 	if result.Books == nil || len(raw) == 0 {
 		t.Fatal("expected non-nil books and raw response")
 	}
+	if len(result.Attributions) != 2 || result.Attributions[0].Scope != AttributionScopeService || result.Attributions[1].Scope != AttributionScopeData {
+		t.Fatalf("Attributions = %#v", result.Attributions)
+	}
 }
 
 // TestConvertRecordMapsDCNDLV3Fixture は、DC-NDL v3の名前空間と属性に基づく変換を確認する
@@ -496,6 +499,9 @@ func TestLookupBooksByISBNMatchesSourceISBN(t *testing.T) {
 	}
 	if result.Items[0].RequestedISBN != "9780000000002" {
 		t.Fatalf("RequestedISBN = %q", result.Items[0].RequestedISBN)
+	}
+	if len(result.Attributions) != 2 || result.Attributions[0].Scope != AttributionScopeService || result.Attributions[1].Scope != AttributionScopeData {
+		t.Fatalf("Attributions = %#v", result.Attributions)
 	}
 }
 

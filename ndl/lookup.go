@@ -56,7 +56,10 @@ func (client *Client) lookupBooksByISBN(ctx context.Context, isbns []string) (IS
 			}
 		}
 	}
-	return ISBNLookupResult{Items: []ISBNLookupItem{{RequestedISBN: isbns[0], Books: books}}}, body, nil
+	return ISBNLookupResult{
+		Items:        []ISBNLookupItem{{RequestedISBN: isbns[0], Books: books}},
+		Attributions: Attributions(),
+	}, body, nil
 }
 
 // hasISBN は、取得元ISBNを正規化候補と比較して同じISBNか判定する

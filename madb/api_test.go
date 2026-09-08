@@ -50,8 +50,14 @@ func TestPublicAPI_SearchAndClassifiedError(t *testing.T) {
 	}
 	if len(result.Books) != 1 ||
 		len(result.Books[0].Sources) != 1 ||
-		result.Books[0].Sources[0].Source != madb.SourceMADB {
-		t.Fatalf("result = %#v, want one MADB book", result)
+		result.Books[0].Sources[0].Source != madb.SourceMADB ||
+		len(result.Attributions) != 1 ||
+		result.Attributions[0].Scope != madb.AttributionScopeData {
+		t.Fatalf("result = %#v, want one MADB book with attribution", result)
+	}
+	credits := madb.Attributions()
+	if len(credits) != 1 || credits[0].Source != madb.SourceMADB || credits[0].Scope != madb.AttributionScopeData {
+		t.Fatalf("Attributions() = %#v", credits)
 	}
 	book := result.Books[0]
 	_ = book.Editions

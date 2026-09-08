@@ -15,7 +15,11 @@ import (
 // TestClient_DelegatesSearchWithoutChanges は、検索requestと結果を変更せず一度だけ委譲することを検証する
 func TestClient_DelegatesSearchWithoutChanges(t *testing.T) {
 	request := SearchRequest{Title: "作品", Limit: 3}
-	want := SearchBooksResult{Books: []Book{{Title: "結果"}}, NextCursor: "next"}
+	want := SearchBooksResult{
+		Books:        []Book{{Title: "結果"}},
+		NextCursor:   "next",
+		Attributions: []Attribution{{Source: SourceMADB, Scope: AttributionScopeData, Text: "credit"}},
+	}
 	provider := &fakeSearchProvider{searchResult: want}
 	client := testClient(provider, nil)
 
@@ -65,7 +69,10 @@ func TestClient_DelegatesRawResponsesWithoutChanges(t *testing.T) {
 // TestClient_DelegatesISBNLookupWithoutChanges は、ISBN入力と結果を変更せず一度だけ委譲することを検証する
 func TestClient_DelegatesISBNLookupWithoutChanges(t *testing.T) {
 	isbns := []string{"9784000000000", "9784000000001"}
-	want := ISBNLookupResult{Items: []ISBNLookupItem{{RequestedISBN: isbns[0]}}}
+	want := ISBNLookupResult{
+		Items:        []ISBNLookupItem{{RequestedISBN: isbns[0]}},
+		Attributions: []Attribution{{Source: SourceMADB, Scope: AttributionScopeData, Text: "credit"}},
+	}
 	provider := &fakeISBNProvider{lookupResult: want}
 	client := testClient(nil, provider)
 

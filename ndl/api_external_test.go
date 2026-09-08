@@ -32,6 +32,11 @@ func TestPublicAPI(t *testing.T) {
 	if ndl.SourceNDL != "ndl" {
 		t.Fatalf("SourceNDL = %q", ndl.SourceNDL)
 	}
+	credits := ndl.Attributions()
+	if len(credits) != 2 || credits[0].Scope != ndl.AttributionScopeService || credits[1].Scope != ndl.AttributionScopeData {
+		t.Fatalf("Attributions() = %#v", credits)
+	}
+	_ = ndl.Attribution{Source: ndl.SourceNDL, Scope: ndl.AttributionScopeData}
 	_ = ndl.Book{
 		Title:     "Title",
 		ISBN13:    []string{"9784098627417"},

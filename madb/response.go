@@ -115,7 +115,7 @@ func buildISBNLookupResult(
 			}
 		}
 	}
-	return ISBNLookupResult{Items: items}, nil
+	return ISBNLookupResult{Items: items, Attributions: Attributions()}, nil
 }
 
 // stringsIntersect は、2つの文字列集合に共通する値があるか判定する
@@ -179,7 +179,7 @@ func buildSearchResult(
 		books = append(books, convertBook(source))
 	}
 
-	result := SearchBooksResult{Books: books}
+	result := SearchBooksResult{Books: books, Attributions: Attributions()}
 	if hasNext {
 		nextCursor, err := encodeCursor(sourceBooks[len(sourceBooks)-1].ResourceURI, conditions, limit)
 		if err != nil {

@@ -9,9 +9,12 @@ import (
 // TestRootPackageAliases は、ルートパッケージだけで共通型と定数を利用できることを検証する
 func TestRootPackageAliases(t *testing.T) {
 	request := manken.SearchRequest{Title: "作品"}
-	result := manken.SearchBooksResult{Books: []manken.Book{{Title: request.Title}}}
+	result := manken.SearchBooksResult{
+		Books:        []manken.Book{{Title: request.Title}},
+		Attributions: []manken.Attribution{{Source: manken.SourceMADB, Scope: manken.AttributionScopeData}},
+	}
 	err := &manken.Error{Kind: manken.ErrorKindInvalidArgument}
-	if result.Books[0].Title != "作品" || err.Kind != manken.ErrorKindInvalidArgument || manken.SourceMADB == "" {
+	if result.Books[0].Title != "作品" || result.Attributions[0].Scope != manken.AttributionScopeData || err.Kind != manken.ErrorKindInvalidArgument || manken.SourceMADB == "" {
 		t.Fatal("root package aliases are not usable")
 	}
 }

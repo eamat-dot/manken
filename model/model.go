@@ -23,6 +23,27 @@ const (
 	SourceDMM Source = "dmm"
 )
 
+// AttributionScope は、クレジット情報がサービス利用または取得データのどちらに関するものかを表す
+type AttributionScope string
+
+const (
+	// AttributionScopeService は、APIやサービスを利用していること自体に関するクレジットを表す
+	AttributionScopeService AttributionScope = "service"
+	// AttributionScopeData は、取得したデータの出典や利用条件に関するクレジットを表す
+	AttributionScopeData AttributionScope = "data"
+)
+
+// Attribution は、取得元に関する表示・保存用の出典情報を表し、利用条件への適合を保証しない
+type Attribution struct {
+	Source          Source           `json:"source"`
+	Scope           AttributionScope `json:"scope"`
+	Text            string           `json:"text,omitempty"`
+	URL             string           `json:"url,omitempty"`
+	License         string           `json:"license,omitempty"`
+	LicenseURL      string           `json:"license_url,omitempty"`
+	RequirementsURL string           `json:"requirements_url,omitempty"`
+}
+
 // Book は、取得した1冊の漫画本を表す
 type Book struct {
 	Title              string            `json:"title,omitempty"`
@@ -126,13 +147,15 @@ type SearchRequest struct {
 
 // SearchBooksResult は、漫画本の検索結果と続きの取得に使うカーソルを表す
 type SearchBooksResult struct {
-	Books      []Book `json:"books"`
-	NextCursor string `json:"next_cursor,omitempty"`
+	Books        []Book        `json:"books"`
+	NextCursor   string        `json:"next_cursor,omitempty"`
+	Attributions []Attribution `json:"attributions,omitempty"`
 }
 
 // ISBNLookupResult は、入力ISBNごとの書籍参照結果を表す
 type ISBNLookupResult struct {
-	Items []ISBNLookupItem `json:"items"`
+	Items        []ISBNLookupItem `json:"items"`
+	Attributions []Attribution    `json:"attributions,omitempty"`
 }
 
 // ISBNLookupItem は、指定された1つのISBNと対応する書籍を表す
