@@ -1,373 +1,85 @@
 ---
-description: 'Instructions for writing Go code following idiomatic Go practices and community standards'
+description: '複数プロジェクトで共通に使うGoの実装・コメント・検証方針'
 applyTo: '**/*.go,**/go.mod,**/go.sum'
 ---
 
-# Go Development Instructions
-
-Follow idiomatic Go practices and community standards when writing Go code. These instructions are based on [Effective Go](https://go.dev/doc/effective_go), [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments), and [Google's Go Style Guide](https://google.github.io/styleguide/go/).
-
-## General Instructions
-
-- Write simple, clear, and idiomatic Go code
-- Favor clarity and simplicity over cleverness
-- Follow the principle of least surprise
-- Keep the happy path left-aligned (minimize indentation)
-- Return early to reduce nesting
-- Prefer early return over if-else chains; use `if condition { return }` pattern to avoid else blocks
-- Make the zero value useful
-- Write self-documenting code with clear, descriptive names
-- Document exported types, functions, methods, and packages
-- Use Go modules for dependency management
-- Leverage the Go standard library instead of reinventing the wheel (e.g., use `strings.Builder` for string concatenation, `filepath.Join` for path construction)
-- Prefer standard library solutions over custom implementations when functionality exists
-- Write comments in English by default; translate only upon user request
-- Avoid using emoji in code and comments
-
-## Naming Conventions
-
-### Packages
-
-- Use lowercase, single-word package names
-- Avoid underscores, hyphens, or mixedCaps
-- Choose names that describe what the package provides, not what it contains
-- Avoid generic names like `util`, `common`, or `base`
-- Package names should be singular, not plural
-
-#### Package Declaration Rules (CRITICAL):
-- **NEVER duplicate `package` declarations** - each Go file must have exactly ONE `package` line
-- When editing an existing `.go` file:
-  - **PRESERVE** the existing `package` declaration - do not add another one
-  - If you need to replace the entire file content, start with the existing package name
-- When creating a new `.go` file:
-  - **BEFORE writing any code**, check what package name other `.go` files in the same directory use
-  - Use the SAME package name as existing files in that directory
-  - If it's a new directory, use the directory name as the package name
-  - Write **exactly one** `package <name>` line at the very top of the file
-- When using file creation or replacement tools:
-  - **ALWAYS verify** the target file doesn't already have a `package` declaration before adding one
-  - If replacing file content, include only ONE `package` declaration in the new content
-  - **NEVER** create files with multiple `package` lines or duplicate declarations
-
-### Variables and Functions
-
-- Use mixedCaps or MixedCaps (camelCase) rather than underscores
-- Keep names short but descriptive
-- Use single-letter variables only for very short scopes (like loop indices)
-- Exported names start with a capital letter
-- Unexported names start with a lowercase letter
-- Avoid stuttering (e.g., avoid `http.HTTPServer`, prefer `http.Server`)
-
-### Interfaces
-
-- Name interfaces with -er suffix when possible (e.g., `Reader`, `Writer`, `Formatter`)
-- Single-method interfaces should be named after the method (e.g., `Read` → `Reader`)
-- Keep interfaces small and focused
-
-### Constants
-
-- Use MixedCaps for exported constants
-- Use mixedCaps for unexported constants
-- Group related constants using `const` blocks
-- Consider using typed constants for better type safety
-
-## Code Style and Formatting
-
-### Formatting
-
-- Always use `gofmt` to format code
-- Use `goimports` to manage imports automatically
-- Keep line length reasonable (no hard limit, but consider readability)
-- Add blank lines to separate logical groups of code
-
-### Comments
-
-- Strive for self-documenting code; prefer clear variable names, function names, and code structure over comments
-- Write comments only when necessary to explain complex logic, business rules, or non-obvious behavior
-- Write comments in complete sentences in English by default
-- Translate comments to other languages only upon specific user request
-- Start sentences with the name of the thing being described
-- Package comments should start with "Package [name]"
-- Use line comments (`//`) for most comments
-- Use block comments (`/* */`) sparingly, mainly for package documentation
-- Document why, not what, unless the what is complex
-- Avoid using emoji in comments and code
-
-### Error Handling
-
-- Check errors immediately after the function call
-- Don't ignore errors using `_` unless you have a good reason (document why)
-- Wrap errors with context using `fmt.Errorf` with `%w` verb
-- Create custom error types when you need to check for specific errors
-- Place error returns as the last return value
-- Name error variables `err`
-- Keep error messages lowercase and don't end with punctuation
-
-## Architecture and Project Structure
-
-### Package Organization
-
-- Follow standard Go project layout conventions
-- Keep `main` packages in `cmd/` directory
-- Put reusable packages in `pkg/` or `internal/`
-- Use `internal/` for packages that shouldn't be imported by external projects
-- Group related functionality into packages
-- Avoid circular dependencies
-
-### Dependency Management
-
-- Use Go modules (`go.mod` and `go.sum`)
-- Keep dependencies minimal
-- Regularly update dependencies for security patches
-- Use `go mod tidy` to clean up unused dependencies
-- Vendor dependencies only when necessary
-
-## Type Safety and Language Features
-
-### Type Definitions
-
-- Define types to add meaning and type safety
-- Use struct tags for JSON, XML, database mappings
-- Prefer explicit type conversions
-- Use type assertions carefully and check the second return value
-- Prefer generics over unconstrained types; when an unconstrained type is truly needed, use the predeclared alias `any` instead of `interface{}` (Go 1.18+)
-
-### Pointers vs Values
-
-- Use pointer receivers for large structs or when you need to modify the receiver
-- Use value receivers for small structs and when immutability is desired
-- Use pointer parameters when you need to modify the argument or for large structs
-- Use value parameters for small structs and when you want to prevent modification
-- Be consistent within a type's method set
-- Consider the zero value when choosing pointer vs value receivers
-
-### Interfaces and Composition
-
-- Accept interfaces, return concrete types
-- Keep interfaces small (1-3 methods is ideal)
-- Use embedding for composition
-- Define interfaces close to where they're used, not where they're implemented
-- Don't export interfaces unless necessary
-
-## Concurrency
-
-### Goroutines
-
-- Be cautious about creating goroutines in libraries; prefer letting the caller control concurrency
-- If you must create goroutines in libraries, provide clear documentation and cleanup mechanisms
-- Always know how a goroutine will exit
-- Use `sync.WaitGroup` or channels to wait for goroutines
-- Avoid goroutine leaks by ensuring cleanup
-
-### Channels
-
-- Use channels to communicate between goroutines
-- Don't communicate by sharing memory; share memory by communicating
-- Close channels from the sender side, not the receiver
-- Use buffered channels when you know the capacity
-- Use `select` for non-blocking operations
-
-### Synchronization
-
-- Use `sync.Mutex` for protecting shared state
-- Keep critical sections small
-- Use `sync.RWMutex` when you have many readers
-- Choose between channels and mutexes based on the use case: use channels for communication, mutexes for protecting state
-- Use `sync.Once` for one-time initialization
-- WaitGroup usage by Go version:
-	- If `go >= 1.25` in `go.mod`, use the new `WaitGroup.Go` method ([documentation](https://pkg.go.dev/sync#WaitGroup)):
-		```go
-		var wg sync.WaitGroup
-		wg.Go(task1)
-		wg.Go(task2)
-		wg.Wait()
-		```
-	- If `go < 1.25`, use the classic `Add`/`Done` pattern
-
-## Error Handling Patterns
-
-### Creating Errors
-
-- Use `errors.New` for simple static errors
-- Use `fmt.Errorf` for dynamic errors
-- Create custom error types for domain-specific errors
-- Export error variables for sentinel errors
-- Use `errors.Is` and `errors.As` for error checking
-
-### Error Propagation
-
-- Add context when propagating errors up the stack
-- Don't log and return errors (choose one)
-- Handle errors at the appropriate level
-- Consider using structured errors for better debugging
-
-## API Design
-
-### HTTP Handlers
-
-- Use `http.HandlerFunc` for simple handlers
-- Implement `http.Handler` for handlers that need state
-- Use middleware for cross-cutting concerns
-- Set appropriate status codes and headers
-- Handle errors gracefully and return appropriate error responses
-- Router usage by Go version:
-	- If `go >= 1.22`, prefer the enhanced `net/http` `ServeMux` with pattern-based routing and method matching
-	- If `go < 1.22`, use the classic `ServeMux` and handle methods/paths manually (or use a third-party router when justified)
-
-### JSON APIs
-
-- Use struct tags to control JSON marshaling
-- Validate input data
-- Use pointers for optional fields
-- Consider using `json.RawMessage` for delayed parsing
-- Handle JSON errors appropriately
-
-### HTTP Clients
-
-- Keep the client struct focused on configuration and dependencies only (e.g., base URL, `*http.Client`, auth, default headers). It must not store any per-request state
-- Do not store or cache `*http.Request` inside the client struct, and do not persist request-specific state across calls; instead, construct a fresh request per method invocation
-- Methods should accept `context.Context` and input parameters, assemble the `*http.Request` locally (or via a short-lived builder/helper created per call), then call `c.httpClient.Do(req)`
-- If request-building logic is reused, factor it into unexported helper functions or a per-call builder type; never keep `http.Request` (URL params, body, headers) as fields on the long-lived client
-- Ensure the underlying `*http.Client` is configured (timeouts, transport) and is safe for concurrent use; avoid mutating `Transport` after first use
-- Always set headers on the request instance you’re sending, and close response bodies (`defer resp.Body.Close()`), handling errors appropriately
-
-## Performance Optimization
-
-### Memory Management
-
-- Minimize allocations in hot paths
-- Reuse objects when possible (consider `sync.Pool`)
-- Use value receivers for small structs
-- Preallocate slices when size is known
-- Avoid unnecessary string conversions
-
-### I/O: Readers and Buffers
-
-- Most `io.Reader` streams are consumable once; reading advances state. Do not assume a reader can be re-read without special handling
-- If you must read data multiple times, buffer it once and recreate readers on demand:
-	- Use `io.ReadAll` (or a limited read) to obtain `[]byte`, then create fresh readers via `bytes.NewReader(buf)` or `bytes.NewBuffer(buf)` for each reuse
-	- For strings, use `strings.NewReader(s)`; you can `Seek(0, io.SeekStart)` on `*bytes.Reader` to rewind
-- For HTTP requests, do not reuse a consumed `req.Body`. Instead:
-	- Keep the original payload as `[]byte` and set `req.Body = io.NopCloser(bytes.NewReader(buf))` before each send
-	- Prefer configuring `req.GetBody` so the transport can recreate the body for redirects/retries: `req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(buf)), nil }`
-- To duplicate a stream while reading, use `io.TeeReader` (copy to a buffer while passing through) or write to multiple sinks with `io.MultiWriter`
-- Reusing buffered readers: call `(*bufio.Reader).Reset(r)` to attach to a new underlying reader; do not expect it to “rewind” unless the source supports seeking
-- For large payloads, avoid unbounded buffering; consider streaming, `io.LimitReader`, or on-disk temporary storage to control memory
-
-- Use `io.Pipe` to stream without buffering the whole payload:
-	- Write to `*io.PipeWriter` in a separate goroutine while the reader consumes
-	- Always close the writer; use `CloseWithError(err)` on failures
-	- `io.Pipe` is for streaming, not rewinding or making readers reusable
-
-- **Warning:** When using `io.Pipe` (especially with multipart writers), all writes must be performed in strict, sequential order. Do not write concurrently or out of order—multipart boundaries and chunk order must be preserved. Out-of-order or parallel writes can corrupt the stream and result in errors.
-
-- Streaming multipart/form-data with `io.Pipe`:
-	- `pr, pw := io.Pipe()`; `mw := multipart.NewWriter(pw)`; use `pr` as the HTTP request body
-	- Set `Content-Type` to `mw.FormDataContentType()`
-	- In a goroutine: write all parts to `mw` in the correct order; on error `pw.CloseWithError(err)`; on success `mw.Close()` then `pw.Close()`
-	- Do not store request/in-flight form state on a long-lived client; build per call
-	- Streamed bodies are not rewindable; for retries/redirects, buffer small payloads or provide `GetBody`
-
-### Profiling
-
-- Use built-in profiling tools (`pprof`)
-- Benchmark critical code paths
-- Profile before optimizing
-- Focus on algorithmic improvements first
-- Consider using `testing.B` for benchmarks
-
-## Testing
-
-### Test Organization
-
-- Keep tests in the same package (white-box testing)
-- Use `_test` package suffix for black-box testing
-- Name test files with `_test.go` suffix
-- Place test files next to the code they test
-
-### Writing Tests
-
-- Use table-driven tests for multiple test cases
-- Name tests descriptively using `Test_functionName_scenario`
-- Use subtests with `t.Run` for better organization
-- Test both success and error cases
-- Consider using `testify` or similar libraries when they add value, but don't over-complicate simple tests
-
-### Test Helpers
-
-- Mark helper functions with `t.Helper()`
-- Create test fixtures for complex setup
-- Use `testing.TB` interface for functions used in tests and benchmarks
-- Clean up resources using `t.Cleanup()`
-
-## Security Best Practices
-
-### Input Validation
-
-- Validate all external input
-- Use strong typing to prevent invalid states
-- Sanitize data before using in SQL queries
-- Be careful with file paths from user input
-- Validate and escape data for different contexts (HTML, SQL, shell)
-
-### Cryptography
-
-- Use standard library crypto packages
-- Don't implement your own cryptography
-- Use crypto/rand for random number generation
-- Store passwords using bcrypt, scrypt, or argon2 (consider golang.org/x/crypto for additional options)
-- Use TLS for network communication
-
-## Documentation
-
-### Code Documentation
-
-- Prioritize self-documenting code through clear naming and structure
-- Document all exported symbols with clear, concise explanations
-- Start documentation with the symbol name
-- Write documentation in English by default
-- Use examples in documentation when helpful
-- Keep documentation close to code
-- Update documentation when code changes
-- Avoid emoji in documentation and comments
-
-### README and Documentation Files
-
-- Include clear setup instructions
-- Document dependencies and requirements
-- Provide usage examples
-- Document configuration options
-- Include troubleshooting section
-
-## Tools and Development Workflow
-
-### Essential Tools
-
-- `go fmt`: Format code
-- `go vet`: Find suspicious constructs
-- `golangci-lint`: Additional linting (golint is deprecated)
-- `go test`: Run tests
-- `go mod`: Manage dependencies
-- `go generate`: Code generation
-
-### Development Practices
-
-- Run tests before committing
-- Use pre-commit hooks for formatting and linting
-- Keep commits focused and atomic
-- Write meaningful commit messages
-- Review diffs before committing
-
-## Common Pitfalls to Avoid
-
-- Not checking errors
-- Ignoring race conditions
-- Creating goroutine leaks
-- Not using defer for cleanup
-- Modifying maps concurrently
-- Not understanding nil interfaces vs nil pointers
-- Forgetting to close resources (files, connections)
-- Using global variables unnecessarily
-- Overusing unconstrained types (e.g., `any`); prefer specific types or generic type parameters with constraints. If an unconstrained type is required, use `any` rather than `interface{}`
-- Not considering the zero value of types
-- **Creating duplicate `package` declarations** - this is a compile error; always check existing files before adding package declarations
+# Go開発ルール
+
+Goコードとモジュール設定を作成・変更するときに適用する、ユーザー共通の方針である。
+同じ対象に適用されるプロジェクト固有の指示がある場合は、その具体的な指示を優先する。
+
+## 着手時の確認
+
+- `go.mod` と、使用している場合は `go.work` を確認し、対象モジュールと利用可能なGo・依存ライブラリのバージョンを把握する
+- 変更対象に近い実装・テスト・公開仕様を読み、命名、API、エラー、設定方法、ファイル配置の既存方針を確認する。既存コードの不具合や偶然の書き方まで規則として踏襲しない
+- 新しい言語機能やAPIは、対象バージョンで利用できることを確認する。作業に不要なバージョン更新、依存追加、モジュール再初期化を行わない
+
+## 読みやすさと設計
+
+- 単純で明示的な処理を優先し、他言語の設計を機械的に持ち込まない
+- エラーや対象外条件を先に処理し、通常の処理を深くネストさせない。早期returnのためだけに自然な分岐を複雑化しない
+- 標準ライブラリで目的を満たせる場合は、それを優先する。外部ライブラリを採用する場合は、既存依存との重複と保守負担を確認する
+- 共通化は処理の意味と変更理由が共通する範囲に限る。コードが似ているだけで汎用framework、設定項目、拡張ポイントを増やさない
+- interfaceは利用側が必要とする振る舞いに絞る。実装より先に巨大なinterfaceを作らず、テストのためだけに不要な公開APIを増やさない
+- 具体的な型を基本とし、genericsは型安全性や実際の再利用に役立つ場合に使う。任意の型を受け取る必要がある場合は `any` を使い、型アサーションの失敗を扱う
+- receiverは状態変更、コピーコスト、method setの整合性で選ぶ。mutexなどコピーしてはいけない値を含む型を、値渡しやvalue receiverでコピーしない
+- 最適化は計測結果や明確な負荷要件に基づいて行う。根拠なくpool、cache、並列化を追加しない
+
+## 命名と配置
+
+- Goの命名慣習に従い、短くても責務が分かる名前を使う。パッケージ名と公開名の不要な繰り返しや、意味の曖昧な略語を避ける
+- パッケージの公開範囲と依存方向を保ち、循環依存を作らない。`pkg/` や `cmd/` などの配置を一律に要求せず、モジュールの用途と既存構成に合わせる
+- package名はディレクトリ内の役割に合わせる。外部APIを検証する `*_test` パッケージや `main` を、ディレクトリ名と違うという理由で変更しない
+- build tag、ライセンスヘッダー、packageコメントを保持する。公開名やimport pathを、表記統一だけを理由に変更しない
+
+## コメントと説明
+
+- コメントとGo Docは日本語の常体を基本とする。API名、型名、パッケージ名、定着した専門用語は原表記を保ち、不自然に直訳しない
+- 公開パッケージ、型、関数、メソッドなどには、利用者が用途と非自明な制約を理解できる説明を書く。シンボルの説明はその名前で始め、packageコメントは `Package パッケージ名` で始める
+- 日本語のシンボル説明は `// 名前 は〜する` のように書く。記載対象、行数、句読点に専用の指示がある場合は、それに従う
+- インラインコメントは、コードだけでは分からない理由、制約、意図的な非対応を説明する。自明な代入や分岐を逐一言い換えない
+- 利用例には、固有の準備や操作のまとまりを説明する短いコメントを付ける。定型的なエラーチェックや各行への説明追加は避ける
+- 変更で古くなったコメントは同時に直す。生成コード、外部由来のコード、無関係な既存コメントを言語統一だけのために書き換えない
+- コードやコメントに装飾目的の絵文字を使わない。UI・CLIの表示文言は、その対象に適用される文章ルールに従う
+
+## API・状態・エラー
+
+- 引数、戻り値、設定、ゼロ値、`nil`、データの所有権を既存仕様と整合させる。ゼロ値で使えない型は、必要な初期化方法と未初期化時の扱いを明確にする
+- ライブラリ内部で環境変数、グローバル状態、ログ出力などへの依存を新しく隠さない。外部依存は既存APIの方針に沿って渡し、設定の読み取り場所を明確にする
+- 長寿命のClientには設定と再利用可能な依存を持たせ、リクエストごとの可変状態を共有しない。HTTP requestは呼び出しごとに組み立てる
+- `context.Context` は操作単位で受け取り、下位の呼び出しへ渡す。キャンセル・期限を無視せず、呼び出し元のcontextを理由なく `context.Background()` へ置き換えない
+- エラーは発生箇所で確認し、握りつぶさない。意図して無視する場合は、その妥当性が分かるようにする
+- 呼び出し元が原因を判定する必要がある場合は `%w` で保持し、`errors.Is` / `errors.As` で扱う。文字列比較や、原因を失う包み直しを避ける
+- エラー型や分類は既存APIに合わせ、必要以上に新しい分類を増やさない。同じエラーを複数の層で重複してログ出力しない
+- エラーには操作と対象が分かる情報を付けるが、秘密値を含めない。Goのerror文字列と利用者向け表示を区別し、既存の言語・表記方針に合わせる
+- 英語のerror文字列は原則として小文字で始め、文末の句読点を省く。固有名詞や識別子の表記は保つ
+- 外部入力は使用先に合わせて検証する。SQLのパラメータ化やHTMLのエスケープなど、その文脈に対応する仕組みを使う
+
+## I/O・リソース・並行処理
+
+- ファイル、HTTP response body、goroutineなどの終了責任を明確にする。取得に成功したリソースは適切な時点で解放し、処理結果に影響するclose・flushエラーも扱う
+- `io.Reader` やrequest bodyは読み進むことを前提にする。再読・再送が必要なら、サイズ制限、再生成方法、副作用の重複を確認する
+- 外部入力の読み込み量、待機時間、同時実行数を無制限にしない。値は既存設定や要件に合わせ、根拠のない固定値を散在させない
+- goroutineを作る場合は、終了条件、キャンセル、エラー伝達、待ち合わせを設計する。呼び出し元が管理すべき処理を暗黙にバックグラウンド実行しない
+- 共有する可変データには適切な同期を使う。channelとmutexは用途で選び、一方を一律に要求しない
+
+## テストと検証
+
+- 公開動作、異常系、境界条件、変更で壊れやすい既存動作を検証する。内部の書き方だけを固定するテストを増やさない
+- 複数ケースを比較する場合はtable-driven testやsubtestを使い、失敗した条件が分かる名前にする。既存テストの命名と構成に合わせる
+- 公開APIのテストは必要に応じて `*_test` パッケージを使い、非公開処理を確認するテストとは目的を分ける
+- 通常のテストは可能な限りネットワーク、実credential、実時刻などへの依存を制御する。実サービスの結合テストには実行条件を明記する
+- helperは `t.Helper()`、リソースの後始末は `t.Cleanup()` などを使う。`t.Parallel()` は共有状態や順序依存がないことを確認してから使う
+- テスト用ライブラリやmock frameworkは、既存方針と導入価値を確認して選ぶ。小さなテストのためだけに依存を増やさない
+- `gofmt` を使い、import整理とlintはプロジェクトの設定に従う。空白や構文の規則を手作業で再実装しない
+- 対象モジュールで、変更の影響と指定された完了条件に合うtest、vet、lint、buildを行う。並行処理の変更ではrace検出も検討する
+- `go mod tidy` は依存整理が必要な場合や指定された手順で実行し、`go.mod` / `go.sum` の差分を確認する。調査だけの依頼で変更コマンドを実行しない
+- 検証に使ったコマンドと結果を報告し、未実行や環境上の制約を成功扱いにしない
+
+## 参考資料
+
+標準的な作法は以下を参照し、言語機能とAPIの詳細は対象バージョンの公式資料で確認する。
+
+- [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
+- [Effective Go](https://go.dev/doc/effective_go): 基本文法・作法の参考。新しい言語機能やライブラリの情報源にはしない
+- [awesome-copilotのGo Instruction](https://github.com/github/awesome-copilot/blob/main/instructions/go.instructions.md): 元になった汎用ガイド。転用先のバージョンや明示的な方針を優先する
