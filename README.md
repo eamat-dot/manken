@@ -29,6 +29,8 @@ go get github.com/eamat-dot/manken
 利用したいプロバイダのパッケージをインポートし、Clientを作成して検索やISBN参照を呼び出します。
 各プロバイダから取得した書籍情報は、同じ `Book` モデルで扱えます。タイトル、著者、ISBNに加え、価格や商品URLなども保持します。取得できる項目はプロバイダによって異なります。
 
+APIキーなしで実サービスを試す場合は、[MADB・NDLサーチのCLI examples](examples/README.md)をrepositoryルートから実行できます。
+
 ### 1. 書籍のタイトル検索
 
 以下は、MADB（メディア芸術データベース）でタイトル検索する例です。
@@ -117,9 +119,13 @@ func main() {
 
   - **DMMブックス**: [DMMアフィリエイト](https://affiliate.dmm.com/) / [DMMウェブサービス利用規約](https://terms.dmm.com/affiliate_web_service/)
 
+- **定型の出典・クレジット情報**: 現在はMADBとNDLサーチが `Attributions()` を提供し、成功した検索・ISBN参照結果の `Attributions` にも同じ情報を含めます。他のプロバイダにもサービス固有の利用条件や表示要件があります。`Attributions` の有無だけで判断せず、上記の公式情報を確認してください。
+
 ## ドキュメント
 
 - **API仕様**: [manken API仕様](docs/spec.md)
+
+- **実行可能なCLI examples**: [MADB・NDLサーチ](examples/README.md)
 
 - **設計・変更履歴**: [アーキテクチャ](ARCHITECTURE.md) / [変更履歴](CHANGELOG.md)
 

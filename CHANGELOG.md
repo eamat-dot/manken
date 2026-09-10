@@ -8,6 +8,11 @@
 
 ### Added
 
+- 国立国会図書館サーチの全国書誌を検索し、1件のISBN参照とrawレスポンス取得に対応する `ndl` パッケージ
+- タワーレコード Yahoo!店に限定してYahoo!ショッピングの紙書籍商品を検索し、1件のISBN参照とrawレスポンス取得に対応する `yahooshopping` パッケージ
+- 登録したprovider Clientへ取得元を明示して検索・ISBN参照を委譲するルート `manken.Client` facade
+- MADBとNDLサーチの定型出典・クレジット情報を返す `Attributions()` と、成功結果のJSONに含まれる `attributions`
+- APIキーなしでMADBとNDLサーチを実行できるCLI examples
 - 共通 `SearchRequest.DateFrom` / `DateTo` によるNDL、MADBの時期検索と、DMM `SearchSeriesRequest.DateFrom` / `DateTo` による商品 `date` 絞り込み
 - 共通 `SearchRequest.Publisher` によるMADB、Google Books、楽天Booksの出版社名検索
 - MADBのマンガ単行本をタイトルで検索する公開API
