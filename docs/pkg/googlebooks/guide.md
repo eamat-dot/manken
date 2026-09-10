@@ -4,13 +4,13 @@
 
 ## 準備するもの
 
-Google CloudでBooks APIを有効にし、APIキーを作成してください。APIキーは環境変数や秘密情報管理機能で保管し、ソースコードやログへ直接書かないことを推奨します。
+Google CloudでBooks APIを有効にし、APIキーを作成してください。APIキーは環境変数やシークレット管理機能で保管し、ソースコードやログへ直接書かないことを推奨します。
 
 `manken` はAPIキーを保存したり、環境変数から自動で読み込んだりしません。
 
 ## 直接利用する
 
-`googlebooks` パッケージを直接importして利用できます。
+`googlebooks` パッケージを直接インポートして利用できます。
 
 ```go
 import "github.com/eamat-dot/manken/googlebooks"
@@ -79,7 +79,7 @@ result, err := client.LookupBooksByISBN(
 
 ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記も受け付けます。問い合わせにはISBN-13を使用し、`RequestedISBN` には指定した文字列がそのまま保持されます。
 
-## Rawレスポンスを取得する
+## Raw responseを取得する
 
 変換前の応答も確認したい場合は、次のメソッドを利用できます。
 
@@ -100,4 +100,4 @@ Google Booksの情報を画面に表示する場合は、必要なクレジッ�
 
 ## 詳細仕様
 
-検索条件、ページング、ISBN参照、変換項目、Rawレスポンス、エラーの完全な仕様は[manken Google Booksパッケージ仕様](spec.md)を参照してください。
+検索条件、ページング、ISBN参照、変換項目、Raw response、エラーの完全な仕様は[manken Google Booksパッケージ仕様](spec.md)を参照してください。

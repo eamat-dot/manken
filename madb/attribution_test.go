@@ -10,7 +10,7 @@ func TestAttributionsReturnsStableIndependentValues(t *testing.T) {
 	want := []Attribution{{
 		Source:          SourceMADB,
 		Scope:           AttributionScopeData,
-		Text:            `独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」のデータをもとに、mankenで共通書誌形式へ変換して作成`,
+		Text:            `独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」のデータをもとに、mankenのBookモデルに変換して作成`,
 		URL:             "https://mediaarts-db.artmuseums.go.jp/",
 		RequirementsURL: "https://mediaarts-db.artmuseums.go.jp/user_terms",
 	}}

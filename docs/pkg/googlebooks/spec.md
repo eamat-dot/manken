@@ -3,10 +3,10 @@
 ## 1. 目的
 
 `googlebooks` パッケージは、Google Books Volumes APIから書誌候補を検索し、
-`model` パッケージの共通書籍モデルへ変換する。Google Booksは漫画専用の取得元ではないため、
+`model.Book` へ変換する。Google Booksは漫画専用の取得元ではないため、
 `printType=books` を指定しても小説などが結果に含まれる。
 
-共通モデルは [manken API仕様](../../spec.md)、パッケージ構成は
+`model` パッケージの型の仕様は [manken API仕様](../../spec.md)、パッケージ構成は
 [アーキテクチャ](../../../ARCHITECTURE.md)を参照する。
 
 ## 2. Clientと認証
@@ -15,14 +15,14 @@
 client, err := googlebooks.NewClient(nil, googlebooks.WithAPIKey(apiKey))
 ```
 
-import pathは `github.com/eamat-dot/manken/googlebooks` である。`NewClient` はAPIキーを必須とし、
-空白だけのキー、nil Option、不正なendpointは通信前に `invalid_argument` を返す。
-通常の認証付きendpointはHTTPSを使用する。`WithEndpoint` は絶対URLを設定し、HTTPSを受け付ける。
-HTTPを受け付けるのはテスト用の`localhost`、`127.0.0.0/8`、`::1`だけであり、名前解決によって
-外部hostをloopbackとして扱わない。ユーザー情報、query、fragmentは使えない。
+インポートパスは `github.com/eamat-dot/manken/googlebooks` である。`NewClient` はAPIキーを必須とし、
+空白だけのキー、`nil` Option、不正なエンドポイントは通信前に `invalid_argument` を返す。
+通常の認証付きエンドポイントはHTTPSを使用する。`WithEndpoint` は絶対URLを設定し、HTTPSを受け付ける。
+HTTPを受け付けるのはテスト用の `localhost`、`127.0.0.0/8`、`::1` だけであり、名前解決によって
+外部ホストをループバックとして扱わない。ユーザー情報、クエリ、フラグメントは使えない。
 
-`httpClient` がnilの場合は60秒タイムアウトのHTTPクライアントを使う。Clientはリクエスト状態を
-保持せず、複数goroutineから安全に使用できる。APIキーは `key` queryへだけ設定し、エラー、
+`httpClient` が `nil` の場合は60秒タイムアウトの `http.Client` を使う。Clientはリクエスト状態を
+保持せず、複数のgoroutineから安全に使用できる。APIキーは `key` クエリパラメーターにだけ設定し、エラー、
 カーソル、Raw responseへ含めない。
 
 ## 3. 検索
@@ -48,7 +48,7 @@ result, err := client.SearchBooks(ctx, googlebooks.SearchRequest{
 - `Exclude` だけの検索は許可せず、`Title`、`Author`、`Publisher`、`Query` の少なくとも1つを必須とする
 
 リクエストには `printType=books`、`orderBy=relevance`、`projection=full` を設定する。
-`langRestrict` と電子書籍filterは設定しない。Google Booksの応答順を変更しない。
+`langRestrict` と電子書籍フィルターは設定しない。Google Booksの応答順を変更しない。
 
 `Limit` の0は20、1から40は指定値、範囲外は `invalid_argument` となる。`NextCursor` は
 次の `startIndex`、実効Limit、正規化済み検索式のハッシュを保持する不透明な値である。
@@ -73,10 +73,10 @@ Google BooksのISBN参照は1回の呼び出しにつき1件だけ受け付け�
 問い合わせは `isbn:<ISBN-13>`、`printType=books`、`projection=full`、`maxResults=40`、
 `startIndex=0` を使う1回のHTTPリクエストとする。応答Volumeの検証済みISBNが要求ISBNと一致する
 ものだけを返し、40件を超える追加ページは取得しない。`RequestedISBN` は元の入力文字列を保持し、
-該当なしの `Books` は非nilの空スライスとする。
+該当なしの `Books` は `nil` ではない空スライスとする。
 
 `LookupBooksByISBNWithRawResponse` は、その1回の2xx成功レスポンス本文を変更せず返す。
-JSON解析または共通モデル変換に失敗した場合も、読み込み済み本文を返す。通信失敗、2xx以外、
+JSON解析または `Book` への変換に失敗した場合も、読み込み済み本文を返す。通信失敗、2xx以外、
 本文読込失敗、本文上限超過ではRaw responseを返さない。
 
 ## 5. 結果変換
@@ -102,21 +102,21 @@ JSON解析または共通モデル変換に失敗した場合も、読み込み�
 丸めたり切り捨てたりせず、条件外の価格は設定しない。明示された0円は価格として設定する。
 
 `listPrice` は `Source: googlebooks`、`Currency: JPY` の `ListPrice` として設定する。`retailPrice` は同じ情報に
-加え、1回の正常なAPI応答の変換で共通となるUTC RFC3339Nano形式の `ObservedAt` を持つ `CurrentPrice` として
+加え、同じAPI応答から変換した価格で共有するUTC RFC3339Nano形式の `ObservedAt` を持つ `CurrentPrice` として
 設定する。Google Booksの資料から消費税の扱いは確定できないため、`TaxIncluded` は設定しない。
 
-国別の適用範囲を共通モデルへ誤って広げないため、JP以外の `saleInfo` は価格を設定しない。
+`Book` の価格情報で国別の適用範囲を誤って広げないため、JP以外の `saleInfo` は価格を設定しない。
 `saleInfo.isEbook` は国や販売可否にかかわらず、`true` の場合だけ `PublicationMediumDigital` とする。
 `false` または項目欠落は紙書籍とみなさず、`PublicationMediumUnknown` のままとする。ISBN、
 `volumeInfo.printType`、`accessInfo` のEPUB/PDF availability、価格、購入URLなどから媒体を推測しない。
 
 `saleInfo.country`、`saleability`、`buyLink`、`onSaleDate`、`accessInfo`、物理サイズ、rating、
-`searchInfo`、`contentVersion`は共通モデルへ設定しない。特に`searchInfo.textSnippet`は検索語に依存する本文断片であるため、`volumeInfo.description`が欠落しても`Description`へfallbackしない。Volume IDの欠落は `invalid_response`、
+`searchInfo`、`contentVersion`は `Book` へ設定しない。特に `searchInfo.textSnippet` は検索語に依存する本文断片であるため、`volumeInfo.description` が欠落しても `Description` へフォールバックしない。Volume IDの欠落は `invalid_response`、
 その他の任意項目の欠落は正常である。
 
 ## 6. HTTPとエラー
 
-既定endpointは `https://www.googleapis.com/books/v1/volumes` で、GETと
+既定エンドポイントは `https://www.googleapis.com/books/v1/volumes` で、GETと
 `Accept: application/json` を使う。成功本文は16 MiB、エラー本文は64 KiBまで読み込む。
 エラー本文と完全なリクエストURLは公開エラーへ含めない。
 

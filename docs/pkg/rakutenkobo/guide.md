@@ -6,11 +6,11 @@
 
 楽天ウェブサービスで発行したApplication IDとAccess Keyが必要です。Affiliate IDは任意で、楽天アフィリエイトのURLが必要な場合だけ設定します。
 
-認証情報は環境変数や秘密情報管理機能で保管し、ソースコードへ直接書かないことを推奨します。`manken` は環境変数から自動では読み込みません。
+認証情報は環境変数やシークレット管理機能で保管し、ソースコードへ直接書かないことを推奨します。`manken` は環境変数から自動では読み込みません。
 
 ## 直接利用する
 
-`rakutenkobo` パッケージを直接importして利用できます。
+`rakutenkobo` パッケージを直接インポートして利用できます。
 
 ```go
 import "github.com/eamat-dot/manken/rakutenkobo"
@@ -79,7 +79,7 @@ result, err := client.SearchBooks(
 
 電子書籍の商品検索なので、単話、分冊、合本、無料版などが検索結果に含まれる場合があります。
 
-## Rawレスポンスを取得する
+## Raw responseを取得する
 
 `SearchBooksWithRawResponse` を使うと、変換済みの結果と楽天Koboから受信した成功レスポンス本文を取得できます。
 
@@ -95,4 +95,4 @@ result, err := client.SearchBooks(
 
 ## 詳細仕様
 
-検索条件、除外語、漫画区分、カーソル、変換、Rawレスポンス、通信、エラーの完全な仕様は[manken 楽天Koboパッケージ仕様](spec.md)を参照してください。
+検索条件、除外語、漫画区分、カーソル、変換、Raw response、通信、エラーの完全な仕様は[manken 楽天Koboパッケージ仕様](spec.md)を参照してください。

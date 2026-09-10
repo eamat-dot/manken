@@ -2,10 +2,10 @@
 
 ## 1. 目的
 
-`manken` は、複数のGoプロジェクトから漫画本の書誌情報を検索するためのライブラリである。
+`manken` は、複数のデータ取得元から漫画本を中心とした書誌情報・販売情報を検索・取得するGoライブラリである。
 
-データ取得元ごとの通信方式やレスポンス形式を共通APIから分離し、利用側は取得元の詳細を
-意識せずに検索条件と書籍モデルを扱えるようにする。
+データ取得元ごとの通信方式やレスポンス形式は各providerパッケージで扱い、利用側は取得元固有のレスポンス型を
+意識せずに検索条件と `Book` モデルを扱えるようにする。
 
 ## 2. 関連仕様
 
@@ -48,32 +48,32 @@ github.com/eamat-dot/manken/dmm
 
 - `manken`
   - 利用側で生成したprovider Clientを登録し、明示した `Source` の検索またはISBN参照へそのまま委譲する
-  - `model` の通常利用に必要な共通型、エラー型、定数をエイリアスまたは定数として公開する
+  - `model` の通常利用に必要な型、エラー型、定数をエイリアスまたは定数として公開する
 
 - `model`
-  - データ取得元に依存しない検索条件、検索結果、書籍モデル、エラー分類を定義する
+  - データ取得元に依存しない検索条件、検索結果、`Book` モデル、エラー分類を定義する
 - `madb`
-  - MADBへの問い合わせと、取得結果から共通モデルへの変換を担当する
+  - MADBへの問い合わせと、取得結果から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `openbd`
-  - openBDへのISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - openBDへのISBN問い合わせと、取得結果から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `googlebooks`
-  - Google Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - Google Booksへの検索・ISBN問い合わせと、取得結果から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `rakutenbooks`
-  - 楽天Booksへの検索・ISBN問い合わせと、取得結果から共通モデルへの変換を担当する
+  - 楽天Booksへの検索・ISBN問い合わせと、取得結果から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `rakutenkobo`
-  - 楽天Koboへの検索と、取得結果から共通モデルへの変換を担当する
+  - 楽天Koboへの検索と、取得結果から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `ndl`
-  - 国立国会図書館サーチへの検索・ISBN参照と、DC-NDL v3から共通モデルへの変換を担当する
+  - 国立国会図書館サーチへの検索・ISBN参照と、DC-NDL v3から `model.Book` への変換を担当する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 - `yahooshopping`
-  - Tower固定のYahoo!ショッピング紙書籍商品検索とISBN参照、共通モデルへの変換を担当する
+  - Tower固定のYahoo!ショッピング紙書籍商品検索とISBN参照、`model.Book` への変換を担当する
 - `dmm`
-  - DMMブックス電子コミックのシリーズ探索と、指定シリーズ内の個別商品を共通モデルへ限定的に変換する
+  - DMMブックス電子コミックのシリーズ探索と、指定シリーズ内の個別商品を `model.Book` へ限定的に変換する
   - 通常利用に必要な `model` の型と定数をエイリアスとして公開する
 
 ### 3.1 取得元パッケージとの境界
@@ -81,9 +81,9 @@ github.com/eamat-dot/manken/dmm
 `model` パッケージは、取得元に依存しない公開型と、その型が満たす仕様だけを
 定義する。取得元固有のレスポンス型、項目名、役割、欠落規則を扱わない。
 
-利用側は `manken` のルートClientへprovider Clientを登録して共通操作を呼び出すか、`madb` などの取得元パッケージを直接呼び出す。取得元パッケージは
-通常利用に必要な共通型と定数をエイリアスとして公開するため、利用側が
-`model` を直接importする必要はない。ルートClientはprovider Clientを生成せず、認証情報やprovider固有設定を保持しない。
+利用側は `manken` のルートClientへprovider Clientを登録して検索またはISBN参照を呼び出すか、`madb` などの取得元パッケージを直接呼び出す。取得元パッケージは
+通常利用に必要な `model` の型と定数をエイリアスとして公開するため、利用側が
+`model` を直接インポートする必要はない。ルートClientはprovider Clientを生成せず、認証情報やprovider固有設定を保持しない。
 
 各取得元パッケージは、外部サービスのレスポンスを固有の非公開型へ読み込み、
 そのパッケージ内で `model.Book` へ変換してから返す。
@@ -102,9 +102,9 @@ model.Book
 MADB固有の役割表記を処理した後、`model.Book.Authors` へ設定する。
 `model` パッケージは `Creators` を受け取って変換する関数を持たない。
 
-取得元固有の型は `model` パッケージの共通公開型へ含めない。取得元パッケージは、
-共通型へ一般化しない固有の検索条件や設定を、そのパッケージ固有の公開型として提供できる。
-複数の取得元に共通することが確認できた変換後の概念だけを、`model` の共通モデルへ追加する。
+取得元固有の型は `model` パッケージの公開型へ含めない。取得元パッケージは、
+`model` パッケージへ一般化しない固有の検索条件や設定を、そのパッケージ固有の公開型として提供できる。
+複数の取得元に共通することが確認できた変換後の概念だけを、`model` パッケージの型へ追加する。
 
 ## 4. APIの対象
 
@@ -120,20 +120,24 @@ MADB固有の役割表記を処理した後、`model.Book.Authors` へ設定す�
 - 主要な書誌項目に指定語を含む結果の除外
 - 取得件数の指定
 - カーソルによる続きの取得
-- データ取得元固有の形式から共通の書籍モデルへの変換
+- データ取得元固有の形式から `Book` モデルへの変換
 - 入力エラー、外部サービスエラー、レスポンス解析エラーの分類
 
 複数取得元をまたぐ検索・重複統合、汎用CLI、MCPサーバーは公開APIとして
 提供しない。
 
-ルート `manken.Client` は、`WithMADBClient`、`WithOpenBDClient`、`WithGoogleBooksClient`、`WithRakutenBooksClient`、`WithRakutenKoboClient`、`WithNDLClient`、`WithYahooShoppingClient` で完成済みprovider Clientを1つ以上登録して生成する。provider Clientを指定しない場合は `ErrorKindInvalidArgument` となる。同じOptionを複数指定した場合は後のClientを使用する。検索はMADB、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピング、ISBN参照はMADB、openBD、Google Books、楽天Books、NDL、Yahoo!ショッピングに対応する。
+ルート `manken.Client` は、`WithMADBClient`、`WithOpenBDClient`、`WithGoogleBooksClient`、`WithRakutenBooksClient`、`WithRakutenKoboClient`、`WithNDLClient`、`WithYahooShoppingClient` で完成済みprovider Clientを1つ以上登録して生成する。
+provider Clientを指定しない場合は `ErrorKindInvalidArgument` となり、同じOptionを複数指定した場合は後のClientを使用する。
+検索はMADB、Google Books、楽天Books、楽天Kobo、NDL、Yahoo!ショッピングに対応する。ISBN参照はMADB、openBD、Google Books、楽天Books、NDL、Yahoo!ショッピングに対応する。
 
-`SearchBooks`、`SearchBooksWithRawResponse`、`LookupBooksByISBN`、`LookupBooksByISBNWithRawResponse` は、`Source` を引数で受け取る。選択したproviderの結果、Raw response、エラーを変更せず返し、fallback、追加通信、再試行、並行実行、並べ替え、統合、重複除去、ローカル絞り込みを行わない。未初期化Client、nil設定、nil provider Client、未知または未登録Source、非対応操作は `ErrorKindInvalidArgument` の `*Error` として返す。
+`SearchBooks`、`SearchBooksWithRawResponse`、`LookupBooksByISBN`、`LookupBooksByISBNWithRawResponse` は、`Source` を引数で受け取る。
+選択したproviderの結果、Raw response、エラーは変更せず返し、フォールバック、追加通信、再試行、並行実行、並べ替え、統合、重複除去、ローカル絞り込みを行わない。
+未初期化Client、`nil` 設定、`nil` provider Client、未知または未登録の `Source`、非対応操作は `ErrorKindInvalidArgument` の `*Error` として返す。
 
 現行ライブラリはキャッシュ、自動再試行、クライアント側のレート制限を提供しない。
 必要な場合は、呼び出し側が `http.Client` やその周辺処理で制御する。
 
-## 5. 共通モデル
+## 5. `model` パッケージの型
 
 ### 5.1 Source
 
@@ -144,7 +148,9 @@ JSONではこの短い文字列を出力する。
 
 ### 5.2 Book
 
-`Book` は検索またはISBN参照で得た1冊を表す。共通書誌情報は `Book` の直下に保持し、
+`Book` モデルは検索またはISBN参照で得た1冊を表す。定義元は `model.Book` であり、
+ルートパッケージと各providerパッケージの `Book` はそのtype aliasである。
+タイトル、著者、ISBNなどの書誌情報に加え、価格や表紙画像URLも `Book` の直下に保持し、
 `Sources` は情報を取得したサービスと参照先を保持する。
 
 | Goフィールド         | JSON項目               | 型                  | 省略条件                       | 意味                                                                                                                 |
@@ -180,7 +186,7 @@ JSONではこの短い文字列を出力する。
 - `Title` は取得元タイトルを非破壊で保持する。`Volume`、`Editions` などを設定するためにタイトル文字列を短縮しない
 - 取得元の明示 `Volume` / `Editions` を優先する。欠落時は、安全なタイトル構文から `Volume`、`Editions`、安全な巻表示に隣接する完結表示を補う場合がある。完結表示だけから `IsFinalVolume` は推測しない。タイトルから `Subtitle`、系列、著者などは推測しない
 - タイトルから補う完結表示は、安全な巻表示へ隣接する `完`、`（完）`、`(完)`、`＜完＞`、`<完>` に限る
-- 共通化できない取得元固有項目を `Book` へ複製しない。必要な場合は各パッケージのRaw response用メソッドを使用する
+- 複数providerで同じ意味として扱えない取得元固有項目を `Book` へ複製しない。必要な場合は各パッケージのRaw response用メソッドを使用する
 - 欠落項目や項目間の対応を推測で補完しない。取得元ごとの安全な変換規則は各パッケージ仕様で定める
 - 取得元が順序を提供する場合は維持する。順序を提供しない場合は結果を安定化し、その順序に意味がないことを取得元仕様へ記載する
 
@@ -216,7 +222,7 @@ JSONではこの短い文字列を出力する。
 | `Reading`    | `reading` | `string`   | 空文字列なら省略   | 同じ人物との対応が取得元から確認できる読み。別要素から対応を推測しない。               |
 | `Roles`      | `roles`   | `[]string` | 空スライスなら省略 | 安全に対応付けられた共通の日本語役割名。未知roleを既知の役割へ推測分類しない。         |
 
-- `Roles` は取得元固有の表記やONIXコードをそのまま公開せず、`著者`、`原作`、`作画` など人が読める共通の日本語文字列を使用する
+- `Roles` は取得元固有の表記やONIXコードをそのまま公開せず、`著者`、`原作`、`作画` などmankenで使用する日本語の役割名へ変換する
 - 公開する役割一覧をenumとして固定しない。取得元で安全に意味を確認できた役割だけを変換する
 - `Contributor` は取得元から人物単位で取得できた情報を保持する
 - `Authors` は表示や簡易利用向けの名前一覧であり、どの人物を含めるかは取得元ごとの仕様で定める
@@ -225,7 +231,7 @@ JSONではこの短い文字列を出力する。
 
 ### 5.6 シリーズ、日付、紙・電子、サイズ
 
-`BookSeries` は取得元が作品または個別Bookの系列として明示する値であり、名称、ID、URL、取得元を同じ要素へ保持する。`PublicationSeries` は叢書、刊行シリーズ、コミックレーベル、Publisher collection等の出版側グループ表示名を保持する。取得元が返す読みは共通化せず、文字列内容から両者を相互に推測しない。
+`BookSeries` は取得元が作品または個別の `Book` の系列として明示する値であり、名称、ID、URL、取得元を同じ要素へ保持する。`PublicationSeries` は叢書、刊行シリーズ、コミックレーベル、Publisher collection等の出版側グループ表示名を保持する。取得元が返す読みをprovider間で統一せず、文字列内容から両者を相互に推測しない。
 
 日付は `PublishedDate`、`ReleaseDate`、`DigitalReleaseDate` に用途を分けて保持する。値は文字列とし、取得元が返す `YYYY`、`YYYY-MM`、`YYYY-MM-DD` などの精度を保つ。日付の意味を取得元の根拠なく別用途へ読み替えない。
 
@@ -249,13 +255,13 @@ JSONではこの短い文字列を出力する。
 - その他の空文字列、空スライス、`nil` ポインター、`IsFinalVolume=false` は省略する
 - 0巻、価格0円、明示された `TaxIncluded=false` は省略しない
 - 空の `Volume` 全体は省略する
-- `Book` のJSONは共通書誌フィールドを直下に出力し、`normalized` 階層を持たない
+- `Book` のJSONはタイトルや価格などのフィールドを直下に出力し、`normalized` 階層を持たない
 
 ## 6. 検索・参照API
 
 ### 6.1 SearchRequest
 
-各フィールドの共通の役割は次のとおり。
+`SearchRequest` の各フィールドの基本的な意味は次のとおり。
 
 - `Title` はタイトルの検索条件を表す
 - `Author` は著者名の検索条件を表す
@@ -279,12 +285,12 @@ JSONではこの短い文字列を出力する。
 
 ### 6.2 SearchBooksResult
 
-`SearchBooksResult.Books` は該当した書籍を返す。該当がなければ非nilの空スライスを返す。
+`SearchBooksResult.Books` は該当した書籍を返す。該当がなければ `nil` ではない空スライスを返す。
 
 - 続きがない場合は `NextCursor` を空文字列にする
 - `Attributions` は、その取得元が定型の出典・クレジット情報を提供する場合に設定する。成功した検索では0件でも設定し、未対応の取得元では空とする
 - JSONでは `Attributions` を `attributions` として出力し、空の場合は省略する
-- 合計件数は公開APIに含めない。取得元ごとに件数の意味、上限、提供可否が異なるため、共通化のための追加COUNTリクエストや推測を行わない
+- 合計件数は公開APIに含めない。取得元ごとに件数の意味、上限、提供可否が異なるため、APIを揃えるためだけの追加COUNTリクエストや推測を行わない
 
 ### 6.3 ISBN参照
 
@@ -298,14 +304,14 @@ ISBNによる書籍参照は、検索条件、Limit、カーソルを持たな�
 - `Items` は、その取得元が受け付けた入力と同じ件数、同じ順序で返す
 - 複数ISBNを受け付ける取得元では、同じISBNを複数回指定した場合も入力位置ごとに要素を返す
 - 複数ISBNを受け付ける取得元では、ISBN-10と対応するISBN-13を問い合わせ時に重複除去しても元の入力位置へ展開する
-- 該当なしはエラーとせず、非nilの空の `Books` を返す
+- 該当なしはエラーとせず、`nil` ではない空の `Books` を返す
 - 同じISBNに複数書籍が対応する場合は、統合せず `Books` にすべて返す
 - 1件でも不正なISBNがある場合は、外部通信せず呼び出し全体を `invalid_argument` にする。`ISBNLookupItem` は入力ごとのエラーを表現しないため、無効入力だけを除いた部分通信は行わない
 
 取得元別上限はMADBが500件、openBDが1,000件、Google Books、楽天Books、NDLサーチ、
-Yahoo!ショッピングがそれぞれ1件とする。この差は共通型へ埋め込まず、各クライアントが入力検証する。
+Yahoo!ショッピングがそれぞれ1件とする。この差は `ISBNLookupResult` などの公開型へ埋め込まず、各クライアントが入力検証する。
 取得元が複数ISBNを1回の問い合わせで
-受け付けない場合、共通APIの見かけをそろえるためだけに内部で複数HTTPリクエストへ展開しない。
+受け付けない場合、各providerの呼び出し方を揃えるためだけに内部で複数HTTPリクエストへ展開しない。
 1回の公開呼び出しに伴う通信回数、レート制限、部分失敗の境界を暗黙に変えないためである。
 
 ### 6.4 出典・クレジット情報

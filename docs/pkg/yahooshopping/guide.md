@@ -4,13 +4,13 @@
 
 ## 準備するもの
 
-Yahoo!デベロッパーネットワークで発行したClient IDが必要です。Client IDは環境変数や秘密情報管理機能で保管し、ソースコードへ直接書かないことを推奨します。
+Yahoo!デベロッパーネットワークで発行したClient IDが必要です。Client IDは環境変数やシークレット管理機能で保管し、ソースコードへ直接書かないことを推奨します。
 
 `manken` はClient IDを環境変数から自動では読み込みません。
 
 ## 直接利用する
 
-`yahooshopping` パッケージを直接importして利用できます。
+`yahooshopping` パッケージを直接インポートして利用できます。
 
 ```go
 import "github.com/eamat-dot/manken/yahooshopping"
@@ -81,7 +81,7 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 
 ISBN参照もタワーレコード Yahoo!店の商品だけを対象にします。
 
-## Rawレスポンスを取得する
+## Raw responseを取得する
 
 変換前の応答も確認したい場合は、次のメソッドを利用できます。
 
@@ -92,11 +92,11 @@ ISBN参照もタワーレコード Yahoo!店の商品だけを対象にします
 
 公式の案内に従い、1秒に1回を超えないよう利用側でアクセス頻度を管理してください。クレジット表示も必要です。Clientは待機や自動リトライを行いません。
 
-商品情報、画像、Rawレスポンスを表示・保存・再利用する場合は、利用時点のYahoo!ショッピングの公式条件を確認してください。
+商品情報、画像、Raw responseを表示・保存・再利用する場合は、利用時点のYahoo!ショッピングの公式条件を確認してください。
 
 - [Yahoo!デベロッパーネットワーク ご利用ガイド（公式）](https://developer.yahoo.co.jp/start/)
 - [クレジット表示（公式）](https://developer.yahoo.co.jp/attribution/)
 
 ## 詳細仕様
 
-検索条件、タワーレコード Yahoo!店への限定、ISBN参照、Rawレスポンス、変換、通信、エラーの完全な仕様は[manken Yahoo!ショッピングパッケージ仕様](spec.md)を参照してください。
+検索条件、タワーレコード Yahoo!店への限定、ISBN参照、Raw response、変換、通信、エラーの完全な仕様は[manken Yahoo!ショッピングパッケージ仕様](spec.md)を参照してください。

@@ -5,14 +5,14 @@
 `rakutenbooks` パッケージは、楽天ブックス書籍検索APIを使って紙書籍を検索・ISBN参照し、
 取得結果を `model.Book` へ変換する。
 
-import path:
+インポートパス:
 
 ```text
 github.com/eamat-dot/manken/rakutenbooks
 ```
 
-楽天Books固有の販売情報をすべて共通モデルへ変換することは目的としない。取得時点価格と
-アフィリエイトURLは共通モデルへ変換し、在庫、レビュー、試し読みURLなどはRaw responseから参照できる。
+楽天Books固有の販売情報をすべて `Book` へ変換することは目的としない。取得時点価格と
+アフィリエイトURLは `Book` へ変換し、在庫、レビュー、試し読みURLなどはRaw responseから参照できる。
 
 ## 2. Client
 
@@ -22,8 +22,8 @@ github.com/eamat-dot/manken/rakutenbooks
 func NewClient(httpClient *http.Client, options ...Option) (*Client, error)
 ```
 
-`httpClient` が `nil` の場合は、60秒のTimeoutを持つ `http.Client` を使用する。
-呼び出し側から渡された `http.Client` とTransportは変更しない。
+`httpClient` が `nil` の場合は、60秒のタイムアウトを持つ `http.Client` を使用する。
+呼び出し側から渡された `http.Client` と `Transport` は変更しない。
 
 Client作成にはApplication IDとAccess Keyが必要である。Affiliate IDは任意である。
 
@@ -50,9 +50,9 @@ WithEndpoint(endpoint string)
 空文字列または空白だけの認証値を明示設定した場合は `invalid_argument` となる。
 Affiliate IDを設定しなくても検索・ISBN参照を利用できる。
 
-認証付きの通常endpointはHTTPSを使用する。テスト用には`localhost`、`127.0.0.0/8`、`::1`への
-HTTP endpointも受け付けるが、名前解決によって外部hostをloopbackとして扱わない。`WithEndpoint` は
-user information、query、fragmentを含むURLを受け付けない。
+認証付きの通常エンドポイントはHTTPSを使用する。テスト用には `localhost`、`127.0.0.0/8`、`::1` への
+HTTPエンドポイントも受け付けるが、名前解決によって外部ホストをループバックとして扱わない。`WithEndpoint` は
+ユーザー情報、クエリ、フラグメントを含むURLを受け付けない。
 
 ## 3. 漫画区分
 
@@ -110,7 +110,7 @@ func (client *Client) SearchBooksWithRawResponse(
 ) (SearchBooksResult, []byte, error)
 ```
 
-### 5.1 対応する共通検索条件
+### 5.1 対応する `SearchRequest` フィールド
 
 `DateFrom` と `DateTo` は楽天Booksが範囲検索条件を提供しないため、通信前に `invalid_argument` を返す。取得後の絞り込みは行わない。
 
@@ -209,20 +209,20 @@ formatVersion=2
 `Books` に含める。
 
 `ISBNLookupResult.Items` は1要素で、`RequestedISBN` は利用者が入力した文字列を保持する。
-該当商品がない場合もエラーにせず、`Books` はnon-nilの空スライスになる。
+該当商品がない場合もエラーにせず、`Books` は `nil` ではない空スライスになる。
 
-## 8. 共通モデルへの変換
+## 8. `Book` への変換
 
 ### 8.1 変換する項目
 
-| 楽天Books               | 共通モデル                | 規則                                                                                            |
+| 楽天Books               | `Book`                    | 規則                                                                                            |
 | ----------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
 | `itemUrl`               | `BookSource.URL`          | 有効なHTTP(S) URLだけを通常商品URLとして使用                                                    |
 | `affiliateUrl`          | `BookSource.AffiliateURL` | 有効なHTTP(S) URLだけを使用。`itemUrl` を置き換えない                                           |
 | `title`                 | `Title`                   | そのまま保持                                                                                    |
 | `titleKana`             | `TitleReading`            | そのまま保持                                                                                    |
 | `subTitle`              | `Subtitle`                | そのまま保持                                                                                    |
-| `seriesName`            | `PublicationSeries[]`     | 1要素として保持。`seriesNameKana`は共通Bookへ変換しない                                         |
+| `seriesName`            | `PublicationSeries[]`     | 1要素として保持。`seriesNameKana`は `Book` へ変換しない                                         |
 | `author`                | `Authors`                 | `/`で分割し、各要素の前後空白を除いた人物名を順序どおり保持。空要素は除外                       |
 | `author` / `authorKana` | `Contributors`            | `author`と同じ人物単位。元の分割要素数が一致する場合だけ同位置のReadingを設定。役割は設定しない |
 | `publisherName`         | `Publishers`              | 1要素として保持                                                                                 |
@@ -235,7 +235,7 @@ formatVersion=2
 | API種別                 | `Medium`                  | `print`                                                                                         |
 | 3種の画像URL            | `CoverURL`                | 利用可能な最大サイズのURLを1件保持                                                              |
 
-`seriesName` は `PublicationSeries` に保持する。`seriesNameKana` は共通Bookへ変換しない。作品シリーズであることは保証しないため、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
+`seriesName` は `PublicationSeries` に保持する。`seriesNameKana` は `Book` へ変換しない。作品シリーズであることは保証しないため、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
 
 `authorKana`の分割要素数が`author`と一致しない場合は、Readingを推測せず全ContributorのReadingを空にする。
 氏名内部の半角・全角空白、カンマなどは変更しない。Contributorの役割も推測しない。
@@ -257,7 +257,7 @@ formatVersion=2
 `affiliateUrl` は `BookSource.AffiliateURL` に設定し、通常商品URLの `BookSource.URL` と分離する。
 Affiliate IDを指定しておらず楽天Booksが `affiliateUrl` を返さない場合は省略する。
 
-次はRaw responseへ残し、初期実装では共通モデルへ変換しない。
+次はRaw responseへ残し、初期実装では `Book` へ変換しない。
 
 - `availability`
 - `postageFlag`
@@ -272,7 +272,7 @@ Affiliate IDを指定しておらず楽天Booksが `affiliateUrl` を返さな�
 Raw response用メソッドは、1回の2xx成功HTTPレスポンス本文を変更せず `[]byte` で返す。
 
 - 正常に変換できた場合もRawを返す
-- JSON解析または共通モデル変換に失敗した場合も、読み込み済みの2xx本文を返す
+- JSON解析または `Book` への変換に失敗した場合も、読み込み済みの2xx本文を返す
 - 通信失敗、2xx以外、本文読み込み失敗、本文上限超過ではRawを返さない
 - 成功本文の上限は16 MiB
 - エラー本文は最大64 KiBまで読み捨て、本文内容を公開エラーへ含めない
@@ -293,14 +293,14 @@ Affiliate IDを設定した場合、楽天Booksが返す `affiliateUrl` はRaw r
 公開エラーには完全なリクエストURLを含めない。通信エラーが `url.Error` を含む場合は、
 認証情報を含み得るURLを除き、原因エラーだけを公開エラーへ保持する。
 
-Access Keyをredirect先へ送らないため、Clientは自動redirectを追跡しない。3xx応答は
-`upstream` として元のHTTPステータスを保持する。渡したHTTP Clientの設定は変更しない。
+Access Keyをリダイレクト先へ送らないため、Clientは自動リダイレクトを追跡しない。3xx応答は
+`upstream` として元のHTTPステータスを保持する。渡した `http.Client` の設定は変更しない。
 
 自動リトライ、内部レート制御、キャッシュ、ログ出力は行わない。
 
 ## 11. エラー
 
-楽天Booksパッケージは共通の `model.Error` / `model.ErrorKind` を使用する。
+楽天Booksパッケージは `model.Error` / `model.ErrorKind` を使用する。
 
 | 状態                                                          | ErrorKind          |
 | ------------------------------------------------------------- | ------------------ |
@@ -312,7 +312,7 @@ Access Keyをredirect先へ送らないため、Clientは自動redirectを追跡
 HTTPエラーでは `StatusCode` を保持する。`Retry-After` が秒数または有効なHTTP日時なら
 `RetryAfter` へ変換する。
 
-contextのcancel / deadlineは原因エラーを保持し、`errors.Is` で判定できる。
+`context` のキャンセル / deadlineは原因エラーを保持し、`errors.Is` で判定できる。
 
 ## 12. 並行利用とリクエスト制限
 

@@ -13,7 +13,7 @@ func Attributions() []Attribution {
 		{
 			Source:          SourceNDL,
 			Scope:           AttributionScopeData,
-			Text:            "国立国会図書館全国書誌情報（国立国会図書館）をもとに、mankenで共通書誌形式へ変換して作成",
+			Text:            "国立国会図書館全国書誌情報（国立国会図書館）をもとに、mankenのBookモデルに変換して作成",
 			URL:             "https://ndlsearch.ndl.go.jp/",
 			License:         "CC BY 4.0",
 			LicenseURL:      "https://creativecommons.org/licenses/by/4.0/",

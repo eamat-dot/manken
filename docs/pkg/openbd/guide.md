@@ -4,7 +4,7 @@
 
 ## 直接利用する
 
-`openbd` パッケージを直接importして利用できます。
+`openbd` パッケージを直接インポートして利用できます。
 
 ```go
 import "github.com/eamat-dot/manken/openbd"
@@ -58,7 +58,7 @@ ISBN-10とISBN-13に対応し、ASCIIハイフンやUnicode空白を含む表記
 
 openBDに該当する書誌がないISBNも結果には残り、その項目の `Books` は空になります。
 
-## Rawレスポンスを取得する
+## Raw responseを取得する
 
 `LookupBooksByISBNWithRawResponse` を使うと、変換済みの結果とopenBDから受信した成功レスポンス本文を取得できます。
 
@@ -72,4 +72,4 @@ openBDの書誌・書影などは、本の紹介・販促目的に限って利�
 
 ## 詳細仕様
 
-入力件数、変換、Rawレスポンス、通信、エラーの完全な仕様は[manken openBDパッケージ仕様](spec.md)を参照してください。
+入力件数、変換、Raw response、通信、エラーの完全な仕様は[manken openBDパッケージ仕様](spec.md)を参照してください。

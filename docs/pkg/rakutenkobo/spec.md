@@ -5,14 +5,14 @@
 `rakutenkobo` パッケージは、楽天Kobo電子書籍検索APIを使って電子書籍を検索し、
 取得結果を `model.Book` へ変換する。
 
-import path:
+インポートパス:
 
 ```text
 github.com/eamat-dot/manken/rakutenkobo
 ```
 
 楽天Koboは電子書籍の商品検索APIであり、ISBN参照は提供しない。Kobo固有の商品番号、
-取得時点価格、商品URL、アフィリエイトURLなど、取得元が明示する情報だけを安全に共通化する。
+取得時点価格、商品URL、アフィリエイトURLなど、取得元が明示する情報だけを安全に `Book` へ変換する。
 単話、分冊、合本、無料版を商品タイトルから推測・分類しない。titleは非破壊で保持し、通常巻と安全に判断できる明確な巻表示、確認済み版表示、巻表示へ隣接する完結表示だけをVolume、Editions、IsFinalVolumeへ補う場合がある。分冊、単話、合本、無料試読、セット、Vol.NはVolumeへ推測しない。
 
 ## 2. Client
@@ -23,8 +23,8 @@ github.com/eamat-dot/manken/rakutenkobo
 func NewClient(httpClient *http.Client, options ...Option) (*Client, error)
 ```
 
-`httpClient` が `nil` の場合は、60秒のTimeoutを持つ `http.Client` を使用する。
-呼び出し側から渡された `http.Client` とTransportは変更しない。リダイレクトは自動追従しない。
+`httpClient` が `nil` の場合は、60秒のタイムアウトを持つ `http.Client` を使用する。
+呼び出し側から渡された `http.Client` と `Transport` は変更しない。リダイレクトは自動追従しない。
 
 Client作成にはApplication IDとAccess Keyが必要である。Affiliate IDは任意である。
 ライブラリ本体は環境変数を読み込まず、Optionへ渡された値だけを使用する。
@@ -50,8 +50,8 @@ WithEndpoint(endpoint string)
 空文字列または空白だけの必須認証値、空のAffiliate IDを明示設定した場合、未対応の
 `ComicGenre`、`nil` Optionは `invalid_argument` となる。Access Keyに制御文字を含められない。
 
-通常endpointはHTTPSを使用する。テスト用には`localhost`、loopback IPv4、`::1`へのHTTPも
-受け付ける。`WithEndpoint` はuser information、query、fragmentを含むURLを受け付けない。
+通常エンドポイントはHTTPSを使用する。テスト用には `localhost`、ループバックIPv4、`::1` へのHTTPも
+受け付ける。`WithEndpoint` はユーザー情報、クエリ、フラグメントを含むURLを受け付けない。
 
 ## 3. 漫画区分
 
@@ -85,7 +85,7 @@ func (client *Client) SearchBooksWithRawResponse(
 ) (SearchBooksResult, []byte, error)
 ```
 
-### 4.1 対応する共通検索条件
+### 4.1 対応する `SearchRequest` フィールド
 
 `DateFrom` と `DateTo` は楽天Koboが範囲検索条件を提供しないため、通信前に `invalid_argument` を返す。取得後の絞り込みは行わない。
 
@@ -160,11 +160,11 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 
 楽天Koboの上限に合わせ、100ページを超えるCursorを生成しない。
 
-## 6. 共通モデルへの変換
+## 6. `Book` への変換
 
 ### 6.1 変換する項目
 
-| 楽天Kobo        | 共通モデル                | 規則                                                                   |
+| 楽天Kobo        | `Book`                    | 規則                                                                   |
 | --------------- | ------------------------- | ---------------------------------------------------------------------- |
 | `itemNumber`    | `BookSource.ID`           | Koboの商品IDとして保持。ISBNとして扱わない                             |
 | `itemUrl`       | `BookSource.URL`          | 有効なHTTP(S) URLだけを使用                                            |
@@ -172,7 +172,7 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 | `title`         | `Title`                   | そのまま保持                                                           |
 | `titleKana`     | `TitleReading`            | そのまま保持                                                           |
 | `subTitle`      | `Subtitle`                | そのまま保持                                                           |
-| `seriesName`    | `PublicationSeries[]`     | 1要素として保持。読みは共通Bookへ変換しない                            |
+| `seriesName`    | `PublicationSeries[]`     | 1要素として保持。読みは `Book` へ変換しない                            |
 | `author`        | `Authors`                 | `/`で分割し、前後空白を除いて順序どおり保持。空要素は除外              |
 | `author`        | `Contributors`            | Authorsと同じ人物を役割なしで保持                                      |
 | `authorKana`    | `Contributors[].Reading`  | Kobo固有の検証済み形式だけを著者順に設定。未知形式はRaw responseに残す |
@@ -184,7 +184,7 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 | API種別         | `Medium`                  | `digital`                                                              |
 | 3種の画像URL    | `CoverURL`                | 利用可能な最大サイズのURLを1件保持                                     |
 
-`seriesName` は `PublicationSeries` に保持するが、作品シリーズであることは保証しない。取得元の読みは共通Bookへ変換せず、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
+`seriesName` は `PublicationSeries` に保持するが、作品シリーズであることは保証しない。取得元の読みは `Book` へ変換せず、同じ値を `BookSeries` や `Publishers` へ重複設定したり推測分類したりしない。
 
 `itemNumber` はKobo固有の商品番号であり、`ISBN10`、`ISBN13`、`JAN` へ追加しない。
 `LookupBooksByISBN` は提供しない。
@@ -195,7 +195,7 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 `authorKana` は、次のいずれかを満たす場合だけ `Contributors[].Reading` に設定する。
 
 - 著者が1名であり、前後空白を除いた `authorKana` が空でなく、`/` と `,` を含まない場合は、その値を設定する
-- 著者が複数名であり、空要素を除外する前の `author` の `/` 区間がすべて非空である場合は、`authorKana` の `/` 区間数、各区間の非空性、前後空白を除いた各区間の完全一致を確認する。共通区間を `,` で分けた要素数が著者数と一致し、各要素が非空の場合だけ、著者順に設定する
+- 著者が複数名であり、空要素を除外する前の `author` の `/` 区間がすべて非空である場合は、`authorKana` の `/` 区間数、各区間の非空性、前後空白を除いた各区間の完全一致を確認する。すべて一致した区間を `,` で分けた要素数が著者数と一致し、各要素が非空の場合だけ、著者順に設定する
 
 条件を満たさない `authorKana`、`A/B` に対する `エー/ビー` のような未確認形式、空要素を除外すると件数だけが一致する形式では、すべてのContributorのReadingを空のままにする。部分的な設定、役割、読みの推測は行わない。元の値はRaw responseから確認できる。
 
@@ -217,19 +217,19 @@ Cursor内へApplication ID、Access Key、Affiliate IDは保存しない。
 Affiliate IDを設定した場合に楽天Koboが返す `affiliateUrl` は、通常商品URLとは別に
 `BookSource.AffiliateURL` へ保持する。
 
-レビュー件数、レビュー平均、`salesType` 等は共通モデルへ追加せず、Raw responseから参照する。
+レビュー件数、レビュー平均、`salesType` 等は `Book` へ追加せず、Raw responseから参照する。
 
 ## 7. Raw response
 
 `SearchBooksWithRawResponse` のRaw responseは、1回の2xx成功HTTPレスポンス本文である。
-JSON解析または共通モデル変換に失敗しても、本文を上限内で読み込めていればRaw responseを返す。
+JSON解析または `Book` への変換に失敗しても、本文を上限内で読み込めていればRaw responseを返す。
 
 成功本文の上限は16 MiBである。上限を超えた場合は `invalid_response` とする。
 Application ID、Access Key、Affiliate ID等をライブラリ側からRaw responseへ追加しない。
 
 ## 8. HTTP・エラー
 
-共通の `model.Error` / `model.ErrorKind` を使用する。
+`model.Error` / `model.ErrorKind` を使用する。
 
 | 状態                                                 | `ErrorKind`        |
 | ---------------------------------------------------- | ------------------ |
